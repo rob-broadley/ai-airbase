@@ -8,6 +8,8 @@ dnf install -y --setopt=install_weak_deps=False \
     gh \
     gitleaks \
     jq \
+    nix-core \
+    nix-filesystem \
     nodejs \
     npm \
     trivy \
@@ -28,13 +30,30 @@ uv tool install ast-grep-cli
 uv tool install lizard
 UV_TOOL_INSTALL
 
+# Configure nix; set HOME after all tool installs so build-time cache mounts
+# targeting /root/.npm and /root/.cache/uv are not redirected.
+ENV NIX_CONF_DIR=/etc/nix
+COPY etc/nix/ /etc/nix/
+
 # Create home directory for the copilot user (any host UID can write to it via
-# --passwd-entry at runtime) and the /workspace mount point.
+# --passwd-entry at runtime) and the /workspace mount point. Allow any user
+# (including the dynamic copilot UID) to write to the nix store; the container
+# boundary is the security perimeter and sticky bit prevents deletion by others.
 ENV HOME=/home/copilot
 ENV WORKSPACE=/workspace
+ENV NIX_DIR=/nix
+ENV NIX_STORE=$NIX_DIR/store
 RUN <<PERMISSIONS
-mkdir -p $HOME $WORKSPACE
-chmod 1777 $HOME $WORKSPACE
+mkdir -p \
+    $HOME \
+    $WORKSPACE \
+    $NIX_DIR/store \
+    $NIX_DIR/var/nix/profiles \
+    $NIX_DIR/var/nix/gcroots
+chmod -R 1777 \
+    $HOME \
+    $WORKSPACE \
+    $NIX_DIR
 PERMISSIONS
 
 # Ensure tools installed by the runtime user via `uv tool install`

@@ -140,6 +140,8 @@ ______________________________________________________________________
 
 Remove the existing container and create a fresh one. Useful when you want a clean environment or after updating the revetment image.
 
+The per-project tool cache (Nix store) is preserved across recreate — tools fetched by agents do not need to be re-downloaded.
+
 ```sh
 marshal recreate
 marshal recreate --project my-app
@@ -149,7 +151,7 @@ ______________________________________________________________________
 
 ### `marshal remove`
 
-Stop and permanently remove the container for this project. The image is left untouched.
+Stop and permanently remove the container and its tool cache for this project. The revetment image is left untouched.
 
 ```sh
 marshal remove
@@ -220,5 +222,6 @@ Containers are named `marshal-<project>`. For example, a project named `my-app` 
 - [x] Per-project named containers
 - [x] CWD bind mounted as working directory
 - [x] Extra bind mounts via `--mount`
-- [ ] Bundled tools inside the image
+- [x] On-demand tool installation via Nix inside the container
+- [x] Per-project tool cache — preserved across `recreate`, removed with `remove`
 - [ ] Bundled Copilot CLI agents inside the image

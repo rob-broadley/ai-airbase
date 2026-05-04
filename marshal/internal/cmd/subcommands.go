@@ -99,7 +99,7 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 
 // newRecreateCmd returns the cobra.Command for the "recreate" subcommand,
 // which pulls the latest image, removes the existing container, and creates a
-// fresh one.
+// fresh one while preserving the per-project Nix store volume.
 func newRecreateCmd(deps Deps, projectFlag *string, mountFlags *[]string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "recreate",
@@ -112,7 +112,7 @@ func newRecreateCmd(deps Deps, projectFlag *string, mountFlags *[]string) *cobra
 
 // runRecreate implements the "recreate" subcommand: it pulls the latest image,
 // resolves mounts, removes the existing container (if any), and creates a
-// replacement.
+// replacement, leaving the Nix store volume intact.
 func runRecreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues []string) error {
 	p, err := resolveContainerParams(deps, projectFlag, mountFlagValues)
 	if err != nil {
@@ -135,7 +135,8 @@ func runRecreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagVal
 }
 
 // newRemoveCmd returns the cobra.Command for the "remove" subcommand, which
-// stops and permanently removes the container for the resolved project.
+// stops and permanently removes the container and its Nix store volume for
+// the resolved project.
 func newRemoveCmd(deps Deps, projectFlag *string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove",
@@ -147,7 +148,7 @@ func newRemoveCmd(deps Deps, projectFlag *string) *cobra.Command {
 }
 
 // runRemove implements the "remove" subcommand: it stops the container if
-// running and removes the container.
+// running, removes the container, and removes the associated Nix store volume.
 func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	project := config.ResolveProject(projectFlag, deps.Getwd)
 	containerName := containerNameForProject(project)
@@ -162,6 +163,9 @@ func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
 
 	if err := container.Remove(deps.Runner, containerName); err != nil {
 		return fmt.Errorf("removing container: %w", err)
+	}
+	if err := container.RemoveNixStore(deps.Runner, containerName); err != nil {
+		return fmt.Errorf("removing nix store volume: %w", err)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "container %s removed\n", containerName)
 	return nil

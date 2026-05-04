@@ -463,7 +463,8 @@ func TestCreate_InvokesCorrectPodmanArgs(t *testing.T) {
 
 	for _, want := range []string{"create", "--name", "mycontainer",
 		"--userns=keep-id", "--tty", "--interactive", "--passwd-entry",
-		"-v", "/host/src:/workspace/src:Z", "-w", "/workspace/src", "myimage:latest"} {
+		"-v", "/host/src:/workspace/src:Z", "-v", "mycontainer-nix:/nix/store",
+		"-w", "/workspace/src", "myimage:latest"} {
 		if !hasArg(args, want) {
 			t.Errorf("args missing %q; full args: %v", want, args)
 		}
@@ -558,6 +559,103 @@ func TestCreate_AllMountsHaveZSELinuxSuffix(t *testing.T) {
 		plain := m.HostPath + ":" + m.ContainerPath
 		if hasArg(args, plain) {
 			t.Errorf("mount arg %q must not appear without :Z suffix; full args: %v", plain, args)
+		}
+	}
+}
+
+// TestNixStoreVolumeName verifies that NixStoreVolumeName derives the
+// per-project volume name by appending "-nix" to the container name.
+func TestNixStoreVolumeName(t *testing.T) {
+	// Given a container name "marshal-myapp"
+	// When NixStoreVolumeName is called
+	got := container.NixStoreVolumeName("marshal-myapp")
+
+	// Then the volume name is "marshal-myapp-nix"
+	want := "marshal-myapp-nix"
+	if got != want {
+		t.Errorf("NixStoreVolumeName(\"marshal-myapp\") = %q, want %q", got, want)
+	}
+}
+
+// TestCreate_HasNixStoreVolume verifies that podman create always includes the
+// per-project Nix-store volume so the Nix store persists across recreate calls.
+func TestCreate_HasNixStoreVolume(t *testing.T) {
+	// Given a runner that succeeds (no mounts)
+	r := newFake(okEmpty())
+
+	// When Create is called with container name "c"
+	_ = container.Create(r, "c", "img", nil, container.UserConfig{}, "/workspace")
+
+	// Then -v c-nix:/nix/store is present in the podman create arguments
+	args := r.calls[0].args
+	if !hasConsecutiveArgs(args, "-v", "c-nix:/nix/store") {
+		t.Errorf("expected consecutive args \"-v\" \"c-nix:/nix/store\"; full args: %v", args)
+	}
+}
+
+// TestCreate_NixStoreVolume_HasNoZSuffix verifies that the Nix-store volume
+// mount does not carry a :Z SELinux suffix, which is only valid for bind mounts.
+func TestCreate_NixStoreVolume_HasNoZSuffix(t *testing.T) {
+	// Given a runner that succeeds
+	r := newFake(okEmpty())
+
+	// When Create is called with container name "c"
+	_ = container.Create(r, "c", "img", nil, container.UserConfig{}, "/workspace")
+
+	// Then c-nix:/nix/store:Z must NOT appear in the arguments
+	args := r.calls[0].args
+	if hasArg(args, "c-nix:/nix/store:Z") {
+		t.Errorf("Nix-store volume must not have :Z suffix; full args: %v", args)
+	}
+}
+
+// TestRemoveNixStore_InvokesVolumeRm verifies that RemoveNixStore calls
+// "podman volume rm <containerName>-nix".
+func TestRemoveNixStore_InvokesVolumeRm(t *testing.T) {
+	// Given a runner that succeeds
+	r := newFake(okEmpty())
+
+	// When RemoveNixStore is called for "marshal-myapp"
+	err := container.RemoveNixStore(r, "marshal-myapp")
+
+	// Then the error is nil
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// And exactly one call was made
+	if len(r.calls) != 1 {
+		t.Fatalf("expected 1 call, got %d: %v", len(r.calls), r.calls)
+	}
+	// And it was "podman volume rm marshal-myapp-nix"
+	args := r.calls[0].args
+	if !hasConsecutiveArgs(args, "volume", "rm") {
+		t.Errorf("expected consecutive args \"volume\" \"rm\"; full args: %v", args)
+	}
+	if !hasArg(args, "marshal-myapp-nix") {
+		t.Errorf("expected volume name \"marshal-myapp-nix\" in args; full args: %v", args)
+	}
+}
+
+// TestRemove_DoesNotRemoveNixVolume verifies that the standard Remove function
+// does not call "podman volume rm" so that recreate preserves the Nix store.
+func TestRemove_DoesNotRemoveNixVolume(t *testing.T) {
+	// Given a stopped container
+	r := newFake(
+		okOut(""), // IsRunning → not running
+		okEmpty(), // rm succeeds
+	)
+
+	// When Remove is called
+	err := container.Remove(r, "mycontainer")
+
+	// Then no error occurs
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// And "podman volume rm" was never invoked
+	for _, call := range r.calls {
+		if len(call.args) >= 2 && call.args[0] == "volume" && call.args[1] == "rm" {
+			t.Errorf("Remove must not call 'podman volume rm'; calls: %v", r.calls)
 		}
 	}
 }

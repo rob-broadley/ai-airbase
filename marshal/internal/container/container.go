@@ -40,6 +40,9 @@ const (
 	labelManagedBy = "io.ai-airbase.managed-by"
 	labelProject   = "io.ai-airbase.project"
 	labelImage     = "io.ai-airbase.image"
+
+	// nixStoreMountPath is the well-known Nix store path inside the container.
+	nixStoreMountPath = "/nix/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -154,6 +157,22 @@ func WorkdirFromMounts(mounts []MountSpec) string {
 	return workspaceDir
 }
 
+// NixStoreVolumeName returns the name of the per-project Podman named volume
+// used to persist the Nix store. It is derived from the container name so
+// the volume and container share a consistent lifecycle.
+func NixStoreVolumeName(containerName string) string {
+	return containerName + "-nix"
+}
+
+// RemoveNixStore permanently deletes the per-project Nix store volume for
+// containerName. The Nix store volume is intentionally preserved across
+// container recreations so that cached packages survive rebuilds; call this
+// only when tearing down the project entirely.
+func RemoveNixStore(r Runner, containerName string) error {
+	_, err := r.Run(podmanBin, "volume", "rm", NixStoreVolumeName(containerName))
+	return err
+}
+
 // Exists returns true when a container with containerName is present
 // (running or stopped).
 func Exists(r Runner, containerName string) (bool, error) {
@@ -187,6 +206,7 @@ func Create(r Runner, containerName, image string, mounts []MountSpec, uc UserCo
 		args = append(args, "-v", mountFlag(m))
 	}
 	args = append(args,
+		"-v", NixStoreVolumeName(containerName)+":"+nixStoreMountPath,
 		"--label", labelManagedBy+"="+toolName,
 		"--label", labelProject+"="+containerName,
 		"--label", labelImage+"="+image,

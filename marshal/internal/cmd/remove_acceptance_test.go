@@ -130,3 +130,40 @@ func TestRemove_RemoveFails(t *testing.T) {
 	// Then an error is returned
 	assertError(t, root.Execute())
 }
+
+// TestRemove_AlsoRemovesNixStoreVolume verifies that marshal remove also runs
+// "podman volume rm marshal-<project>-nix" to clean up the per-project Nix
+// store volume.
+func TestRemove_AlsoRemovesNixStoreVolume(t *testing.T) {
+	// Given a stopped container for project "myapp"
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: true, running: false}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetOut(&bytes.Buffer{})
+
+	// When the remove subcommand is executed
+	root.SetArgs([]string{"--project", "myapp", "remove"})
+	assertNoError(t, root.Execute())
+
+	// Then "podman volume rm marshal-myapp-nix" was called
+	found := false
+	for _, call := range runner.calls {
+		if len(call) >= 4 && call[0] == "podman" && call[1] == "volume" && call[2] == "rm" && call[3] == "marshal-myapp-nix" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected 'podman volume rm marshal-myapp-nix' to be called; got calls: %v", runner.calls)
+	}
+}
