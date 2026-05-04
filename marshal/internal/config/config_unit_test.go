@@ -575,7 +575,7 @@ func TestSharedDataPath_XDGOverride(t *testing.T) {
 	setenv(t, "XDG_DATA_HOME", tmp)
 
 	// When SharedDataPath is called
-	got := sharedDataPath("opencode")
+	got := SharedDataPath("opencode")
 	want := filepath.Join(tmp, "marshal", "opencode")
 
 	// Then the path is under the XDG_DATA_HOME directory
@@ -592,7 +592,7 @@ func TestSharedDataPath_XDGOverride_MultiSegment(t *testing.T) {
 	setenv(t, "XDG_DATA_HOME", tmp)
 
 	// When SharedDataPath is called with a multi-segment subdir
-	got := sharedDataPath("config/opencode")
+	got := SharedDataPath("config/opencode")
 	want := filepath.Join(tmp, "marshal", "config", "opencode")
 
 	// Then all path segments are correctly joined
@@ -613,7 +613,7 @@ func TestSharedDataPath_DefaultXDG(t *testing.T) {
 	}
 
 	// When SharedDataPath is called
-	got := sharedDataPath("opencode")
+	got := SharedDataPath("opencode")
 	want := filepath.Join(home, ".local", "share", "marshal", "opencode")
 
 	// Then the path falls back to ~/.local/share/marshal/opencode

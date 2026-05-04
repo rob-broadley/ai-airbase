@@ -386,6 +386,19 @@ func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	if err := container.RemoveProjectVolumes(deps.Runner, containerName); err != nil {
 		errs = append(errs, fmt.Errorf("removing project volumes: %w", err))
 	}
+	projectDir := deps.sharedDataPath()("projects/" + project)
+	// Refuse to remove a symlink at the project root: os.RemoveAll follows
+	// symlinks on Linux, so without this check a planted symlink pointing at
+	// /etc or $HOME would let 'marshal remove' recursively delete the target.
+	if fi, lstatErr := os.Lstat(projectDir); lstatErr == nil && fi.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("security violation: project directory is a symlink: %s", projectDir)
+	}
+	if removeErr := os.RemoveAll(projectDir); removeErr != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Failed to clean up host directory: %v\n", removeErr)
+		errs = append(errs, fmt.Errorf("removing host directory: %w", removeErr))
+	} else {
+		deps.logger().Info("removed host project directory", "project", project, "path", projectDir)
+	}
 	if err := deps.deleteConfig()(project); err != nil {
 		errs = append(errs, fmt.Errorf("removing project config: %w", err))
 	}

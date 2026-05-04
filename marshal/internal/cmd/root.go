@@ -57,6 +57,19 @@ type Deps struct {
 	// IsPortBound checks if a TCP port is already bound on host loopback.
 	// Defaults to standard net.Listen-based check.
 	IsPortBound func(port int) bool
+	// SharedDataPath returns the resolved host path for a subdirectory
+	// under XDG_DATA_HOME/marshal/ without creating the directory.
+	// Defaults to config.SharedDataPath.
+	SharedDataPath func(subdir string) string
+}
+
+// sharedDataPath returns the injected SharedDataPath or the
+// real config.SharedDataPath.
+func (d Deps) sharedDataPath() func(string) string {
+	if d.SharedDataPath != nil {
+		return d.SharedDataPath
+	}
+	return config.SharedDataPath
 }
 
 // deleteConfig returns the effective config-delete function: the injected one or config.Delete.
@@ -194,6 +207,7 @@ func Execute(version string) {
 		Getgid:                os.Getgid,
 		EnsureSharedDataDir:   config.EnsureSharedDataDir,
 		EnsureSharedConfigDir: config.EnsureSharedConfigDir,
+		SharedDataPath:        config.SharedDataPath,
 		SaveConfig:            config.Save,
 		LoadConfig:            config.Load,
 		LookupGitConfig:       lookupHostGitConfig,

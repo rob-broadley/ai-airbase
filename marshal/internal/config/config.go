@@ -251,15 +251,15 @@ func EnsureSharedConfigDir(subdir string) (string, error) {
 // Shared data
 // ---------------------------------------------------------------------------
 
-// sharedDataPath returns the filesystem path $XDG_DATA_HOME/marshal/<subdir>.
+// SharedDataPath returns the filesystem path $XDG_DATA_HOME/marshal/<subdir>.
 // subdir may contain path separators (e.g. "projects/myapp/state").
-func sharedDataPath(subdir string) string {
+func SharedDataPath(subdir string) string {
 	return filepath.Join(xdgDataHome(), "marshal", subdir)
 }
 
-// EnsureSharedDataDir resolves sharedDataPath(subdir), creates the directory
+// EnsureSharedDataDir resolves SharedDataPath(subdir), creates the directory
 // with permissions 0o700 (owner-only, suitable for credentials), and returns
 // the path.
 func EnsureSharedDataDir(subdir string) (string, error) {
-	return ensureSharedDir(sharedDataPath, "data", "XDG_DATA_HOME", subdir)
+	return ensureSharedDir(SharedDataPath, "data", "XDG_DATA_HOME", subdir)
 }
