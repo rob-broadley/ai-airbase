@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Tools installed inside this image are separate works under their own licences.
+FROM registry.fedoraproject.org/fedora-toolbox:44
+
+# Install core tools
+RUN --mount=type=cache,target=/var/cache/dnf <<DNF_INSTALL
+dnf install -y --setopt=install_weak_deps=False \
+    gh \
+    gitleaks \
+    jq \
+    nodejs \
+    npm \
+    trivy \
+    uv
+DNF_INSTALL
+
+# Install GitHub Copilot CLI
+RUN --mount=type=cache,target=/root/.npm <<NPM_INSTALL
+npm install -g @github/copilot@1.0.40
+NPM_INSTALL
+
+# Install extra tools via uv
+ENV UV_TOOL_BIN_DIR=/usr/local/bin
+ENV UV_TOOL_DIR=/usr/local/share/uv/tools
+ENV UV_LINK_MODE=copy
+RUN --mount=type=cache,target=/root/.cache/uv <<UV_TOOL_INSTALL
+uv tool install ast-grep-cli
+uv tool install lizard
+UV_TOOL_INSTALL
+
+# Create home directory for the copilot user (any host UID can write to it via
+# --passwd-entry at runtime) and the /workspace mount point.
+ENV HOME=/home/copilot
+ENV WORKSPACE=/workspace
+RUN <<PERMISSIONS
+mkdir -p $HOME $WORKSPACE
+chmod 1777 $HOME $WORKSPACE
+PERMISSIONS
+
+# Ensure tools installed by the runtime user via `uv tool install`
+# are installed to a writable directory which is on the PATH.
+ENV UV_TOOL_BIN_DIR=$HOME/.local/bin
+ENV UV_TOOL_DIR=$HOME/.local/share/uv/tools
+ENV PATH=$UV_TOOL_BIN_DIR:$PATH
+
+WORKDIR $WORKSPACE
+
+# ARG and LABEL are last so that build metadata (especially CREATED timestamp)
+# does not invalidate the cache for the expensive layers above.
+ARG VERSION="dev"
+ARG CREATED=""
+ARG REVISION=""
+
+LABEL org.opencontainers.image.title="revetment" \
+      org.opencontainers.image.description="AI-Airbase revetment: isolated container environment for GitHub Copilot agents" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${CREATED}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.source="https://github.com/rob-broadley/ai-airbase" \
+      org.opencontainers.image.url="https://github.com/rob-broadley/ai-airbase" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later" \
+      org.opencontainers.image.vendor="Rob Broadley" \
+      org.opencontainers.image.authors="Rob Broadley" \
+      io.ai-airbase.component="revetment"
+
+CMD ["copilot"]

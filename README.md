@@ -160,7 +160,7 @@ ______________________________________________________________________
 
 ### `marshal shell`
 
-Open an interactive shell inside the container instead of launching Copilot CLI. Useful for debugging or exploring the environment. The container is started automatically if it is not already running.
+Open an interactive bash shell inside the same persistent container instead of launching Copilot CLI. Useful for debugging, inspecting the environment, or running commands manually. The container is created and started automatically if needed; when you exit the shell the container keeps running.
 
 ```sh
 marshal shell
@@ -216,9 +216,9 @@ Containers are named `marshal-<project>`. For example, a project named `my-app` 
 
 ## Roadmap
 
-- [ ] Container lifecycle management (`stop`, `remove`, `recreate`)
-- [ ] Per-project named containers
-- [ ] CWD bind mounted as working directory
-- [ ] Extra bind mounts via `--mount`
+- [x] Container lifecycle management (`stop`, `remove`, `recreate`)
+- [x] Per-project named containers
+- [x] CWD bind mounted as working directory
+- [x] Extra bind mounts via `--mount`
 - [ ] Bundled tools inside the image
 - [ ] Bundled Copilot CLI agents inside the image

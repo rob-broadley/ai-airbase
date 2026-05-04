@@ -1,0 +1,89 @@
+# golangci-lint configuration for AI-Airbase
+# https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+
+linters:
+  # Disable the default set and explicitly enable what we want.
+  disable-all: true
+  enable:
+    # --- Correctness ---
+    # Go vet: catches suspicious constructs (printf format mismatches, etc.)
+    - govet
+    # Unchecked error returns — critical for a CLI that runs external commands.
+    - errcheck
+    # Comprehensive static analysis (supersedes golint, gas, etc.)
+    - staticcheck
+
+    # --- Simplification & dead code ---
+    # Suggests code simplifications (e.g. s[0:n] → s[:n]).
+    - gosimple
+    # Variables assigned but never used after assignment.
+    - ineffassign
+    # Unused exported/unexported identifiers.
+    - unused
+
+    # --- Style & formatting ---
+    # Spelling mistakes in comments and string literals.
+    - misspell
+    # Enforces gofmt formatting (check only — run `gofmt -w` to fix).
+    - gofmt
+    # Ensures imports are grouped and ordered correctly.
+    - goimports
+    # Opinionated style checks; highlights common anti-patterns.
+    - gocritic
+
+linters-settings:
+  govet:
+    # Enable all analyzers except shadow — the `if err := foo(); err != nil` pattern
+    # is idiomatic Go, and shadow warnings on it are false positives.
+    enable-all: true
+    disable:
+      - shadow
+
+  errcheck:
+    # Check for errors ignored with `_ = expr`.
+    check-blank: true
+    # Also check type-asserted errors (e.g. `val, _ := x.(T)`).
+    check-type-assertions: true
+
+  gofmt:
+    # Enforce `gofmt -s` simplifications as well.
+    simplify: true
+
+  goimports:
+    # Group local module imports separately from stdlib and third-party.
+    local-prefixes: github.com/rob-broadley/ai-airbase/marshal
+
+  misspell:
+    locale: UK
+    ignore-words:
+      - broadley
+
+  gocritic:
+    # Enable all stable checks; disable individual ones below if they're too noisy.
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      # hugeParam warns about large value copies — not relevant at this scale.
+      - hugeParam
+      # whyNoLint requires explanations for every nolint comment — too strict.
+      - whyNoLint
+
+issues:
+  # Show every issue; don't suppress after a count threshold.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # errcheck is less critical in test files — failures surface as test panics.
+    - path: _test\.go
+      linters:
+        - errcheck
+    # gocritic's unnamedResult check fires on many interface methods; suppress in tests.
+    - path: _test\.go
+      linters:
+        - gocritic

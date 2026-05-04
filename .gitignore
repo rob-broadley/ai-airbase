@@ -1,0 +1,38 @@
+# Binaries
+/bin/
+
+# Build output
+dist/
+build/
+
+# Go module download cache
+vendor/
+
+# Go test artifacts
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# Go workspace file (optional — uncomment if not using workspaces)
+# go.work
+# go.work.sum
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Container image build artifacts
+revetment/*.tar

@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+FROM registry.fedoraproject.org/fedora-minimal:44
+
+RUN --mount=type=cache,target=/var/cache/dnf <<EOF
+microdnf install -y --setopt=install_weak_deps=False \
+    gcc \
+    git \
+    golang \
+    make \
+    python3 \
+    ShellCheck \
+    uv
+EOF
+
+ENV GOBIN=/usr/local/bin
+RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+RUN go install golang.org/x/tools/cmd/goimports@latest
+
+ENV UV_TOOL_BIN_DIR=/usr/local/bin
+RUN uv tool install mdformat --with mdformat-gfm
+
+WORKDIR /workspace
+
+# ARG and LABEL are last so that build metadata (especially CREATED timestamp)
+# does not invalidate the cache for the expensive layers above.
+ARG VERSION="dev"
+ARG CREATED=""
+ARG REVISION=""
+
+LABEL org.opencontainers.image.title="sapper" \
+      org.opencontainers.image.description="AI-Airbase build environment: Go toolchain, golangci-lint, goimports, mdformat" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${CREATED}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.source="https://github.com/rob-broadley/ai-airbase" \
+      org.opencontainers.image.url="https://github.com/rob-broadley/ai-airbase" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later" \
+      org.opencontainers.image.vendor="Rob Broadley" \
+      org.opencontainers.image.authors="Rob Broadley" \
+      io.ai-airbase.component="sapper"

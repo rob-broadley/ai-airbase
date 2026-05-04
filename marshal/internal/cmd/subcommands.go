@@ -1,0 +1,211 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+package cmd
+
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+
+	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
+	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
+)
+
+// newStopCmd returns the cobra.Command for the "stop" subcommand, which stops
+// the running container for the resolved project.
+func newStopCmd(deps Deps, projectFlag *string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "stop",
+		Short: "Stop the running container for the project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runStop(cmd, deps, *projectFlag)
+		},
+	}
+}
+
+// runStop implements the "stop" subcommand: it resolves the project, verifies
+// the container exists and is running, stops it, and reports the outcome.
+func runStop(cmd *cobra.Command, deps Deps, projectFlag string) error {
+	project := config.ResolveProject(projectFlag, deps.Getwd)
+	containerName := containerNameForProject(project)
+
+	exists, err := container.Exists(deps.Runner, containerName)
+	if err != nil {
+		return fmt.Errorf("checking container: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("container %s does not exist", containerName)
+	}
+
+	running, err := container.IsRunning(deps.Runner, containerName)
+	if err != nil {
+		return fmt.Errorf("checking running state: %w", err)
+	}
+	if !running {
+		fmt.Fprintf(cmd.OutOrStdout(), "container %s is already stopped\n", containerName)
+		return nil
+	}
+
+	if err := container.Stop(deps.Runner, containerName); err != nil {
+		return fmt.Errorf("stopping container: %w", err)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "container %s stopped\n", containerName)
+	return nil
+}
+
+// newStatusCmd returns the cobra.Command for the "status" subcommand, which
+// prints the current state of the container for the resolved project.
+func newStatusCmd(deps Deps, projectFlag *string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Show the current state of the container for the project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runStatus(cmd, deps, *projectFlag)
+		},
+	}
+}
+
+// runStatus implements the "status" subcommand: it resolves the project,
+// queries the container state, and prints project name, container name,
+// running status, image, and creation time.
+func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
+	project := config.ResolveProject(projectFlag, deps.Getwd)
+	containerName := containerNameForProject(project)
+
+	status, err := container.GetStatus(deps.Runner, containerName)
+	if err != nil {
+		return fmt.Errorf("getting container status: %w", err)
+	}
+
+	w := cmd.OutOrStdout()
+	fmt.Fprintf(w, "Project:   %s\n", project)
+	fmt.Fprintf(w, "Container: %s\n", containerName)
+
+	if !status.Exists {
+		fmt.Fprintf(w, "Status:    absent\n")
+		fmt.Fprintf(w, "Image:     -\n")
+		fmt.Fprintf(w, "Created:   -\n")
+		return nil
+	}
+
+	statusStr := "stopped"
+	if status.Running {
+		statusStr = "running"
+	}
+	fmt.Fprintf(w, "Status:    %s\n", statusStr)
+	fmt.Fprintf(w, "Image:     %s\n", status.Image)
+	fmt.Fprintf(w, "Created:   %s\n", status.Created)
+	return nil
+}
+
+// newRecreateCmd returns the cobra.Command for the "recreate" subcommand,
+// which pulls the latest image, removes the existing container, and creates a
+// fresh one.
+func newRecreateCmd(deps Deps, projectFlag *string, mountFlags *[]string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "recreate",
+		Short: "Remove the existing container and create a fresh one",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRecreate(cmd, deps, *projectFlag, *mountFlags)
+		},
+	}
+}
+
+// runRecreate implements the "recreate" subcommand: it pulls the latest image,
+// resolves mounts, removes the existing container (if any), and creates a
+// replacement.
+func runRecreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues []string) error {
+	p, err := resolveContainerParams(deps, projectFlag, mountFlagValues)
+	if err != nil {
+		return err
+	}
+
+	// Always pull before touching the container. If the pull fails but a local
+	// image exists (e.g. offline), warn and continue. If no local image exists,
+	// return an error and leave the old container intact.
+	if err := pullImageRefresh(deps, p.image); err != nil {
+		return err
+	}
+
+	if err := removeAndRecreateContainer(deps.Runner, p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "container %s recreated\n", p.containerName)
+	return nil
+}
+
+// newRemoveCmd returns the cobra.Command for the "remove" subcommand, which
+// stops and permanently removes the container for the resolved project.
+func newRemoveCmd(deps Deps, projectFlag *string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove",
+		Short: "Stop and permanently remove the container for the project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRemove(cmd, deps, *projectFlag)
+		},
+	}
+}
+
+// runRemove implements the "remove" subcommand: it stops the container if
+// running and removes the container.
+func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
+	project := config.ResolveProject(projectFlag, deps.Getwd)
+	containerName := containerNameForProject(project)
+
+	exists, err := container.Exists(deps.Runner, containerName)
+	if err != nil {
+		return fmt.Errorf("checking container: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("container %s does not exist", containerName)
+	}
+
+	if err := container.Remove(deps.Runner, containerName); err != nil {
+		return fmt.Errorf("removing container: %w", err)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "container %s removed\n", containerName)
+	return nil
+}
+
+// newShellCmd returns the cobra.Command for the "shell" subcommand, which
+// opens an interactive bash shell in the managed container, creating and
+// starting it if needed.
+func newShellCmd(deps Deps, projectFlag *string, mountFlags *[]string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "shell",
+		Short: "Open an interactive shell inside the container",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runShell(cmd, deps, *projectFlag, *mountFlags)
+		},
+	}
+}
+
+// runShell implements the "shell" subcommand: it delegates to
+// ensureContainerAndExec with /bin/bash as the command, so the managed
+// container is created and started if needed before opening the shell.
+func runShell(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues []string) error {
+	return ensureContainerAndExec(cmd, deps, projectFlag, mountFlagValues)
+}
+
+// newPullCmd returns the cobra.Command for the "pull" subcommand, which
+// explicitly pulls the latest revetment image regardless of local state.
+func newPullCmd(deps Deps) *cobra.Command {
+	return &cobra.Command{
+		Use:   "pull",
+		Short: "Pull the latest revetment container image for the project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runPull(deps)
+		},
+	}
+}
+
+// runPull implements the "pull" subcommand: it resolves the image name, pulls
+// it, and prints a confirmation message on success.
+func runPull(deps Deps) error {
+	image := deps.resolveImage()
+	if err := container.PullImage(deps.Runner, image, deps.stdout(), deps.stderr()); err != nil {
+		return fmt.Errorf("pulling image: %w", err)
+	}
+	fmt.Fprintf(deps.stdout(), "Image pulled successfully: %s\n", image)
+	return nil
+}
