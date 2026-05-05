@@ -17,7 +17,6 @@ func TestPull_CallsPullImageWithCorrectImage(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	runner := &fakeRunner{}
-	out := &bytes.Buffer{}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -25,8 +24,6 @@ func TestPull_CallsPullImageWithCorrectImage(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              out,
-		Stderr:              &bytes.Buffer{},
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -59,11 +56,10 @@ func TestPull_PrintsSuccessMessage(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              out,
-		Stderr:              &bytes.Buffer{},
 	}
 
 	root := cmd.NewRootCmd(deps)
+	root.SetOut(out)
 
 	// When the pull subcommand is executed
 	root.SetArgs([]string{"pull"})
@@ -94,8 +90,6 @@ func TestPull_ReturnsErrorOnPullFailure(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              &bytes.Buffer{},
-		Stderr:              &bytes.Buffer{},
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -108,10 +102,10 @@ func TestPull_ReturnsErrorOnPullFailure(t *testing.T) {
 	assertError(t, root.Execute())
 }
 
-// TestPullFallback_SuppressesPodmanStderr verifies that when pull fails but a
-// local image exists, podman's internal WARN/Error messages are not written to
-// the user's stderr. Only marshal's own warning should appear there.
-func TestPullFallback_SuppressesPodmanStderr(t *testing.T) {
+// TestPullFallback_ForwardsPodmanStderrToUser verifies that when pull fails but
+// a local image exists, podman's pull stderr (auth failures, rate-limit messages,
+// etc.) is forwarded to the user's stderr alongside marshal's own warning.
+func TestPullFallback_ForwardsPodmanStderrToUser(t *testing.T) {
 	// Given a runner that fails to pull but finds the image locally, and podman noise on stderr
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
@@ -131,24 +125,120 @@ func TestPullFallback_SuppressesPodmanStderr(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              &bytes.Buffer{},
-		Stderr:              stderr,
 	}
 
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
+	root.SetErr(stderr)
 	root.SetArgs([]string{"--project", "myapp"})
 	assertNoError(t, root.Execute())
 
-	// Then marshal's own warning appears in stderr but podman noise is suppressed
+	// Then podman's pull stderr is forwarded to the user so they can diagnose failures
 	got := stderr.String()
-	if strings.Contains(got, "WARN") {
-		t.Errorf("expected podman WARN messages to be suppressed, got in stderr: %q", got)
+	if !strings.Contains(got, "WARN") {
+		t.Errorf("expected podman WARN message to be forwarded to user stderr, got: %q", got)
 	}
-	if strings.Contains(got, "unable to copy") {
-		t.Errorf("expected podman Error message to be suppressed, got in stderr: %q", got)
+	if !strings.Contains(got, "unable to copy") {
+		t.Errorf("expected podman Error message to be forwarded to user stderr, got: %q", got)
 	}
+	// Marshal's own fallback warning must also be present
 	if !strings.Contains(got, "warning:") {
 		t.Errorf("expected marshal warning in stderr, got: %q", got)
 	}
+}
+
+// TestLocalImage_SkipsPullWhenImageExists verifies that a bare image name
+// (no registry hostname, e.g. MARSHAL_IMAGE=revetment) is treated as a
+// local-only image: no pull is attempted even when recreate is called.
+func TestLocalImage_SkipsPullWhenImageExists(t *testing.T) {
+	// Given a local image that exists and a resolver returning a bare name
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{imageExistsResult: true}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "revetment" },
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetArgs([]string{"--project", "myapp", "recreate"})
+	assertNoError(t, root.Execute())
+
+	// Then PullImage is never called
+	if runner.pullImageCalled {
+		t.Error("expected PullImage NOT to be called for a local-only image name")
+	}
+}
+
+// TestLocalImage_ErrorsWhenImageAbsent verifies that a bare image name that is
+// not present locally produces an actionable error without attempting a pull.
+func TestLocalImage_ErrorsWhenImageAbsent(t *testing.T) {
+	// Given a local image that does NOT exist
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{imageExistsResult: false}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "revetment" },
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"--project", "myapp", "recreate"})
+	err := root.Execute()
+
+	// Then an error is returned and PullImage was never called
+	assertError(t, err)
+	assertContains(t, err.Error(), "not found")
+	if runner.pullImageCalled {
+		t.Error("expected PullImage NOT to be called for a local-only image name")
+	}
+}
+
+// that when pull fails AND the subsequent ImageExists check also fails, the
+// returned error message includes context from both failures so the user is not
+// left with a cryptic "exit status 1" message.
+func TestPullFallback_BothPullAndImageExistsFail_ErrorMentionsBothFailures(t *testing.T) {
+	// Given a runner that fails to pull AND fails to check local image existence
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	pullErr := errors.New("connection refused")
+	existsErr := errors.New("images lookup failed")
+	runner := &fakeRunner{
+		pullImageErr:   pullErr,
+		imageExistsErr: existsErr,
+	}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetErr(&bytes.Buffer{})
+
+	// When the recreate subcommand is executed (it calls pullImageRefresh →
+	// pullImageWithFallback unconditionally, exercising the double-failure path)
+	root.SetArgs([]string{"--project", "myapp", "recreate"})
+	err := root.Execute()
+
+	// Then an error is returned that mentions both the pull failure and the
+	// secondary ImageExists failure, giving the user actionable context
+	assertError(t, err)
+	assertContains(t, err.Error(), "also failed to check local copy")
+	assertContains(t, err.Error(), "images lookup failed")
 }

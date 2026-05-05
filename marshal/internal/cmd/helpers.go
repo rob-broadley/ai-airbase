@@ -4,23 +4,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
-)
-
-// ---------------------------------------------------------------------------
-// Container-image path convention
-// ---------------------------------------------------------------------------
-
-// containerUserHome is the home directory inside the container image.
-// All credential mount targets and the HOME environment variable must agree
-// with this value. Change it here when the image convention changes.
-const containerUserHome = "/home/copilot"
-
-// Credential container paths are derived from containerUserHome so that a
-// single change keeps everything consistent.
-const (
-	containerCopilotDir   = containerUserHome + "/.copilot"
-	containerGHCopilotDir = containerUserHome + "/.config/github-copilot"
 )
 
 // ---------------------------------------------------------------------------
@@ -37,8 +22,8 @@ func buildCredentialMounts(deps Deps) ([]container.MountSpec, error) {
 		containerPath string
 	}
 	dirs := []credDir{
-		{"copilot", containerCopilotDir},
-		{"config/github-copilot", containerGHCopilotDir},
+		{"copilot", container.ContainerCopilotDir},
+		{"config/github-copilot", container.ContainerGHCopilotDir},
 	}
 
 	specs := make([]container.MountSpec, 0, len(dirs))
@@ -56,11 +41,23 @@ func buildCredentialMounts(deps Deps) ([]container.MountSpec, error) {
 }
 
 // buildUserConfig constructs the container.UserConfig for the calling user.
-// HomeDir is set to containerUserHome, which matches the container image convention.
+// HomeDir is set to ContainerUserHome, which matches the container image convention.
 func buildUserConfig(deps Deps) container.UserConfig {
 	return container.UserConfig{
 		UID:     deps.Getuid(),
 		GID:     deps.Getgid(),
-		HomeDir: containerUserHome,
+		HomeDir: container.ContainerUserHome,
 	}
+}
+
+// resolveContainer resolves the project name from projectFlag and deps,
+// validates it, and returns both the project name and the derived container
+// name. Returns an "invalid project" error when the resolved name fails
+// validation.
+func resolveContainer(deps Deps, projectFlag string) (project, containerName string, err error) {
+	project = config.ResolveProject(projectFlag, deps.Getwd)
+	if err = config.ValidateProjectName(project); err != nil {
+		return "", "", fmt.Errorf("invalid project: %w", err)
+	}
+	return project, containerNameForProject(project), nil
 }

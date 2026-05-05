@@ -170,8 +170,6 @@ func TestRecreate_PullsBeforeRemovingContainer(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              &bytes.Buffer{},
-		Stderr:              &bytes.Buffer{},
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -211,8 +209,6 @@ func TestRecreate_PullFails_NoLocalImage_ErrorReturned(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              &bytes.Buffer{},
-		Stderr:              &bytes.Buffer{},
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -251,11 +247,10 @@ func TestRecreate_PullFails_LocalImageExists_WarnAndProceed(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              &bytes.Buffer{},
-		Stderr:              stderr,
 	}
 
 	root := cmd.NewRootCmd(deps)
+	root.SetErr(stderr)
 	root.SetOut(&bytes.Buffer{})
 
 	// When the recreate subcommand is executed
@@ -289,8 +284,6 @@ func TestRecreate_PullSuccess_ProceedsWithRemoveAndCreate(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              &bytes.Buffer{},
-		Stderr:              &bytes.Buffer{},
 	}
 
 	root := cmd.NewRootCmd(deps)

@@ -29,8 +29,6 @@ func TestAutoPull_ImageAbsent_PullsThenCreatesContainer(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              &bytes.Buffer{},
-		Stderr:              &bytes.Buffer{},
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -70,8 +68,6 @@ func TestAutoPull_ImagePresent_PullNotCalled(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              &bytes.Buffer{},
-		Stderr:              &bytes.Buffer{},
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -111,8 +107,6 @@ func TestAutoPull_PullFails_NoLocalImage_ReturnsError(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              &bytes.Buffer{},
-		Stderr:              &bytes.Buffer{},
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -159,11 +153,10 @@ func TestAutoPull_PullFails_ImageExistsLocally_WarnsAndContinues(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              &bytes.Buffer{},
-		Stderr:              stderr,
 	}
 
 	root := cmd.NewRootCmd(deps)
+	root.SetErr(stderr)
 	root.SetArgs([]string{"--project", "myapp"})
 
 	// When the root command is executed
@@ -196,8 +189,6 @@ func TestDefaultCmd_ImageExistsCheckFails(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-		Stdout:              &bytes.Buffer{},
-		Stderr:              &bytes.Buffer{},
 	}
 
 	root := cmd.NewRootCmd(deps)

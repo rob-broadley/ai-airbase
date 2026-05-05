@@ -19,37 +19,6 @@ type Config struct {
 }
 
 // ---------------------------------------------------------------------------
-// XDG helpers
-// ---------------------------------------------------------------------------
-
-// xdgBaseDir resolves an XDG base directory.
-// It returns the value of envVar when set; otherwise it joins the user home
-// directory with relativeFallback. Returns an empty string when the home
-// directory cannot be determined.
-func xdgBaseDir(envVar, relativeFallback string) string {
-	if v := os.Getenv(envVar); v != "" {
-		return v
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, relativeFallback)
-}
-
-// xdgConfigHome returns $XDG_CONFIG_HOME if set, otherwise ~/.config.
-// Returns an empty string when the home directory cannot be determined.
-func xdgConfigHome() string {
-	return xdgBaseDir("XDG_CONFIG_HOME", ".config")
-}
-
-// xdgDataHome returns $XDG_DATA_HOME if set, otherwise ~/.local/share.
-// Returns an empty string when the home directory cannot be determined.
-func xdgDataHome() string {
-	return xdgBaseDir("XDG_DATA_HOME", filepath.Join(".local", "share"))
-}
-
-// ---------------------------------------------------------------------------
 // Per-project configuration
 // ---------------------------------------------------------------------------
 
@@ -80,9 +49,9 @@ func ResolveProject(flagValue string, getwd func() (string, error)) string {
 // that could cause path traversal when constructing config file paths.
 var validProjectName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.\-]{0,126}[a-zA-Z0-9]$|^[a-zA-Z0-9]$`)
 
-// validateProjectName returns an error if name is empty or contains characters
+// ValidateProjectName returns an error if name is empty or contains characters
 // that would allow it to escape the projects/ config subdirectory.
-func validateProjectName(name string) error {
+func ValidateProjectName(name string) error {
 	if name == "" {
 		return fmt.Errorf("project name must not be empty")
 	}
@@ -100,10 +69,13 @@ func ConfigPath(projectName string) string {
 // Load reads the config for projectName from disk.
 // If the file does not exist, an empty Config is returned (not an error).
 func Load(projectName string) (*Config, error) {
-	if err := validateProjectName(projectName); err != nil {
+	if err := ValidateProjectName(projectName); err != nil {
 		return nil, err
 	}
 	path := ConfigPath(projectName)
+	if !filepath.IsAbs(path) {
+		return nil, fmt.Errorf("config directory unavailable: set HOME or XDG_CONFIG_HOME")
+	}
 	cfg := &Config{}
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		return cfg, nil
@@ -114,28 +86,46 @@ func Load(projectName string) (*Config, error) {
 	return cfg, nil
 }
 
-// Save writes cfg for projectName to disk, creating parent directories as needed.
-// Close errors are surfaced when encoding succeeds so no data is silently lost.
-func Save(projectName string, cfg *Config) (err error) {
-	if err := validateProjectName(projectName); err != nil {
+// Save writes cfg for projectName to disk atomically via a temp-file-then-rename
+// pattern, so concurrent readers never observe a zero-byte or partial-write state.
+// Parent directories are created as needed. Close errors are always surfaced.
+func Save(projectName string, cfg *Config) error {
+	if err := ValidateProjectName(projectName); err != nil {
 		return err
 	}
 	path := ConfigPath(projectName)
-	if err = os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("config directory unavailable: set HOME or XDG_CONFIG_HOME")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".marshal-config-*.tmp")
 	if err != nil {
-		return fmt.Errorf("creating config file: %w", err)
+		return fmt.Errorf("creating temp config file: %w", err)
 	}
+	tmpName := tmp.Name()
+	committed := false
 	defer func() {
-		if cerr := f.Close(); cerr != nil && err == nil {
-			err = fmt.Errorf("closing config file: %w", cerr)
+		if !committed {
+			os.Remove(tmpName) //nolint:errcheck
 		}
 	}()
-	if err = toml.NewEncoder(f).Encode(cfg); err != nil {
+	if err := tmp.Chmod(0o600); err != nil {
+		tmp.Close()
+		return fmt.Errorf("setting config file permissions: %w", err)
+	}
+	if err := toml.NewEncoder(tmp).Encode(cfg); err != nil {
+		tmp.Close()
 		return fmt.Errorf("encoding config: %w", err)
 	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("closing temp config file: %w", err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return fmt.Errorf("committing config file: %w", err)
+	}
+	committed = true
 	return nil
 }
 
@@ -154,6 +144,9 @@ func SharedDataPath(subdir string) string {
 // the path.
 func EnsureSharedDataDir(subdir string) (string, error) {
 	path := SharedDataPath(subdir)
+	if !filepath.IsAbs(path) {
+		return "", fmt.Errorf("data directory unavailable: set HOME or XDG_DATA_HOME")
+	}
 	if err := os.MkdirAll(path, 0o700); err != nil {
 		return "", fmt.Errorf("creating shared data directory %s: %w", path, err)
 	}

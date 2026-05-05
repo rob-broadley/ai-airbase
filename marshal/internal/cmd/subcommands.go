@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
 )
 
@@ -25,8 +24,10 @@ func newStopCmd(deps Deps, projectFlag *string) *cobra.Command {
 // runStop implements the "stop" subcommand: it resolves the project, verifies
 // the container exists and is running, stops it, and reports the outcome.
 func runStop(cmd *cobra.Command, deps Deps, projectFlag string) error {
-	project := config.ResolveProject(projectFlag, deps.Getwd)
-	containerName := containerNameForProject(project)
+	_, containerName, err := resolveContainer(deps, projectFlag)
+	if err != nil {
+		return err
+	}
 
 	exists, err := container.Exists(deps.Runner, containerName)
 	if err != nil {
@@ -68,8 +69,10 @@ func newStatusCmd(deps Deps, projectFlag *string) *cobra.Command {
 // queries the container state, and prints project name, container name,
 // running status, image, and creation time.
 func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
-	project := config.ResolveProject(projectFlag, deps.Getwd)
-	containerName := containerNameForProject(project)
+	project, containerName, err := resolveContainer(deps, projectFlag)
+	if err != nil {
+		return err
+	}
 
 	status, err := container.GetStatus(deps.Runner, containerName)
 	if err != nil {
@@ -114,7 +117,7 @@ func newRecreateCmd(deps Deps, projectFlag *string, mountFlags *[]string) *cobra
 // resolves mounts, removes the existing container (if any), and creates a
 // replacement, leaving the Nix store volume intact.
 func runRecreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues []string) error {
-	p, err := resolveContainerParams(deps, projectFlag, mountFlagValues)
+	p, _, err := resolveContainerParams(deps, projectFlag, mountFlagValues)
 	if err != nil {
 		return err
 	}
@@ -122,7 +125,7 @@ func runRecreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagVal
 	// Always pull before touching the container. If the pull fails but a local
 	// image exists (e.g. offline), warn and continue. If no local image exists,
 	// return an error and leave the old container intact.
-	if err := pullImageRefresh(deps, p.image); err != nil {
+	if err := pullImageWithFallback(cmd, deps, p.image); err != nil {
 		return err
 	}
 
@@ -150,8 +153,10 @@ func newRemoveCmd(deps Deps, projectFlag *string) *cobra.Command {
 // runRemove implements the "remove" subcommand: it stops the container if
 // running, removes the container, and removes the associated Nix store volume.
 func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
-	project := config.ResolveProject(projectFlag, deps.Getwd)
-	containerName := containerNameForProject(project)
+	_, containerName, err := resolveContainer(deps, projectFlag)
+	if err != nil {
+		return err
+	}
 
 	exists, err := container.Exists(deps.Runner, containerName)
 	if err != nil {
@@ -179,16 +184,9 @@ func newShellCmd(deps Deps, projectFlag *string, mountFlags *[]string) *cobra.Co
 		Use:   "shell",
 		Short: "Open an interactive shell inside the container",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runShell(cmd, deps, *projectFlag, *mountFlags)
+			return ensureContainerAndExec(cmd, deps, *projectFlag, *mountFlags)
 		},
 	}
-}
-
-// runShell implements the "shell" subcommand: it delegates to
-// ensureContainerAndExec with /bin/bash as the command, so the managed
-// container is created and started if needed before opening the shell.
-func runShell(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues []string) error {
-	return ensureContainerAndExec(cmd, deps, projectFlag, mountFlagValues)
 }
 
 // newPullCmd returns the cobra.Command for the "pull" subcommand, which
@@ -198,18 +196,18 @@ func newPullCmd(deps Deps) *cobra.Command {
 		Use:   "pull",
 		Short: "Pull the latest revetment container image for the project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPull(deps)
+			return runPull(cmd, deps)
 		},
 	}
 }
 
 // runPull implements the "pull" subcommand: it resolves the image name, pulls
 // it, and prints a confirmation message on success.
-func runPull(deps Deps) error {
+func runPull(cmd *cobra.Command, deps Deps) error {
 	image := deps.resolveImage()
-	if err := container.PullImage(deps.Runner, image, deps.stdout(), deps.stderr()); err != nil {
+	if err := container.PullImage(deps.Runner, image, cmd.OutOrStdout(), cmd.ErrOrStderr()); err != nil {
 		return fmt.Errorf("pulling image: %w", err)
 	}
-	fmt.Fprintf(deps.stdout(), "Image pulled successfully: %s\n", image)
+	fmt.Fprintf(cmd.OutOrStdout(), "Image pulled successfully: %s\n", image)
 	return nil
 }

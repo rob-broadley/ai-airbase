@@ -2,6 +2,8 @@
 package cmd_test
 
 import (
+	"bytes"
+	"errors"
 	"testing"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/cmd"
@@ -133,4 +135,65 @@ func TestShell_StartsAndExecsWhenStopped(t *testing.T) {
 	if !sliceContains(fe.argv, "/bin/bash") {
 		t.Errorf("expected '/bin/bash' in exec argv, got %v", fe.argv)
 	}
+}
+
+// TestShell_StartFails verifies that an error from podman start is propagated
+// back to the caller with a message mentioning "starting container".
+func TestShell_StartFails(t *testing.T) {
+	// Given a stopped container and a runner that fails on "start"
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{
+		exists:    true,
+		running:   false,
+		runErrors: map[string]error{"start": errors.New("failed to start")},
+	}
+	fe := &fakeExec{}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              fe.exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"--project", "myapp", "shell"})
+
+	// When the shell subcommand is executed
+	err := root.Execute()
+
+	// Then an error is returned containing "starting container"
+	assertError(t, err)
+	assertContains(t, err.Error(), "starting container")
+}
+
+// TestShell_ExecFails verifies that an error from the ExecFn (podman exec) is
+// propagated back to the caller.
+func TestShell_ExecFails(t *testing.T) {
+	// Given a running container and an ExecFn that returns an error
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: true, running: true}
+	fe := &fakeExec{err: errors.New("exec failed")}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              fe.exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"--project", "myapp", "shell"})
+
+	// When the shell subcommand is executed
+	err := root.Execute()
+
+	// Then an error is returned
+	assertError(t, err)
 }

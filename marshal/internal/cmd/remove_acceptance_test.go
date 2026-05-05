@@ -3,6 +3,7 @@ package cmd_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -166,4 +167,64 @@ func TestRemove_AlsoRemovesNixStoreVolume(t *testing.T) {
 	if !found {
 		t.Errorf("expected 'podman volume rm marshal-myapp-nix' to be called; got calls: %v", runner.calls)
 	}
+}
+
+// TestRemove_NixStoreRemoveFails verifies that an error from "podman volume rm"
+// is propagated back to the caller with a message mentioning "removing nix store volume".
+func TestRemove_NixStoreRemoveFails(t *testing.T) {
+	// Given a stopped container and a runner that fails on the "volume" subcommand
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{
+		exists:    true,
+		running:   false,
+		runErrors: map[string]error{"volume": errors.New("volume rm failed")},
+	}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"--project", "myapp", "remove"})
+
+	// When the remove subcommand is executed
+	err := root.Execute()
+
+	// Then an error is returned containing "removing nix store volume"
+	assertError(t, err)
+	assertContains(t, err.Error(), "removing nix store volume")
+}
+
+// TestRemove_InvalidProjectName verifies that remove returns an error when the
+// --project flag contains an invalid project name (e.g. path traversal).
+func TestRemove_InvalidProjectName(t *testing.T) {
+	// Given a runner that would succeed if reached
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: true, running: false}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetErr(&bytes.Buffer{})
+
+	// When the remove subcommand is executed with an invalid project name
+	root.SetArgs([]string{"--project", "../evil", "remove"})
+	err := root.Execute()
+
+	// Then an error is returned containing "invalid project"
+	assertError(t, err)
+	assertContains(t, err.Error(), "invalid project")
 }

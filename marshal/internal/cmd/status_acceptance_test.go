@@ -125,3 +125,31 @@ func TestStatus_GetStatusFails(t *testing.T) {
 	// Then an error is returned
 	assertError(t, root.Execute())
 }
+
+// TestStatus_InvalidProjectName verifies that status returns an error when the
+// --project flag contains an invalid project name (e.g. path traversal).
+func TestStatus_InvalidProjectName(t *testing.T) {
+	// Given a runner that would succeed if reached
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: false}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetErr(&bytes.Buffer{})
+
+	// When the status subcommand is executed with an invalid project name
+	root.SetArgs([]string{"--project", "../evil", "status"})
+	err := root.Execute()
+
+	// Then an error is returned containing "invalid project"
+	assertError(t, err)
+	assertContains(t, err.Error(), "invalid project")
+}

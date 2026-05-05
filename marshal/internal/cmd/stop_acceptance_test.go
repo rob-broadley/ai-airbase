@@ -3,6 +3,7 @@ package cmd_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -125,4 +126,64 @@ func TestStop_IsRunningCheckFails(t *testing.T) {
 
 	// Then an error is returned
 	assertError(t, root.Execute())
+}
+
+// TestStop_InvalidProjectName verifies that stop returns an error when the
+// --project flag contains an invalid project name (e.g. path traversal).
+func TestStop_InvalidProjectName(t *testing.T) {
+	// Given a runner that would succeed if reached
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: true, running: true}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetErr(&bytes.Buffer{})
+
+	// When the stop subcommand is executed with an invalid project name
+	root.SetArgs([]string{"--project", "../evil", "stop"})
+	err := root.Execute()
+
+	// Then an error is returned containing "invalid project"
+	assertError(t, err)
+	assertContains(t, err.Error(), "invalid project")
+}
+
+// TestStop_StopCommandFails verifies that an error from podman stop is
+// propagated back to the caller with a message mentioning "stopping container".
+func TestStop_StopCommandFails(t *testing.T) {
+	// Given a running container and a runner that fails on "stop"
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{
+		exists:    true,
+		running:   true,
+		runErrors: map[string]error{"stop": errors.New("timeout stopping container")},
+	}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"--project", "myapp", "stop"})
+
+	// When the stop subcommand is executed
+	err := root.Execute()
+
+	// Then an error is returned containing "stopping container"
+	assertError(t, err)
+	assertContains(t, err.Error(), "stopping container")
 }

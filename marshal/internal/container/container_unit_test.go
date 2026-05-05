@@ -338,6 +338,9 @@ func TestExists_UsesCorrectPodmanArgs(t *testing.T) {
 	if !hasArg(call.args, "name=^mycontainer$") {
 		t.Error("expected anchored filter name=^mycontainer$ in args")
 	}
+	if !hasArg(call.args, "--format") {
+		t.Error("expected --format flag in ps args")
+	}
 }
 
 // TestExists_ContainerNameWithDot_EscapesMetacharInFilter verifies that Exists
@@ -757,6 +760,22 @@ func TestCreate_HasUsernsKeepId(t *testing.T) {
 	}
 }
 
+// TestCreate_HasNoNewPrivileges verifies that podman create includes
+// --security-opt no-new-privileges to prevent privilege escalation.
+func TestCreate_HasNoNewPrivileges(t *testing.T) {
+	// Given a runner that succeeds
+	r := newFake(okEmpty())
+
+	// When Create is called
+	_ = container.Create(r, "c", "img", nil, container.UserConfig{}, "/workspace")
+
+	args := r.calls[0].args
+	// Then --security-opt no-new-privileges is present as a consecutive pair
+	if !hasConsecutiveArgs(args, "--security-opt", "no-new-privileges") {
+		t.Errorf("expected --security-opt no-new-privileges in args; got %v", args)
+	}
+}
+
 // TestCreate_UserConfig_SetsUserFlag verifies that Create passes --user
 // <UID>:<GID> when a UserConfig with UID and GID is provided.
 func TestCreate_UserConfig_SetsUserFlag(t *testing.T) {
@@ -1058,6 +1077,16 @@ func TestGetStatus_ContainerRunning_ReturnsFullStatus(t *testing.T) {
 	}
 	if got.Created != "2024-01-15T10:30:00Z" {
 		t.Errorf("Created = %q, want %q", got.Created, "2024-01-15T10:30:00Z")
+	}
+	// The inspect call (calls[2]) must include --format with the image|created template
+	if len(r.calls) < 3 {
+		t.Fatalf("expected at least 3 calls, got %d", len(r.calls))
+	}
+	if !hasArg(r.calls[2].args, "--format") {
+		t.Error("expected --format flag in inspect args")
+	}
+	if !hasConsecutiveArgs(r.calls[2].args, "--format", "{{.Image}}|{{.Created}}") {
+		t.Errorf("expected --format {{.Image}}|{{.Created}} in inspect args; got %v", r.calls[2].args)
 	}
 }
 

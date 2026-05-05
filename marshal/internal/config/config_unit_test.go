@@ -488,15 +488,17 @@ func TestSave_DirectoryCreationFails(t *testing.T) {
 	}
 }
 
-// TestSave_FileCreationFails verifies that Save returns an error containing
-// "creating config file" when file creation is blocked.
+// TestSave_FileCreationFails verifies that Save returns an error when the config
+// file path is occupied by a directory, preventing the atomic rename from completing.
+// With atomic Save (temp-file+rename), MkdirAll succeeds (parent exists), the temp
+// file is created successfully, but os.Rename fails because the target is a directory.
 func TestSave_FileCreationFails(t *testing.T) {
 	// Given a directory exists at the path where the config file should be created
 	tmp := t.TempDir()
 	setenv(t, "XDG_CONFIG_HOME", tmp)
 
 	// Block file creation by placing a directory where the config file should be.
-	// os.Create on a directory path fails with EISDIR even when running as root.
+	// With atomic save, os.Rename to a directory path fails with EISDIR/ENOTEMPTY.
 	blockPath := filepath.Join(tmp, "marshal", "projects", "myproject.toml")
 	if err := os.MkdirAll(blockPath, 0o755); err != nil {
 		t.Fatal(err)
@@ -505,12 +507,12 @@ func TestSave_FileCreationFails(t *testing.T) {
 	// When Save is called
 	err := config.Save("myproject", &config.Config{})
 
-	// Then an error containing "creating config file" is returned
+	// Then an error is returned (the atomic rename fails)
 	if err == nil {
 		t.Fatal("expected an error, got nil")
 	}
-	if !strings.Contains(err.Error(), "creating config file") {
-		t.Errorf("expected 'creating config file' in error, got: %v", err)
+	if !strings.Contains(err.Error(), "committing config file") {
+		t.Errorf("expected 'committing config file' in error, got: %v", err)
 	}
 }
 
@@ -626,4 +628,100 @@ func TestLoad_RejectsInvalidProjectNames(t *testing.T) {
 			t.Errorf("Load(%q) expected error, got nil", name)
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// 11. Guard: non-absolute config path (Fix 1)
+// ---------------------------------------------------------------------------
+
+// TestLoad_NonAbsoluteConfigPath_ReturnsUnavailableError verifies that Load
+// returns an actionable error when the resolved config path is not absolute.
+// This happens when xdgBaseDir returns a relative path — e.g. when
+// XDG_CONFIG_HOME is set to a relative value, or (in non-CGo environments)
+// when both XDG_CONFIG_HOME and HOME are unset and os.UserHomeDir fails.
+//
+// We deliberately set XDG_CONFIG_HOME to a relative path ("relative") so
+// that xdgBaseDir returns it directly, producing a relative ConfigPath.
+// This reliably exercises the filepath.IsAbs guard in all build environments.
+func TestLoad_NonAbsoluteConfigPath_ReturnsUnavailableError(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set to a relative (non-absolute) path
+	t.Setenv("XDG_CONFIG_HOME", "relative")
+	t.Setenv("HOME", "")
+
+	// When Load is called
+	_, err := config.Load("someproject")
+
+	// Then an error containing "unavailable" is returned
+	if err == nil {
+		t.Fatal("expected error when config path is not absolute, got nil")
+	}
+	if !strings.Contains(err.Error(), "unavailable") {
+		t.Errorf("expected 'unavailable' in error, got: %v", err)
+	}
+}
+
+// TestSave_NonAbsoluteConfigPath_ReturnsUnavailableError verifies that Save
+// returns an actionable error when the resolved config path is not absolute.
+func TestSave_NonAbsoluteConfigPath_ReturnsUnavailableError(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set to a relative (non-absolute) path
+	t.Setenv("XDG_CONFIG_HOME", "relative")
+	t.Setenv("HOME", "")
+
+	// When Save is called
+	err := config.Save("someproject", &config.Config{})
+
+	// Then an error containing "unavailable" is returned
+	if err == nil {
+		t.Fatal("expected error when config path is not absolute, got nil")
+	}
+	if !strings.Contains(err.Error(), "unavailable") {
+		t.Errorf("expected 'unavailable' in error, got: %v", err)
+	}
+}
+
+// TestEnsureSharedDataDir_NonAbsoluteDataPath_ReturnsUnavailableError verifies
+// that EnsureSharedDataDir returns an actionable error when the resolved data
+// path is not absolute.
+func TestEnsureSharedDataDir_NonAbsoluteDataPath_ReturnsUnavailableError(t *testing.T) {
+	// Given XDG_DATA_HOME is set to a relative (non-absolute) path
+	t.Setenv("XDG_DATA_HOME", "relative")
+	t.Setenv("HOME", "")
+
+	// When EnsureSharedDataDir is called
+	_, err := config.EnsureSharedDataDir("somedir")
+
+	// Then an error containing "unavailable" is returned
+	if err == nil {
+		t.Fatal("expected error when data path is not absolute, got nil")
+	}
+	if !strings.Contains(err.Error(), "unavailable") {
+		t.Errorf("expected 'unavailable' in error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 12. Atomic Save: file is valid after Save (Fix 2)
+// ---------------------------------------------------------------------------
+
+// TestSave_AtomicRoundTrip verifies that a completed Save always leaves a
+// valid, decodable config file — i.e. there is no observable zero-byte or
+// partial-write intermediate state visible to a subsequent Load.
+func TestSave_AtomicRoundTrip(t *testing.T) {
+	// Given XDG_CONFIG_HOME points to a clean temp directory
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+
+	cfg := &config.Config{Mounts: []string{"/workspace", "/data"}}
+
+	// When Save is called
+	if err := config.Save("atomic-project", cfg); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Then the file can immediately be decoded back by Load with the same data
+	loaded, err := config.Load("atomic-project")
+	if err != nil {
+		t.Fatalf("Load after Save failed: %v", err)
+	}
+	assertMounts(t, loaded, cfg.Mounts)
 }

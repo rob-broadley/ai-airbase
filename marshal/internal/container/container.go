@@ -43,6 +43,16 @@ const (
 
 	// nixStoreMountPath is the well-known Nix store path inside the container.
 	nixStoreMountPath = "/nix/store"
+
+	// ContainerUserHome is the home directory of the container user inside the image.
+	// All credential mount targets and the HOME environment variable must agree with this value.
+	ContainerUserHome = "/home/copilot"
+
+	// ContainerCopilotDir is the container-side path for the Copilot extension state directory.
+	ContainerCopilotDir = ContainerUserHome + "/.copilot"
+
+	// ContainerGHCopilotDir is the container-side path for the GitHub Copilot configuration directory.
+	ContainerGHCopilotDir = ContainerUserHome + "/.config/github-copilot"
 )
 
 // ---------------------------------------------------------------------------
@@ -145,11 +155,11 @@ func ResolveMounts(cwd string, mounts []string) []MountSpec {
 	return specs
 }
 
-// WorkdirFromMounts returns the container working directory to use given
-// the resolved workspace mounts. When there is exactly one workspace mount,
-// the working directory is set to that mount's container path so the user
-// lands directly inside their project. For zero or multiple mounts the
-// working directory is /workspace.
+// WorkdirFromMounts returns the container working directory given the resolved
+// workspace mounts. When there is exactly one workspace mount the working directory
+// is set to that mount's container path, so the user lands directly inside their
+// project without having to cd. For zero or multiple mounts the working directory
+// is /workspace, leaving navigation to the user.
 func WorkdirFromMounts(mounts []MountSpec) string {
 	if len(mounts) == 1 {
 		return mounts[0].ContainerPath
@@ -174,14 +184,47 @@ func RemoveNixStore(r Runner, containerName string) error {
 }
 
 // Exists returns true when a container with containerName is present
-// (running or stopped).
+// (running or stopped). Uses an anchored regex filter (^name$) to prevent
+// prefix-match false positives: without anchoring, a container named
+// "marshal-foo" would falsely match when "marshal-foobar" exists.
 func Exists(r Runner, containerName string) (bool, error) {
-	return queryContainerNames(r, containerName, true)
+	args := []string{
+		"ps", "--all",
+		"--filter", "name=^" + regexp.QuoteMeta(containerName) + "$",
+		"--format", formatNames,
+	}
+	out, err := r.Run(podmanBin, args...)
+	if err != nil {
+		return false, err
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if strings.TrimSpace(line) == containerName {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // IsRunning returns true when containerName is currently running.
+// Uses an anchored regex filter (^name$) to prevent prefix-match false
+// positives: without anchoring, a container named "marshal-foo" would
+// falsely match when "marshal-foobar" exists.
 func IsRunning(r Runner, containerName string) (bool, error) {
-	return queryContainerNames(r, containerName, false)
+	args := []string{
+		"ps",
+		"--filter", "name=^" + regexp.QuoteMeta(containerName) + "$",
+		"--format", formatNames,
+	}
+	out, err := r.Run(podmanBin, args...)
+	if err != nil {
+		return false, err
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if strings.TrimSpace(line) == containerName {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // Create creates a container from image but does NOT start it.
@@ -200,6 +243,7 @@ func Create(r Runner, containerName, image string, mounts []MountSpec, uc UserCo
 		"--userns=keep-id",
 		"--tty",
 		"--interactive",
+		"--security-opt", "no-new-privileges",
 	}
 	args = append(args, userIdentityArgs(uc)...)
 	for _, m := range mounts {
@@ -320,42 +364,27 @@ func userIdentityArgs(uc UserConfig) []string {
 	}
 }
 
-// queryContainerNames runs `podman ps [--all] --filter name=^X$ --format {{.Names}}`
-// and reports whether containerName appears as an exact line in the output.
-// Pass includeAll=true to match stopped containers too (Exists semantics),
-// or false to match only running containers (IsRunning semantics).
-//
-// The --filter uses an anchored regex (^name$) because podman's name filter
-// performs prefix/substring matching by default, which would cause a container
-// named "marshal-foo" to falsely match when "marshal-foobar" exists. The
-// anchored regex combined with an exact-line check eliminates both false
-// positives.
-func queryContainerNames(r Runner, containerName string, includeAll bool) (bool, error) {
-	args := []string{"ps"}
-	if includeAll {
-		args = append(args, "--all")
-	}
-	// Anchor the filter to prevent prefix-match false positives.
-	args = append(args, "--filter", "name=^"+regexp.QuoteMeta(containerName)+"$", "--format", formatNames)
-	out, err := r.Run(podmanBin, args...)
-	if err != nil {
-		return false, err
-	}
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if strings.TrimSpace(line) == containerName {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-// parseInspectOutput splits "image|created\n" into its two parts.
+// parseInspectOutput extracts image and created from raw podman inspect output.
+// It uses the last non-empty line, so any leading warning lines written to
+// stderr (e.g. from CombinedOutput) are skipped gracefully.
 func parseInspectOutput(raw string) (image, created string) {
-	line := strings.TrimSpace(raw)
+	line := lastNonEmptyLine(raw)
 	parts := strings.SplitN(line, inspectSeparator, 2)
 	image = strings.TrimSpace(parts[0])
 	if len(parts) > 1 {
 		created = strings.TrimSpace(parts[1])
 	}
-	return
+	return image, created
+}
+
+// lastNonEmptyLine returns the last line in s that contains non-whitespace
+// characters. Returns an empty string if s is empty or all-whitespace.
+func lastNonEmptyLine(s string) string {
+	var last string
+	for _, line := range strings.Split(s, "\n") {
+		if strings.TrimSpace(line) != "" {
+			last = line
+		}
+	}
+	return strings.TrimSpace(last)
 }
