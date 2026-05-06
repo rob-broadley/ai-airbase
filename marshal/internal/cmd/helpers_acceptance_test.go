@@ -34,15 +34,19 @@ func stubGetgid() int { return 1001 }
 // ---------------------------------------------------------------------------
 
 type fakeRunner struct {
-	runErrors            map[string]error
-	pullImageErr         error
-	imageExistsErr       error
-	pullOutput           string
-	pullStderrOutput     string
-	image                string
-	created              string
-	pullImageImage       string
-	calls                [][]string
+	runErrors        map[string]error
+	pullImageErr     error
+	imageExistsErr   error
+	pullOutput       string
+	pullStderrOutput string
+	image            string
+	created          string
+	pullImageImage   string
+	calls            [][]string
+	// projectVolumes is the list of volume names returned by "podman volume ls
+	// --filter label=io.ai-airbase.project=..." to simulate pre-existing
+	// project-labelled volumes.
+	projectVolumes       []string
 	imageExistsCalls     int
 	exists               bool
 	running              bool
@@ -104,6 +108,19 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 		if (includeAll && f.exists) || (!includeAll && f.running) {
 			return []byte(containerName + "\n"), nil
 		}
+		return []byte(""), nil
+
+	case "image":
+		// Return empty JSON for any image inspect format query (Config.Volumes,
+		// Config.Labels, etc.) so callers see no declared volumes by default.
+		return []byte("{}"), nil
+
+	case "volume":
+		if len(args) > 1 && args[1] == "ls" {
+			// Return any pre-configured project volumes, one name per line.
+			return []byte(strings.Join(f.projectVolumes, "\n")), nil
+		}
+		// create, rm — succeed silently.
 		return []byte(""), nil
 
 	case "inspect":

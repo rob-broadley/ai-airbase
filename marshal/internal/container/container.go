@@ -6,12 +6,15 @@
 package container
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -41,14 +44,12 @@ const (
 	labelProject   = "io.ai-airbase.project"
 	labelImage     = "io.ai-airbase.image"
 
-	// nixStoreMountPath is the well-known Nix store path inside the container.
-	nixStoreMountPath = "/nix/store"
-
-	// nixProfileMountPath is where Nix (2.14+, XDG state convention) keeps the
-	// per-user profile state (manifests, profile links, gcroots). Persisting
-	// this separately from the Nix store means tools added via `nix profile add`
-	// survive a marshal recreate.
-	nixProfileMountPath = ContainerUserHome + "/.local/state/nix"
+	// labelVolumePrefix is the image-label prefix used to declare named volume
+	// mounts. Labels of the form io.ai-airbase.volume.<suffix>=<containerPath>
+	// map a volume name suffix to its mount path. Marshal cross-references these
+	// labels with the image's VOLUME declarations to determine which paths need
+	// persistent named volumes and what to call them.
+	labelVolumePrefix = "io.ai-airbase.volume."
 
 	// ContainerUserHome is the home directory of the container user inside the image.
 	// All credential mount targets and the HOME environment variable must agree with this value.
@@ -77,6 +78,22 @@ type Status struct {
 type MountSpec struct {
 	HostPath      string
 	ContainerPath string
+}
+
+// ImageVolumeSpec describes a volume declared by an image: the name suffix
+// (from the io.ai-airbase.volume.* label) and the container-side mount path
+// (from the VOLUME declaration). The volume name is derived at runtime by
+// prepending the container name and a hyphen.
+type ImageVolumeSpec struct {
+	Suffix        string // e.g. "nix-store"
+	ContainerPath string // e.g. "/nix/store"
+}
+
+// NamedVolumeMount describes a named Podman volume and its container mount point.
+// Unlike a MountSpec (bind mount), this refers to a Podman-managed named volume.
+type NamedVolumeMount struct {
+	Name          string // e.g. "marshal-myapp-nix-store"
+	ContainerPath string // e.g. "/nix/store"
 }
 
 // UserConfig carries the identity that the container process should run as.
@@ -173,29 +190,81 @@ func WorkdirFromMounts(mounts []MountSpec) string {
 	return workspaceDir
 }
 
-// NixStoreVolumeName returns the name of the per-project Podman named volume
-// used to persist the Nix store. It is derived from the container name so
-// the volume and container share a consistent lifecycle.
-func NixStoreVolumeName(containerName string) string {
-	return containerName + "-nix"
-}
-
-// NixProfileVolumeName returns the name of the per-project Podman named volume
-// used to persist the Nix per-user profile state (manifests, profile links,
-// gcroots). Nix 2.14+ stores this at $XDG_STATE_HOME/nix, not inside /nix/store.
-func NixProfileVolumeName(containerName string) string {
-	return containerName + "-nix-profile"
-}
-
-// RemoveNixStore permanently deletes both per-project Nix volumes for
-// containerName: the Nix store and the per-user profile state. These volumes
-// are intentionally preserved across container recreations so that cached
-// packages survive rebuilds; call this only when tearing down the project.
-func RemoveNixStore(r Runner, containerName string) error {
-	if _, err := r.Run(podmanBin, "volume", "rm", NixStoreVolumeName(containerName)); err != nil {
-		return err
+// ImageVolumeSpecs inspects image and returns the volumes it declares that have
+// a corresponding io.ai-airbase.volume.* label. It cross-references the image's
+// VOLUME declarations (the set of paths that need persistence) with the label
+// map (the naming convention for each path). Only paths present in both are
+// returned; VOLUME paths without a matching label are silently ignored.
+// Results are sorted by ContainerPath for deterministic ordering.
+func ImageVolumeSpecs(r Runner, image string) ([]ImageVolumeSpec, error) {
+	volOut, err := r.Run(podmanBin, "image", "inspect", "--format", "{{json .Config.Volumes}}", image)
+	if err != nil {
+		return nil, fmt.Errorf("inspecting image volumes: %w", err)
 	}
-	_, err := r.Run(podmanBin, "volume", "rm", NixProfileVolumeName(containerName))
+	var volumePaths map[string]struct{}
+	if err := json.Unmarshal(bytes.TrimSpace(volOut), &volumePaths); err != nil {
+		return nil, fmt.Errorf("parsing image volumes: %w", err)
+	}
+
+	labOut, err := r.Run(podmanBin, "image", "inspect", "--format", "{{json .Config.Labels}}", image)
+	if err != nil {
+		return nil, fmt.Errorf("inspecting image labels: %w", err)
+	}
+	var labels map[string]string
+	if err := json.Unmarshal(bytes.TrimSpace(labOut), &labels); err != nil {
+		return nil, fmt.Errorf("parsing image labels: %w", err)
+	}
+
+	// Build reverse map: container path → volume name suffix.
+	pathToSuffix := make(map[string]string, len(labels))
+	for k, v := range labels {
+		if suffix, ok := strings.CutPrefix(k, labelVolumePrefix); ok {
+			pathToSuffix[v] = suffix
+		}
+	}
+
+	var specs []ImageVolumeSpec
+	for path := range volumePaths {
+		if suffix, ok := pathToSuffix[path]; ok {
+			specs = append(specs, ImageVolumeSpec{Suffix: suffix, ContainerPath: path})
+		}
+	}
+	sort.Slice(specs, func(i, j int) bool { return specs[i].ContainerPath < specs[j].ContainerPath })
+	return specs, nil
+}
+
+// EnsureProjectVolume creates a named Podman volume called name if it does not
+// already exist, labelling it with the project label so RemoveProjectVolumes
+// can find it. If the volume already exists (from a previous create cycle) the
+// call is a no-op; any other error is returned.
+func EnsureProjectVolume(r Runner, name, containerName string) error {
+	_, err := r.Run(podmanBin, "volume", "create",
+		"--label", labelProject+"="+containerName,
+		name,
+	)
+	if err != nil && strings.Contains(err.Error(), "already exists") {
+		return nil
+	}
+	return err
+}
+
+// RemoveProjectVolumes removes all named Podman volumes that carry the project
+// label for containerName. It uses a single label-filter query to discover them,
+// then removes all in one batch call. When no labelled volumes exist the
+// function returns nil without issuing a remove call.
+func RemoveProjectVolumes(r Runner, containerName string) error {
+	out, err := r.Run(podmanBin, "volume", "ls",
+		"--filter", "label="+labelProject+"="+containerName,
+		"--format", "{{.Name}}")
+	if err != nil {
+		return fmt.Errorf("listing project volumes: %w", err)
+	}
+	names := splitLines(string(out))
+	if len(names) == 0 {
+		return nil
+	}
+	args := append([]string{"volume", "rm"}, names...)
+	_, err = r.Run(podmanBin, args...)
 	return err
 }
 
@@ -249,10 +318,12 @@ func IsRunning(r Runner, containerName string) (bool, error) {
 // --tty allocates a pseudo-TTY and --interactive sets OpenStdin=true so that
 // podman start --attach --interactive properly connects stdin to the PTY.
 // Each MountSpec becomes a -v flag with a :Z SELinux relabelling suffix.
+// Each NamedVolumeMount becomes a -v flag without a :Z suffix (named volumes
+// must not carry SELinux relabelling).
 // uc.UID/GID are passed as --user; uc.HomeDir is exported via -e HOME.
 // workdir sets the container's working directory via -w.
 // The container will run the image's default CMD when started.
-func Create(r Runner, containerName, image string, mounts []MountSpec, uc UserConfig, workdir string) error {
+func Create(r Runner, containerName, image string, mounts []MountSpec, namedVolumes []NamedVolumeMount, uc UserConfig, workdir string) error {
 	args := []string{
 		"create",
 		"--name", containerName,
@@ -265,9 +336,10 @@ func Create(r Runner, containerName, image string, mounts []MountSpec, uc UserCo
 	for _, m := range mounts {
 		args = append(args, "-v", mountFlag(m))
 	}
+	for _, nv := range namedVolumes {
+		args = append(args, "-v", nv.Name+":"+nv.ContainerPath)
+	}
 	args = append(args,
-		"-v", NixStoreVolumeName(containerName)+":"+nixStoreMountPath,
-		"-v", NixProfileVolumeName(containerName)+":"+nixProfileMountPath,
 		"--label", labelManagedBy+"="+toolName,
 		"--label", labelProject+"="+containerName,
 		"--label", labelImage+"="+image,
@@ -404,4 +476,15 @@ func lastNonEmptyLine(s string) string {
 		}
 	}
 	return strings.TrimSpace(last)
+}
+
+// splitLines splits s by newlines and returns non-empty, trimmed lines.
+func splitLines(s string) []string {
+	var result []string
+	for _, line := range strings.Split(strings.TrimSpace(s), "\n") {
+		if n := strings.TrimSpace(line); n != "" {
+			result = append(result, n)
+		}
+	}
+	return result
 }

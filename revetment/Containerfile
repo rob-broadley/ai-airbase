@@ -68,6 +68,19 @@ ENV UV_TOOL_BIN_DIR=$HOME/.local/bin
 ENV UV_TOOL_DIR=$HOME/.local/share/uv/tools
 ENV PATH=$UV_TOOL_BIN_DIR:$HOME/.nix-profile/bin:$PATH
 
+# Declare the paths that require persistent external volume mounts.
+# The Nix store holds all downloaded packages; the nix state directory holds
+# the per-user profile state (nix profile add). Both must survive a recreate.
+# Callers (e.g. marshal) are responsible for providing named volumes at these
+# paths — anonymous volumes created by the runtime are not sufficient.
+# Note: VOLUME does not expand ENV variables, so paths must be hardcoded and
+# kept in sync with $NIX_STORE and $HOME manually. The corresponding
+# io.ai-airbase.volume.* labels below use ENV vars and are the authoritative
+# source — update both if these paths ever change.
+VOLUME /nix/store
+VOLUME /home/copilot/.local/state/nix
+
+
 WORKDIR $WORKSPACE
 
 # ARG and LABEL are last so that build metadata (especially CREATED timestamp)
@@ -86,6 +99,8 @@ LABEL org.opencontainers.image.title="revetment" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later" \
       org.opencontainers.image.vendor="Rob Broadley" \
       org.opencontainers.image.authors="Rob Broadley" \
-      io.ai-airbase.component="revetment"
+      io.ai-airbase.component="revetment" \
+      io.ai-airbase.volume.nix-store=$NIX_STORE \
+      io.ai-airbase.volume.nix-profile=$HOME/.local/state/nix
 
 CMD ["copilot"]

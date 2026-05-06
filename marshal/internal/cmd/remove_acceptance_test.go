@@ -132,14 +132,16 @@ func TestRemove_RemoveFails(t *testing.T) {
 	assertError(t, root.Execute())
 }
 
-// TestRemove_AlsoRemovesNixStoreVolume verifies that marshal remove also runs
-// "podman volume rm marshal-<project>-nix" to clean up the per-project Nix
-// store volume.
-func TestRemove_AlsoRemovesNixStoreVolume(t *testing.T) {
-	// Given a stopped container for project "myapp"
+// TestRemove_RemovesProjectVolumes verifies that marshal remove queries for
+// project-labelled volumes via "podman volume ls" and removes them.
+func TestRemove_RemovesProjectVolumes(t *testing.T) {
+	// Given a stopped container with two labelled project volumes
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: true, running: false}
+	runner := &fakeRunner{
+		exists: true, running: false,
+		projectVolumes: []string{"marshal-myapp-nix-store", "marshal-myapp-nix-profile"},
+	}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -156,29 +158,43 @@ func TestRemove_AlsoRemovesNixStoreVolume(t *testing.T) {
 	root.SetArgs([]string{"--project", "myapp", "remove"})
 	assertNoError(t, root.Execute())
 
-	// Then "podman volume rm marshal-myapp-nix" was called
-	found := false
+	// Then "podman volume ls" was called to discover project volumes
+	volumeLsCalled := false
 	for _, call := range runner.calls {
-		if len(call) >= 4 && call[0] == "podman" && call[1] == "volume" && call[2] == "rm" && call[3] == "marshal-myapp-nix" {
-			found = true
+		if len(call) >= 3 && call[0] == "podman" && call[1] == "volume" && call[2] == "ls" {
+			volumeLsCalled = true
 			break
 		}
 	}
-	if !found {
-		t.Errorf("expected 'podman volume rm marshal-myapp-nix' to be called; got calls: %v", runner.calls)
+	if !volumeLsCalled {
+		t.Error("expected 'podman volume ls' to be called to discover project volumes")
+	}
+
+	// And "podman volume rm" was called with both project volumes
+	volumeRmFound := false
+	for _, call := range runner.calls {
+		if len(call) >= 3 && call[0] == "podman" && call[1] == "volume" && call[2] == "rm" {
+			if sliceContains(call[3:], "marshal-myapp-nix-store") && sliceContains(call[3:], "marshal-myapp-nix-profile") {
+				volumeRmFound = true
+				break
+			}
+		}
+	}
+	if !volumeRmFound {
+		t.Errorf("expected 'podman volume rm' with both project volumes; got calls: %v", runner.calls)
 	}
 }
 
-// TestRemove_NixStoreRemoveFails verifies that an error from "podman volume rm"
-// is propagated back to the caller with a message mentioning "removing nix store volume".
-func TestRemove_NixStoreRemoveFails(t *testing.T) {
+// TestRemove_ProjectVolumeRemoveFails verifies that an error from "podman volume ls"
+// is propagated back to the caller with a message mentioning "removing project volumes".
+func TestRemove_ProjectVolumeRemoveFails(t *testing.T) {
 	// Given a stopped container and a runner that fails on the "volume" subcommand
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	runner := &fakeRunner{
 		exists:    true,
 		running:   false,
-		runErrors: map[string]error{"volume": errors.New("volume rm failed")},
+		runErrors: map[string]error{"volume": errors.New("volume ls failed")},
 	}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -196,9 +212,9 @@ func TestRemove_NixStoreRemoveFails(t *testing.T) {
 	// When the remove subcommand is executed
 	err := root.Execute()
 
-	// Then an error is returned containing "removing nix store volume"
+	// Then an error is returned containing "removing project volumes"
 	assertError(t, err)
-	assertContains(t, err.Error(), "removing nix store volume")
+	assertContains(t, err.Error(), "removing project volumes")
 }
 
 // TestRemove_InvalidProjectName verifies that remove returns an error when the

@@ -444,16 +444,20 @@ func TestIsRunning_DoesNotUseAllFlag(t *testing.T) {
 
 // TestCreate_InvokesCorrectPodmanArgs verifies that Create calls podman with
 // the expected create arguments, including name, userns, tty, interactive,
-// passwd-entry, volume mounts, workdir, and image.
+// passwd-entry, bind mounts, named volumes, workdir, and image.
 func TestCreate_InvokesCorrectPodmanArgs(t *testing.T) {
-	// Given a runner that succeeds and a single mount spec
+	// Given a runner that succeeds, a single bind mount, and two named volumes
 	r := newFake(okEmpty())
 	mounts := []container.MountSpec{
 		{HostPath: "/host/src", ContainerPath: "/workspace/src"},
 	}
+	namedVols := []container.NamedVolumeMount{
+		{Name: "mycontainer-nix-store", ContainerPath: "/nix/store"},
+		{Name: "mycontainer-nix-profile", ContainerPath: "/home/copilot/.local/state/nix"},
+	}
 
 	// When Create is called with workdir matching the mount path
-	err := container.Create(r, "mycontainer", "myimage:latest", mounts, container.UserConfig{}, "/workspace/src")
+	err := container.Create(r, "mycontainer", "myimage:latest", mounts, namedVols, container.UserConfig{}, "/workspace/src")
 
 	// Then the correct podman create arguments are passed
 	if err != nil {
@@ -467,7 +471,7 @@ func TestCreate_InvokesCorrectPodmanArgs(t *testing.T) {
 	for _, want := range []string{"create", "--name", "mycontainer",
 		"--userns=keep-id", "--tty", "--interactive", "--passwd-entry",
 		"-v", "/host/src:/workspace/src:Z",
-		"-v", "mycontainer-nix:/nix/store",
+		"-v", "mycontainer-nix-store:/nix/store",
 		"-v", "mycontainer-nix-profile:/home/copilot/.local/state/nix",
 		"-w", "/workspace/src", "myimage:latest"} {
 		if !hasArg(args, want) {
@@ -487,7 +491,7 @@ func TestCreate_PassesWorkdirToContainer(t *testing.T) {
 	const workdir = "/workspace/myapp"
 
 	// When Create is called with that workdir
-	err := container.Create(r, "mycontainer", "myimage:latest", mounts, container.UserConfig{}, workdir)
+	err := container.Create(r, "mycontainer", "myimage:latest", mounts, nil, container.UserConfig{}, workdir)
 
 	// Then the -w flag is set to the supplied workdir, not /workspace
 	if err != nil {
@@ -510,7 +514,7 @@ func TestCreate_MultipleMount_AllMountsPresent(t *testing.T) {
 	}
 
 	// When Create is called
-	err := container.Create(r, "c", "img", mounts, container.UserConfig{}, "/workspace")
+	err := container.Create(r, "c", "img", mounts, nil, container.UserConfig{}, "/workspace")
 
 	// Then both mounts appear in the podman create arguments
 	if err != nil {
@@ -532,7 +536,7 @@ func TestCreate_RunnerError_PropagatesError(t *testing.T) {
 	r := newFake(errOut(errors.New("image not found")))
 
 	// When Create is called
-	err := container.Create(r, "c", "bad-image", nil, container.UserConfig{}, "/workspace")
+	err := container.Create(r, "c", "bad-image", nil, nil, container.UserConfig{}, "/workspace")
 
 	// Then the error is propagated
 	if err == nil {
@@ -551,7 +555,7 @@ func TestCreate_AllMountsHaveZSELinuxSuffix(t *testing.T) {
 	}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", mounts, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "c", "img", mounts, nil, container.UserConfig{}, "/workspace")
 
 	// Then every mount argument includes the :Z SELinux suffix
 	args := r.calls[0].args
@@ -568,102 +572,254 @@ func TestCreate_AllMountsHaveZSELinuxSuffix(t *testing.T) {
 	}
 }
 
-// TestNixStoreVolumeName verifies that NixStoreVolumeName derives the
-// per-project volume name by appending "-nix" to the container name.
-func TestNixStoreVolumeName(t *testing.T) {
-	// Given a container name "marshal-myapp"
-	// When NixStoreVolumeName is called
-	got := container.NixStoreVolumeName("marshal-myapp")
+// TestImageVolumeSpecs_ReturnsSpecsForLabelledVolumes verifies that
+// ImageVolumeSpecs cross-references VOLUME declarations with labels to return
+// only paths that have a matching io.ai-airbase.volume.* label.
+func TestImageVolumeSpecs_ReturnsSpecsForLabelledVolumes(t *testing.T) {
+	// Given an image that declares two volumes and labels both of them
+	r := newFake(
+		okOut(`{"/nix/store":{}}`),
+		okOut(`{"io.ai-airbase.volume.nix-store":"/nix/store","other.label":"ignored"}`),
+	)
 
-	// Then the volume name is "marshal-myapp-nix"
-	want := "marshal-myapp-nix"
-	if got != want {
-		t.Errorf("NixStoreVolumeName(\"marshal-myapp\") = %q, want %q", got, want)
-	}
-}
+	// When ImageVolumeSpecs is called
+	specs, err := container.ImageVolumeSpecs(r, "myimage:latest")
 
-// TestCreate_HasNixStoreVolume verifies that podman create always includes the
-// per-project Nix-store volume so the Nix store persists across recreate calls.
-func TestCreate_HasNixStoreVolume(t *testing.T) {
-	// Given a runner that succeeds (no mounts)
-	r := newFake(okEmpty())
-
-	// When Create is called with container name "c"
-	_ = container.Create(r, "c", "img", nil, container.UserConfig{}, "/workspace")
-
-	// Then -v c-nix:/nix/store is present in the podman create arguments
-	args := r.calls[0].args
-	if !hasConsecutiveArgs(args, "-v", "c-nix:/nix/store") {
-		t.Errorf("expected consecutive args \"-v\" \"c-nix:/nix/store\"; full args: %v", args)
-	}
-}
-
-// TestCreate_HasNixProfileVolume verifies that Create mounts the per-project
-// Nix profile volume at the XDG state path so that nix profile add tools
-// survive a marshal recreate.
-func TestCreate_HasNixProfileVolume(t *testing.T) {
-	// Given a runner that succeeds
-	r := newFake(okEmpty())
-
-	// When Create is called with container name "c"
-	_ = container.Create(r, "c", "img", nil, container.UserConfig{}, "/workspace")
-
-	// Then -v c-nix-profile:/home/copilot/.local/state/nix is present
-	args := r.calls[0].args
-	if !hasConsecutiveArgs(args, "-v", "c-nix-profile:/home/copilot/.local/state/nix") {
-		t.Errorf("expected consecutive args \"-v\" \"c-nix-profile:/home/copilot/.local/state/nix\"; full args: %v", args)
-	}
-}
-
-// TestCreate_NixStoreVolume_HasNoZSuffix verifies that the Nix store volume
-// mount does not carry a :Z SELinux suffix, which is only valid for bind mounts.
-func TestCreate_NixStoreVolume_HasNoZSuffix(t *testing.T) {
-	// Given a runner that succeeds
-	r := newFake(okEmpty())
-
-	// When Create is called with container name "c"
-	_ = container.Create(r, "c", "img", nil, container.UserConfig{}, "/workspace")
-
-	// Then neither nix volume must have a :Z suffix
-	args := r.calls[0].args
-	if hasArg(args, "c-nix:/nix/store:Z") {
-		t.Errorf("Nix store volume must not have :Z suffix; full args: %v", args)
-	}
-	if hasArg(args, "c-nix-profile:/home/copilot/.local/state/nix:Z") {
-		t.Errorf("Nix profile volume must not have :Z suffix; full args: %v", args)
-	}
-}
-
-// TestRemoveNixStore_InvokesVolumeRm verifies that RemoveNixStore calls
-// "podman volume rm" for both the nix store and the nix profile volumes.
-func TestRemoveNixStore_InvokesVolumeRm(t *testing.T) {
-	// Given a runner that succeeds twice (one call per volume)
-	r := newFake(okEmpty(), okEmpty())
-
-	// When RemoveNixStore is called for "marshal-myapp"
-	err := container.RemoveNixStore(r, "marshal-myapp")
-
-	// Then the error is nil
+	// Then exactly one spec is returned for the labelled volume
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// And exactly two calls were made (store volume + profile volume)
-	if len(r.calls) != 2 {
-		t.Fatalf("expected 2 calls, got %d: %v", len(r.calls), r.calls)
+	if len(specs) != 1 {
+		t.Fatalf("expected 1 spec, got %d: %v", len(specs), specs)
 	}
-	// First call removes the nix store volume
-	if !hasArg(r.calls[0].args, "marshal-myapp-nix") {
-		t.Errorf("expected store volume \"marshal-myapp-nix\" in first call; full args: %v", r.calls[0].args)
+	if specs[0].Suffix != "nix-store" {
+		t.Errorf("Suffix = %q, want %q", specs[0].Suffix, "nix-store")
 	}
-	// Second call removes the nix profile volume
-	if !hasArg(r.calls[1].args, "marshal-myapp-nix-profile") {
-		t.Errorf("expected profile volume \"marshal-myapp-nix-profile\" in second call; full args: %v", r.calls[1].args)
+	if specs[0].ContainerPath != "/nix/store" {
+		t.Errorf("ContainerPath = %q, want %q", specs[0].ContainerPath, "/nix/store")
 	}
 }
 
-// TestRemove_DoesNotRemoveNixVolume verifies that the standard Remove function
-// does not call "podman volume rm" so that recreate preserves the Nix store.
-func TestRemove_DoesNotRemoveNixVolume(t *testing.T) {
+// TestImageVolumeSpecs_UnlabelledVolumeIsSkipped verifies that VOLUME paths
+// without a matching io.ai-airbase.volume.* label are silently ignored.
+func TestImageVolumeSpecs_UnlabelledVolumeIsSkipped(t *testing.T) {
+	// Given an image with a VOLUME but no matching label
+	r := newFake(
+		okOut(`{"/some/path":{}}`),
+		okOut(`{"unrelated.label":"value"}`),
+	)
+
+	// When ImageVolumeSpecs is called
+	specs, err := container.ImageVolumeSpecs(r, "img")
+
+	// Then no specs are returned (path has no label)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(specs) != 0 {
+		t.Errorf("expected 0 specs, got %d: %v", len(specs), specs)
+	}
+}
+
+// TestImageVolumeSpecs_NoVolumes_ReturnsEmpty verifies that an image with no
+// VOLUME declarations returns an empty spec list.
+func TestImageVolumeSpecs_NoVolumes_ReturnsEmpty(t *testing.T) {
+	// Given an image with no VOLUME declarations
+	r := newFake(
+		okOut(`{}`),
+		okOut(`{"io.ai-airbase.volume.nix-store":"/nix/store"}`),
+	)
+
+	// When ImageVolumeSpecs is called
+	specs, err := container.ImageVolumeSpecs(r, "img")
+
+	// Then no specs are returned
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(specs) != 0 {
+		t.Errorf("expected 0 specs, got %d: %v", len(specs), specs)
+	}
+}
+
+// TestImageVolumeSpecs_ResultsAreSorted verifies that specs are returned in
+// deterministic ContainerPath order regardless of map iteration.
+func TestImageVolumeSpecs_ResultsAreSorted(t *testing.T) {
+	// Given an image with two labelled volumes
+	r := newFake(
+		okOut(`{"/nix/store":{},"/home/copilot/.local/state/nix":{}}`),
+		okOut(`{"io.ai-airbase.volume.nix-store":"/nix/store","io.ai-airbase.volume.nix-profile":"/home/copilot/.local/state/nix"}`),
+	)
+
+	// When ImageVolumeSpecs is called
+	specs, err := container.ImageVolumeSpecs(r, "img")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(specs) != 2 {
+		t.Fatalf("expected 2 specs, got %d: %v", len(specs), specs)
+	}
+
+	// Then specs are sorted by ContainerPath
+	if specs[0].ContainerPath > specs[1].ContainerPath {
+		t.Errorf("specs not sorted: %v", specs)
+	}
+}
+
+// TestImageVolumeSpecs_VolumeInspectError_ReturnsError verifies that an error
+// from the first image inspect call is propagated.
+func TestImageVolumeSpecs_VolumeInspectError_ReturnsError(t *testing.T) {
+	// Given a runner that fails on the first call
+	r := newFake(errOut(errors.New("inspect failed")))
+
+	// When ImageVolumeSpecs is called
+	_, err := container.ImageVolumeSpecs(r, "img")
+
+	// Then an error is returned
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+}
+
+// TestEnsureProjectVolume_CreatesVolume verifies that EnsureProjectVolume calls
+// "podman volume create" with the project label.
+func TestEnsureProjectVolume_CreatesVolume(t *testing.T) {
+	// Given a runner that succeeds
+	r := newFake(okEmpty())
+
+	// When EnsureProjectVolume is called
+	err := container.EnsureProjectVolume(r, "marshal-myapp-nix-store", "marshal-myapp")
+
+	// Then no error is returned and volume create was called
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(r.calls) != 1 {
+		t.Fatalf("expected 1 call, got %d", len(r.calls))
+	}
+	args := r.calls[0].args
+	if !hasArg(args, "create") {
+		t.Errorf("expected 'create' in args; got %v", args)
+	}
+	if !hasArg(args, "marshal-myapp-nix-store") {
+		t.Errorf("expected volume name in args; got %v", args)
+	}
+	if !hasConsecutiveArgs(args, "--label", "io.ai-airbase.project=marshal-myapp") {
+		t.Errorf("expected project label in args; got %v", args)
+	}
+}
+
+// TestEnsureProjectVolume_AlreadyExists_NoError verifies that EnsureProjectVolume
+// returns nil when podman reports the volume already exists.
+func TestEnsureProjectVolume_AlreadyExists_NoError(t *testing.T) {
+	// Given a runner that returns an "already exists" error
+	r := newFake(errOut(errors.New("volume marshal-myapp-nix-store already exists")))
+
+	// When EnsureProjectVolume is called
+	err := container.EnsureProjectVolume(r, "marshal-myapp-nix-store", "marshal-myapp")
+
+	// Then nil is returned (idempotent)
+	if err != nil {
+		t.Errorf("expected nil for already-exists, got: %v", err)
+	}
+}
+
+// TestRemoveProjectVolumes_ListsAndRemoves verifies that RemoveProjectVolumes
+// queries volumes by label then removes them in a single batch call.
+func TestRemoveProjectVolumes_ListsAndRemoves(t *testing.T) {
+	// Given a runner: first call lists two volumes, second call removes them
+	r := newFake(
+		okOut("marshal-myapp-nix-store\nmarshal-myapp-nix-profile\n"),
+		okEmpty(),
+	)
+
+	// When RemoveProjectVolumes is called
+	err := container.RemoveProjectVolumes(r, "marshal-myapp")
+
+	// Then no error is returned
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// And exactly two calls were made: volume ls + volume rm
+	if len(r.calls) != 2 {
+		t.Fatalf("expected 2 calls, got %d: %v", len(r.calls), r.calls)
+	}
+	// First call is volume ls with correct label= filter format
+	if !hasArg(r.calls[0].args, "ls") {
+		t.Errorf("expected 'ls' in first call args; got %v", r.calls[0].args)
+	}
+	if !hasConsecutiveArgs(r.calls[0].args, "--filter", "label=io.ai-airbase.project=marshal-myapp") {
+		t.Errorf("expected label filter in ls args; got %v", r.calls[0].args)
+	}
+	// Second call is volume rm with both names
+	if !hasArg(r.calls[1].args, "marshal-myapp-nix-store") || !hasArg(r.calls[1].args, "marshal-myapp-nix-profile") {
+		t.Errorf("expected both volume names in rm call; got %v", r.calls[1].args)
+	}
+}
+
+// TestRemoveProjectVolumes_NoVolumes_SkipsRm verifies that RemoveProjectVolumes
+// does not call "podman volume rm" when no labelled volumes exist.
+func TestRemoveProjectVolumes_NoVolumes_SkipsRm(t *testing.T) {
+	// Given a runner whose volume ls returns empty output
+	r := newFake(okOut(""))
+
+	// When RemoveProjectVolumes is called
+	err := container.RemoveProjectVolumes(r, "marshal-myapp")
+
+	// Then no error is returned and only one call was made (the ls)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(r.calls) != 1 {
+		t.Errorf("expected 1 call (ls only), got %d: %v", len(r.calls), r.calls)
+	}
+}
+
+// TestCreate_NamedVolumesAppearInArgs verifies that named volume mounts passed
+// to Create appear as -v <name>:<path> arguments.
+func TestCreate_NamedVolumesAppearInArgs(t *testing.T) {
+	// Given a runner that succeeds and two named volumes
+	r := newFake(okEmpty())
+	namedVols := []container.NamedVolumeMount{
+		{Name: "c-nix-store", ContainerPath: "/nix/store"},
+		{Name: "c-nix-profile", ContainerPath: "/home/copilot/.local/state/nix"},
+	}
+
+	// When Create is called
+	_ = container.Create(r, "c", "img", nil, namedVols, container.UserConfig{}, "/workspace")
+
+	// Then both named volumes are present without a :Z suffix
+	args := r.calls[0].args
+	if !hasConsecutiveArgs(args, "-v", "c-nix-store:/nix/store") {
+		t.Errorf("expected \"-v\" \"c-nix-store:/nix/store\"; full args: %v", args)
+	}
+	if !hasConsecutiveArgs(args, "-v", "c-nix-profile:/home/copilot/.local/state/nix") {
+		t.Errorf("expected \"-v\" \"c-nix-profile:/home/copilot/.local/state/nix\"; full args: %v", args)
+	}
+}
+
+// TestCreate_NamedVolumes_NoZSuffix verifies that named volume mounts do not
+// carry a :Z SELinux suffix, which is only valid for bind mounts.
+func TestCreate_NamedVolumes_NoZSuffix(t *testing.T) {
+	// Given a runner that succeeds and named volumes
+	r := newFake(okEmpty())
+	namedVols := []container.NamedVolumeMount{
+		{Name: "c-nix-store", ContainerPath: "/nix/store"},
+	}
+
+	// When Create is called
+	_ = container.Create(r, "c", "img", nil, namedVols, container.UserConfig{}, "/workspace")
+
+	// Then the named volume arg does not have a :Z suffix
+	args := r.calls[0].args
+	if hasArg(args, "c-nix-store:/nix/store:Z") {
+		t.Errorf("named volume must not have :Z suffix; full args: %v", args)
+	}
+}
+
+// TestRemove_DoesNotRemoveProjectVolumes verifies that the standard Remove function
+// does not call "podman volume rm" so that recreate preserves project volumes.
+func TestRemove_DoesNotRemoveProjectVolumes(t *testing.T) {
 	// Given a stopped container
 	r := newFake(
 		okOut(""), // IsRunning → not running
@@ -693,7 +849,7 @@ func TestCreate_HasManagedByLabel(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called with a container name and image
-	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, nil, container.UserConfig{}, "/workspace")
 
 	// Then --label io.ai-airbase.managed-by=marshal is present in the podman create arguments
 	args := r.calls[0].args
@@ -712,7 +868,7 @@ func TestCreate_HasProjectLabel(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called with containerName "marshal-myapp"
-	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, nil, container.UserConfig{}, "/workspace")
 
 	// Then --label io.ai-airbase.project=marshal-myapp is present in the podman create arguments
 	args := r.calls[0].args
@@ -728,7 +884,7 @@ func TestCreate_HasImageLabel(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called with image "ghcr.io/org/img:latest"
-	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, nil, container.UserConfig{}, "/workspace")
 
 	// Then --label io.ai-airbase.image=ghcr.io/org/img:latest is present in the podman create arguments
 	args := r.calls[0].args
@@ -744,7 +900,7 @@ func TestCreate_LabelFlagsAreAdjacentPairs(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called
-	_ = container.Create(r, "marshal-proj", "myimage:1.0", nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "marshal-proj", "myimage:1.0", nil, nil, container.UserConfig{}, "/workspace")
 
 	// Then each label value is immediately preceded by --label (pair format)
 	args := r.calls[0].args
@@ -774,7 +930,7 @@ func TestCreate_HasUsernsKeepId(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "c", "img", nil, nil, container.UserConfig{}, "/workspace")
 
 	// Then --userns=keep-id is present in the podman create arguments
 	if !hasArg(r.calls[0].args, "--userns=keep-id") {
@@ -789,7 +945,7 @@ func TestCreate_HasNoNewPrivileges(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "c", "img", nil, nil, container.UserConfig{}, "/workspace")
 
 	args := r.calls[0].args
 	// Then --security-opt no-new-privileges is present as a consecutive pair
@@ -806,7 +962,7 @@ func TestCreate_UserConfig_SetsUserFlag(t *testing.T) {
 	uc := container.UserConfig{UID: 1001, GID: 1001, HomeDir: "/home/alice"}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, uc, "/workspace")
+	_ = container.Create(r, "c", "img", nil, nil, uc, "/workspace")
 
 	// Then --user 1001:1001 is present in the podman create arguments
 	args := r.calls[0].args
@@ -833,7 +989,7 @@ func TestCreate_UserConfig_SetsHomeEnv(t *testing.T) {
 	uc := container.UserConfig{UID: 1001, GID: 1001, HomeDir: "/home/alice"}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, uc, "/workspace")
+	_ = container.Create(r, "c", "img", nil, nil, uc, "/workspace")
 
 	// Then -e HOME=/home/alice is present in the podman create arguments
 	args := r.calls[0].args
@@ -1367,7 +1523,7 @@ func TestUserIdentityArgs_IncludesPasswdEntry(t *testing.T) {
 	uc := container.UserConfig{UID: 1001, GID: 1002, HomeDir: "/home/copilot"}
 
 	// When Create is called
-	_ = container.Create(runner, "marshal-myapp", "img", nil, uc, "/workspace")
+	_ = container.Create(runner, "marshal-myapp", "img", nil, nil, uc, "/workspace")
 
 	// Then --passwd-entry with copilot:x:1001:1002 is included in the args
 	args := runner.lastCreateArgs()
@@ -1397,7 +1553,7 @@ func TestUserIdentityArgs_HomeInPasswdEntry(t *testing.T) {
 	uc := container.UserConfig{UID: 500, GID: 500, HomeDir: "/home/copilot"}
 
 	// When Create is called
-	_ = container.Create(runner, "marshal-myapp", "img", nil, uc, "/workspace")
+	_ = container.Create(runner, "marshal-myapp", "img", nil, nil, uc, "/workspace")
 
 	// Then the passwd entry contains the correct home directory and UID:GID
 	args := runner.lastCreateArgs()

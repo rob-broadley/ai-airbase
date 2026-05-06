@@ -66,11 +66,31 @@ func pullImageWithFallback(cmd *cobra.Command, deps Deps, image string) error {
 	return nil
 }
 
+// provisionVolumes inspects image to discover its declared volumes, ensures
+// each named volume exists (creating it with the project label when absent),
+// and returns the mounts to pass to Create.
+func provisionVolumes(runner container.Runner, containerName, image string) ([]container.NamedVolumeMount, error) {
+	specs, err := container.ImageVolumeSpecs(runner, image)
+	if err != nil {
+		return nil, fmt.Errorf("discovering image volumes: %w", err)
+	}
+	mounts := make([]container.NamedVolumeMount, 0, len(specs))
+	for _, spec := range specs {
+		name := containerName + "-" + spec.Suffix
+		if err := container.EnsureProjectVolume(runner, name, containerName); err != nil {
+			return nil, fmt.Errorf("ensuring volume %s: %w", name, err)
+		}
+		mounts = append(mounts, container.NamedVolumeMount{Name: name, ContainerPath: spec.ContainerPath})
+	}
+	return mounts, nil
+}
+
 // removeAndRecreateContainer removes an existing container (when present) and
 // creates a fresh one with the supplied image, mounts, user config, and workdir.
 // The container is left in the stopped/created state; it will be started and
-// attached on the next marshal invocation. The per-project Nix store volume
-// is intentionally left intact so that cached packages survive the rebuild.
+// attached on the next marshal invocation. Per-project volumes labelled with
+// the project name are intentionally left intact so that cached packages survive
+// the rebuild.
 func removeAndRecreateContainer(runner container.Runner, containerName, image string, mountSpecs []container.MountSpec, uc container.UserConfig, workdir string) error {
 	exists, err := container.Exists(runner, containerName)
 	if err != nil {
@@ -81,7 +101,11 @@ func removeAndRecreateContainer(runner container.Runner, containerName, image st
 			return fmt.Errorf("removing container: %w", err)
 		}
 	}
-	if err := container.Create(runner, containerName, image, mountSpecs, uc, workdir); err != nil {
+	namedVolumes, err := provisionVolumes(runner, containerName, image)
+	if err != nil {
+		return err
+	}
+	if err := container.Create(runner, containerName, image, mountSpecs, namedVolumes, uc, workdir); err != nil {
 		return fmt.Errorf("creating container: %w", err)
 	}
 	return nil
@@ -103,7 +127,11 @@ func prepareContainer(cmd *cobra.Command, deps Deps, p containerParams, mountsCh
 		if err := pullImageIfMissing(cmd, deps, p.image); err != nil {
 			return "", false, err
 		}
-		if err := container.Create(deps.Runner, p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir); err != nil {
+		namedVolumes, err := provisionVolumes(deps.Runner, p.containerName, p.image)
+		if err != nil {
+			return "", false, err
+		}
+		if err := container.Create(deps.Runner, p.containerName, p.image, p.mountSpecs, namedVolumes, p.userConfig, p.workdir); err != nil {
 			return "", false, fmt.Errorf("creating container: %w", err)
 		}
 		return p.containerName, false, nil

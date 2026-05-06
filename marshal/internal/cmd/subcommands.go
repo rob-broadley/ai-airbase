@@ -169,8 +169,8 @@ func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	if err := container.Remove(deps.Runner, containerName); err != nil {
 		return fmt.Errorf("removing container: %w", err)
 	}
-	if err := container.RemoveNixStore(deps.Runner, containerName); err != nil {
-		return fmt.Errorf("removing nix store volume: %w", err)
+	if err := container.RemoveProjectVolumes(deps.Runner, containerName); err != nil {
+		return fmt.Errorf("removing project volumes: %w", err)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "container %s removed\n", containerName)
 	return nil
