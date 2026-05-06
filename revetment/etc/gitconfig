@@ -1,0 +1,14 @@
+[commit]
+	gpgsign = false
+
+[tag]
+	gpgSign = false
+
+[init]
+	defaultBranch = main
+
+[safe]
+	directory = *
+
+[core]
+	editor = true
