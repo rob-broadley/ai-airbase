@@ -6,9 +6,11 @@ IMAGE          := revetment
 VERSION        := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 REVISION       := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 CREATED        := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+COPILOT_VERSION ?= $(shell cat .copilot-version)
 BUILD_ARGS     := --build-arg VERSION=$(VERSION) \
                   --build-arg REVISION=$(REVISION) \
-                  --build-arg CREATED=$(CREATED)
+                  --build-arg CREATED=$(CREATED) \
+                  --build-arg COPILOT_VERSION=$(COPILOT_VERSION)
 
 INSTALL_DIR := $(HOME)/.local/bin
 
@@ -28,10 +30,14 @@ endif
 
 .DEFAULT_GOAL := build
 
-.PHONY: dev-image image build test coverage fmt fmt-check fmt-md fmt-md-check vet lint check tidy install clean cache-clean
+.PHONY: dev-image image build test coverage fmt fmt-check fmt-md fmt-md-check vet lint check tidy install clean cache-clean update-copilot-version
 
 dev-image:
 	podman build $(BUILD_ARGS) -t $(DEV_IMAGE) -f dev/Containerfile .
+
+update-copilot-version:
+	@curl -sf https://registry.npmjs.org/@github/copilot/latest | jq -r .version > .copilot-version && \
+	echo "COPILOT_VERSION updated to $$(cat .copilot-version)"
 
 image:
 	podman build $(BUILD_ARGS) -t $(IMAGE) -f revetment/Containerfile .

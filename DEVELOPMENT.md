@@ -52,6 +52,24 @@ Both `make dev-image` and `make image` automatically inject three OCI build args
 | `REVISION` | `git rev-parse HEAD`           | `abc1234...`                |
 | `CREATED`  | `date -u +%Y-%m-%dT%H:%M:%SZ`  | `2026-05-03T21:00:00Z`      |
 
+`make image` (revetment only) also injects:
+
+| Variable          | Source                  | Example  |
+| ----------------- | ----------------------- | -------- |
+| `COPILOT_VERSION` | `.copilot-version` file | `1.0.42` |
+
+To update to the latest published Copilot CLI version (queries the npm registry and rewrites `.copilot-version`):
+
+```sh
+make update-copilot-version
+```
+
+To pin a specific version for a one-off build without changing `.copilot-version`:
+
+```sh
+make image COPILOT_VERSION=1.0.43
+```
+
 ## Caches
 
 Go modules and build artifacts live in named Podman volumes so they survive across runs — no manual setup needed.
