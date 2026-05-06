@@ -44,6 +44,12 @@ const (
 	// nixStoreMountPath is the well-known Nix store path inside the container.
 	nixStoreMountPath = "/nix/store"
 
+	// nixProfileMountPath is where Nix (2.14+, XDG state convention) keeps the
+	// per-user profile state (manifests, profile links, gcroots). Persisting
+	// this separately from the Nix store means tools added via `nix profile add`
+	// survive a marshal recreate.
+	nixProfileMountPath = ContainerUserHome + "/.local/state/nix"
+
 	// ContainerUserHome is the home directory of the container user inside the image.
 	// All credential mount targets and the HOME environment variable must agree with this value.
 	ContainerUserHome = "/home/copilot"
@@ -174,12 +180,22 @@ func NixStoreVolumeName(containerName string) string {
 	return containerName + "-nix"
 }
 
-// RemoveNixStore permanently deletes the per-project Nix store volume for
-// containerName. The Nix store volume is intentionally preserved across
-// container recreations so that cached packages survive rebuilds; call this
-// only when tearing down the project entirely.
+// NixProfileVolumeName returns the name of the per-project Podman named volume
+// used to persist the Nix per-user profile state (manifests, profile links,
+// gcroots). Nix 2.14+ stores this at $XDG_STATE_HOME/nix, not inside /nix/store.
+func NixProfileVolumeName(containerName string) string {
+	return containerName + "-nix-profile"
+}
+
+// RemoveNixStore permanently deletes both per-project Nix volumes for
+// containerName: the Nix store and the per-user profile state. These volumes
+// are intentionally preserved across container recreations so that cached
+// packages survive rebuilds; call this only when tearing down the project.
 func RemoveNixStore(r Runner, containerName string) error {
-	_, err := r.Run(podmanBin, "volume", "rm", NixStoreVolumeName(containerName))
+	if _, err := r.Run(podmanBin, "volume", "rm", NixStoreVolumeName(containerName)); err != nil {
+		return err
+	}
+	_, err := r.Run(podmanBin, "volume", "rm", NixProfileVolumeName(containerName))
 	return err
 }
 
@@ -251,6 +267,7 @@ func Create(r Runner, containerName, image string, mounts []MountSpec, uc UserCo
 	}
 	args = append(args,
 		"-v", NixStoreVolumeName(containerName)+":"+nixStoreMountPath,
+		"-v", NixProfileVolumeName(containerName)+":"+nixProfileMountPath,
 		"--label", labelManagedBy+"="+toolName,
 		"--label", labelProject+"="+containerName,
 		"--label", labelImage+"="+image,

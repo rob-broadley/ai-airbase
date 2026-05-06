@@ -466,7 +466,9 @@ func TestCreate_InvokesCorrectPodmanArgs(t *testing.T) {
 
 	for _, want := range []string{"create", "--name", "mycontainer",
 		"--userns=keep-id", "--tty", "--interactive", "--passwd-entry",
-		"-v", "/host/src:/workspace/src:Z", "-v", "mycontainer-nix:/nix/store",
+		"-v", "/host/src:/workspace/src:Z",
+		"-v", "mycontainer-nix:/nix/store",
+		"-v", "mycontainer-nix-profile:/home/copilot/.local/state/nix",
 		"-w", "/workspace/src", "myimage:latest"} {
 		if !hasArg(args, want) {
 			t.Errorf("args missing %q; full args: %v", want, args)
@@ -596,7 +598,24 @@ func TestCreate_HasNixStoreVolume(t *testing.T) {
 	}
 }
 
-// TestCreate_NixStoreVolume_HasNoZSuffix verifies that the Nix-store volume
+// TestCreate_HasNixProfileVolume verifies that Create mounts the per-project
+// Nix profile volume at the XDG state path so that nix profile add tools
+// survive a marshal recreate.
+func TestCreate_HasNixProfileVolume(t *testing.T) {
+	// Given a runner that succeeds
+	r := newFake(okEmpty())
+
+	// When Create is called with container name "c"
+	_ = container.Create(r, "c", "img", nil, container.UserConfig{}, "/workspace")
+
+	// Then -v c-nix-profile:/home/copilot/.local/state/nix is present
+	args := r.calls[0].args
+	if !hasConsecutiveArgs(args, "-v", "c-nix-profile:/home/copilot/.local/state/nix") {
+		t.Errorf("expected consecutive args \"-v\" \"c-nix-profile:/home/copilot/.local/state/nix\"; full args: %v", args)
+	}
+}
+
+// TestCreate_NixStoreVolume_HasNoZSuffix verifies that the Nix store volume
 // mount does not carry a :Z SELinux suffix, which is only valid for bind mounts.
 func TestCreate_NixStoreVolume_HasNoZSuffix(t *testing.T) {
 	// Given a runner that succeeds
@@ -605,18 +624,21 @@ func TestCreate_NixStoreVolume_HasNoZSuffix(t *testing.T) {
 	// When Create is called with container name "c"
 	_ = container.Create(r, "c", "img", nil, container.UserConfig{}, "/workspace")
 
-	// Then c-nix:/nix/store:Z must NOT appear in the arguments
+	// Then neither nix volume must have a :Z suffix
 	args := r.calls[0].args
 	if hasArg(args, "c-nix:/nix/store:Z") {
-		t.Errorf("Nix-store volume must not have :Z suffix; full args: %v", args)
+		t.Errorf("Nix store volume must not have :Z suffix; full args: %v", args)
+	}
+	if hasArg(args, "c-nix-profile:/home/copilot/.local/state/nix:Z") {
+		t.Errorf("Nix profile volume must not have :Z suffix; full args: %v", args)
 	}
 }
 
 // TestRemoveNixStore_InvokesVolumeRm verifies that RemoveNixStore calls
-// "podman volume rm <containerName>-nix".
+// "podman volume rm" for both the nix store and the nix profile volumes.
 func TestRemoveNixStore_InvokesVolumeRm(t *testing.T) {
-	// Given a runner that succeeds
-	r := newFake(okEmpty())
+	// Given a runner that succeeds twice (one call per volume)
+	r := newFake(okEmpty(), okEmpty())
 
 	// When RemoveNixStore is called for "marshal-myapp"
 	err := container.RemoveNixStore(r, "marshal-myapp")
@@ -625,17 +647,17 @@ func TestRemoveNixStore_InvokesVolumeRm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// And exactly one call was made
-	if len(r.calls) != 1 {
-		t.Fatalf("expected 1 call, got %d: %v", len(r.calls), r.calls)
+	// And exactly two calls were made (store volume + profile volume)
+	if len(r.calls) != 2 {
+		t.Fatalf("expected 2 calls, got %d: %v", len(r.calls), r.calls)
 	}
-	// And it was "podman volume rm marshal-myapp-nix"
-	args := r.calls[0].args
-	if !hasConsecutiveArgs(args, "volume", "rm") {
-		t.Errorf("expected consecutive args \"volume\" \"rm\"; full args: %v", args)
+	// First call removes the nix store volume
+	if !hasArg(r.calls[0].args, "marshal-myapp-nix") {
+		t.Errorf("expected store volume \"marshal-myapp-nix\" in first call; full args: %v", r.calls[0].args)
 	}
-	if !hasArg(args, "marshal-myapp-nix") {
-		t.Errorf("expected volume name \"marshal-myapp-nix\" in args; full args: %v", args)
+	// Second call removes the nix profile volume
+	if !hasArg(r.calls[1].args, "marshal-myapp-nix-profile") {
+		t.Errorf("expected profile volume \"marshal-myapp-nix-profile\" in second call; full args: %v", r.calls[1].args)
 	}
 }
 
