@@ -266,23 +266,36 @@ func sliceContains(ss []string, s string) bool {
 // credFakes — injectable credential dependencies for mount and isolation tests
 // ---------------------------------------------------------------------------
 
-// credFakes bundles the three injectable credential-related deps so tests can
-// inspect calls and compute expected mount values.
+// credFakes bundles injectable credential-related deps so tests can inspect
+// calls and compute expected mount values. It maintains separate base
+// directories for XDG_CONFIG (configBase) and XDG_DATA (dataBase) paths so
+// tests can assert that files end up in the correct XDG location.
 type credFakes struct {
-	ensureFn func(string) (string, error)
-	base     string
-	calls    []string
+	dataDirFn   func(string) (string, error)
+	configDirFn func(string) (string, error)
+	dataBase    string
+	configBase  string
+	calls       []string
 }
 
-// newCredFakes returns a credFakes wired to a per-test temp directory.
-// The directory is created so that callers can write files into it.
+// newCredFakes returns a credFakes wired to per-test temp directories.
+// Both directories are created so that callers can write files into them.
 func newCredFakes(t *testing.T) *credFakes {
 	t.Helper()
-	base := t.TempDir()
-	cf := &credFakes{base: base}
-	cf.ensureFn = func(subdir string) (string, error) {
-		cf.calls = append(cf.calls, subdir)
-		p := filepath.Join(base, subdir)
+	dataBase := t.TempDir()
+	configBase := t.TempDir()
+	cf := &credFakes{dataBase: dataBase, configBase: configBase}
+	cf.dataDirFn = func(subdir string) (string, error) {
+		cf.calls = append(cf.calls, "data:"+subdir)
+		p := filepath.Join(dataBase, subdir)
+		if err := os.MkdirAll(p, 0o700); err != nil {
+			return "", err
+		}
+		return p, nil
+	}
+	cf.configDirFn = func(subdir string) (string, error) {
+		cf.calls = append(cf.calls, "config:"+subdir)
+		p := filepath.Join(configBase, subdir)
 		if err := os.MkdirAll(p, 0o700); err != nil {
 			return "", err
 		}
@@ -291,7 +304,12 @@ func newCredFakes(t *testing.T) *credFakes {
 	return cf
 }
 
-// expectedMount returns the -v flag value for a subdir→containerPath pair.
-func (cf *credFakes) expectedMount(subdir, containerPath string) string {
-	return filepath.Join(cf.base, subdir) + ":" + containerPath + ":Z"
+// expectedDataMount returns the -v flag value for a data subdir→containerPath pair.
+func (cf *credFakes) expectedDataMount(subdir, containerPath string) string {
+	return filepath.Join(cf.dataBase, subdir) + ":" + containerPath + ":Z"
+}
+
+// expectedConfigMount returns the -v flag value for a config subdir→containerPath pair.
+func (cf *credFakes) expectedConfigMount(subdir, containerPath string) string {
+	return filepath.Join(cf.configBase, subdir) + ":" + containerPath + ":Z"
 }

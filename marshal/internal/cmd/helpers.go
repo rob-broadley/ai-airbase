@@ -15,33 +15,34 @@ import (
 // ---------------------------------------------------------------------------
 
 // buildCredentialMounts returns MountSpec values that bind host credential files
-// into the container. These mounts are shared across all projects.
+// into the container. These mounts are shared across all projects unless noted.
 //
-// Authentication tokens come from the GitHub Copilot config directory, which is
-// mounted whole so Copilot CLI can read and update its token cache.
+// Config files (settings, mcp-config, etc.) and the GitHub Copilot auth directory
+// come from XDG_CONFIG_HOME so backup tools and dotfile managers handle them.
 //
-// User settings (settings.json) and MCP server configuration (mcp-config.json)
-// are mounted as individual files. This preserves the agents/ and skills/
-// directories baked into the container image, which would otherwise be hidden
-// by a whole-directory bind mount.
-func buildCredentialMounts(deps Deps) ([]container.MountSpec, error) {
-	specs := make([]container.MountSpec, 0, 3)
+// Session-store.db and session-state/ are both per-project under XDG_DATA_HOME
+// so conversation history and checkpoints survive container recreates.
+//
+// The agents/ and skills/ directories baked into the container image are left
+// untouched — no whole-directory ~/.copilot mount is used.
+func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, error) {
+	specs := make([]container.MountSpec, 0, 8)
+	ensureConfigDir := deps.ensureSharedConfigDirFn()
 
-	// GitHub Copilot auth tokens — mount the whole directory.
-	ghcPath, err := deps.EnsureSharedDataDir("config/github-copilot")
+	// GitHub Copilot auth tokens — whole directory, from XDG_CONFIG.
+	ghcPath, err := ensureConfigDir("github-copilot")
 	if err != nil {
-		return nil, fmt.Errorf("ensuring credential dir config/github-copilot: %w", err)
+		return nil, fmt.Errorf("ensuring auth dir github-copilot: %w", err)
 	}
 	specs = append(specs, container.MountSpec{
 		HostPath:      ghcPath,
 		ContainerPath: container.ContainerGHCopilotDir,
 	})
 
-	// User settings and MCP config — individual files so that the image's
-	// baked-in agents/ and skills/ are not hidden by a whole-directory mount.
-	copilotDir, err := deps.EnsureSharedDataDir("copilot")
+	// User-editable config files — individual file mounts from XDG_CONFIG.
+	configDir, err := ensureConfigDir("copilot")
 	if err != nil {
-		return nil, fmt.Errorf("ensuring credential dir copilot: %w", err)
+		return nil, fmt.Errorf("ensuring config dir copilot: %w", err)
 	}
 
 	type configFile struct {
@@ -49,7 +50,7 @@ func buildCredentialMounts(deps Deps) ([]container.MountSpec, error) {
 		containerPath  string
 		defaultContent []byte
 	}
-	files := []configFile{
+	configFiles := []configFile{
 		{
 			name:           "settings.json",
 			containerPath:  container.ContainerCopilotDir + "/settings.json",
@@ -65,10 +66,20 @@ func buildCredentialMounts(deps Deps) ([]container.MountSpec, error) {
 			containerPath:  container.ContainerCopilotDir + "/copilot-instructions.md",
 			defaultContent: []byte{},
 		},
+		{
+			name:           "permissions-config.json",
+			containerPath:  container.ContainerCopilotDir + "/permissions-config.json",
+			defaultContent: []byte("{}\n"),
+		},
+		{
+			name:           "config.json",
+			containerPath:  container.ContainerCopilotDir + "/config.json",
+			defaultContent: []byte("{}\n"),
+		},
 	}
 
-	for _, f := range files {
-		hostPath := filepath.Join(copilotDir, f.name)
+	for _, f := range configFiles {
+		hostPath := filepath.Join(configDir, f.name)
 		if err := ensureConfigFile(hostPath, f.defaultContent); err != nil {
 			return nil, fmt.Errorf("ensuring config file %s: %w", f.name, err)
 		}
@@ -77,6 +88,30 @@ func buildCredentialMounts(deps Deps) ([]container.MountSpec, error) {
 			ContainerPath: f.containerPath,
 		})
 	}
+
+	// Per-project session store and session state — both isolated by project.
+	projectDataDir, err := deps.EnsureSharedDataDir("projects/" + project)
+	if err != nil {
+		return nil, fmt.Errorf("ensuring project data dir for %s: %w", project, err)
+	}
+	sessionStorePath := filepath.Join(projectDataDir, "session-store.db")
+	if err := ensureConfigFile(sessionStorePath, []byte{}); err != nil {
+		return nil, fmt.Errorf("ensuring session-store.db: %w", err)
+	}
+	specs = append(specs, container.MountSpec{
+		HostPath:      sessionStorePath,
+		ContainerPath: container.ContainerCopilotDir + "/session-store.db",
+	})
+
+	sessionStateDir, err := deps.EnsureSharedDataDir("projects/" + project + "/session-state")
+	if err != nil {
+		return nil, fmt.Errorf("ensuring session-state dir for project %s: %w", project, err)
+	}
+	specs = append(specs, container.MountSpec{
+		HostPath:      sessionStateDir,
+		ContainerPath: container.ContainerCopilotDir + "/session-state",
+	})
+
 	return specs, nil
 }
 

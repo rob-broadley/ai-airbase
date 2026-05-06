@@ -20,13 +20,14 @@ type ExecFunc func(argv []string) error
 // Deps holds injectable dependencies so commands can be tested without real
 // Podman or a real working directory.
 type Deps struct {
-	Runner              container.Runner
-	ExecFn              ExecFunc
-	Getwd               func() (string, error)
-	Getuid              func() int
-	Getgid              func() int
-	EnsureSharedDataDir func(subdir string) (string, error)
-	SaveConfig          func(project string, cfg *config.Config) error // defaults to config.Save
+	Runner               container.Runner
+	ExecFn               ExecFunc
+	Getwd                func() (string, error)
+	Getuid               func() int
+	Getgid               func() int
+	EnsureSharedDataDir  func(subdir string) (string, error)
+	EnsureSharedConfigDir func(subdir string) (string, error)
+	SaveConfig           func(project string, cfg *config.Config) error // defaults to config.Save
 	// ResolveImage returns the container image to use. Defaults to defaultImage,
 	// which reads MARSHAL_IMAGE from the environment and falls back to the
 	// published revetment image. Override in tests to fix the image name without
@@ -42,7 +43,15 @@ func (d Deps) saveConfig() func(string, *config.Config) error {
 	return config.Save
 }
 
-// resolveImage returns the effective image resolver: the injected one or the
+// ensureSharedConfigDirFn returns the injected EnsureSharedConfigDir or the
+// real config.EnsureSharedConfigDir. Tests that set XDG_CONFIG_HOME to a temp
+// directory get safe isolation without needing to inject this function.
+func (d Deps) ensureSharedConfigDirFn() func(string) (string, error) {
+	if d.EnsureSharedConfigDir != nil {
+		return d.EnsureSharedConfigDir
+	}
+	return config.EnsureSharedConfigDir
+}
 // package-level defaultImage free function (which reads MARSHAL_IMAGE).
 func (d Deps) resolveImage() string {
 	if d.ResolveImage != nil {
@@ -82,14 +91,15 @@ func NewRootCmd(deps Deps) *cobra.Command {
 // time via -ldflags and exposed through cobra's --version flag and version subcommand.
 func Execute(version string) {
 	deps := Deps{
-		Runner:              container.PodmanRunner{},
-		ExecFn:              realExec,
-		Getwd:               os.Getwd,
-		Getuid:              os.Getuid,
-		Getgid:              os.Getgid,
-		EnsureSharedDataDir: config.EnsureSharedDataDir,
-		SaveConfig:          config.Save,
-		ResolveImage:        defaultImage,
+		Runner:                container.PodmanRunner{},
+		ExecFn:                realExec,
+		Getwd:                 os.Getwd,
+		Getuid:                os.Getuid,
+		Getgid:                os.Getgid,
+		EnsureSharedDataDir:   config.EnsureSharedDataDir,
+		EnsureSharedConfigDir: config.EnsureSharedConfigDir,
+		SaveConfig:            config.Save,
+		ResolveImage:          defaultImage,
 	}
 	rootCmd := NewRootCmd(deps)
 	rootCmd.Version = version

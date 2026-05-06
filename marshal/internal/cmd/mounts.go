@@ -115,7 +115,7 @@ func resolveContainerParams(deps Deps, projectFlag string) (params containerPara
 
 	workdir := container.WorkdirFromMounts(mountSpecs)
 
-	credMounts, err := buildCredentialMounts(deps)
+	credMounts, err := buildCredentialMounts(deps, project)
 	if err != nil {
 		return containerParams{}, err
 	}

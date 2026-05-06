@@ -22,7 +22,7 @@ func TestDefaultCmd_UserConfigSet(t *testing.T) {
 		Getwd:               func() (string, error) { return "/projects/myapp", nil },
 		Getuid:              func() int { return 1001 },
 		Getgid:              func() int { return 1002 },
-		EnsureSharedDataDir: cf.ensureFn,
+		EnsureSharedDataDir: cf.dataDirFn, EnsureSharedConfigDir: cf.configDirFn,
 	}
 
 	// When the root command is executed
@@ -58,7 +58,7 @@ func TestDefaultCmd_PasswdEntrySet(t *testing.T) {
 		Getwd:               func() (string, error) { return "/projects/myapp", nil },
 		Getuid:              func() int { return 1001 },
 		Getgid:              func() int { return 1002 },
-		EnsureSharedDataDir: cf.ensureFn,
+		EnsureSharedDataDir: cf.dataDirFn, EnsureSharedConfigDir: cf.configDirFn,
 	}
 
 	// When the root command is executed
@@ -89,7 +89,7 @@ func TestDefaultCmd_TtyAllocated(t *testing.T) {
 		Getwd:               func() (string, error) { return "/projects/myapp", nil },
 		Getuid:              func() int { return 1001 },
 		Getgid:              func() int { return 1002 },
-		EnsureSharedDataDir: cf.ensureFn,
+		EnsureSharedDataDir: cf.dataDirFn, EnsureSharedConfigDir: cf.configDirFn,
 	}
 
 	// When the root command is executed
@@ -119,7 +119,7 @@ func TestDefaultCmd_StdinOpen(t *testing.T) {
 		Getwd:               func() (string, error) { return "/projects/myapp", nil },
 		Getuid:              func() int { return 1001 },
 		Getgid:              func() int { return 1002 },
-		EnsureSharedDataDir: cf.ensureFn,
+		EnsureSharedDataDir: cf.dataDirFn, EnsureSharedConfigDir: cf.configDirFn,
 	}
 
 	// When the root command is executed
@@ -147,7 +147,7 @@ func TestRecreate_UserConfigSet(t *testing.T) {
 		Getwd:               func() (string, error) { return "/projects/myapp", nil },
 		Getuid:              func() int { return 1001 },
 		Getgid:              func() int { return 1002 },
-		EnsureSharedDataDir: cf.ensureFn,
+		EnsureSharedDataDir: cf.dataDirFn, EnsureSharedConfigDir: cf.configDirFn,
 	}
 
 	// When the recreate subcommand is executed

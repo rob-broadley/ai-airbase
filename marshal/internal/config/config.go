@@ -142,12 +142,42 @@ func Save(projectName string, cfg *Config) error {
 	return nil
 }
 
+// ensureSharedDir creates $base()/marshal/<subdir> and returns the path.
+// kind and envVar are used only in error messages ("config", "XDG_CONFIG_HOME").
+func ensureSharedDir(baseFn func() string, kind, envVar, subdir string) (string, error) {
+	path := filepath.Join(baseFn(), "marshal", subdir)
+	if !filepath.IsAbs(path) {
+		return "", fmt.Errorf("%s directory unavailable: set HOME or %s", kind, envVar)
+	}
+	if err := os.MkdirAll(path, 0o700); err != nil {
+		return "", fmt.Errorf("creating shared %s directory %s: %w", kind, path, err)
+	}
+	return path, nil
+}
+
+// ---------------------------------------------------------------------------
+// Shared config
+// ---------------------------------------------------------------------------
+
+// SharedConfigPath returns the filesystem path $XDG_CONFIG_HOME/marshal/<subdir>.
+// subdir may contain path separators (e.g. "copilot/settings.json").
+func SharedConfigPath(subdir string) string {
+	return filepath.Join(xdgConfigHome(), "marshal", subdir)
+}
+
+// EnsureSharedConfigDir resolves SharedConfigPath(subdir), creates the directory
+// with permissions 0o700 (owner-only, suitable for credentials), and returns
+// the path.
+func EnsureSharedConfigDir(subdir string) (string, error) {
+	return ensureSharedDir(xdgConfigHome, "config", "XDG_CONFIG_HOME", subdir)
+}
+
 // ---------------------------------------------------------------------------
 // Shared data
 // ---------------------------------------------------------------------------
 
 // SharedDataPath returns the filesystem path $XDG_DATA_HOME/marshal/<subdir>.
-// subdir may contain path separators (e.g. "config/github-copilot").
+// subdir may contain path separators (e.g. "projects/myapp/session-state").
 func SharedDataPath(subdir string) string {
 	return filepath.Join(xdgDataHome(), "marshal", subdir)
 }
@@ -156,12 +186,5 @@ func SharedDataPath(subdir string) string {
 // with permissions 0o700 (owner-only, suitable for credentials), and returns
 // the path.
 func EnsureSharedDataDir(subdir string) (string, error) {
-	path := SharedDataPath(subdir)
-	if !filepath.IsAbs(path) {
-		return "", fmt.Errorf("data directory unavailable: set HOME or XDG_DATA_HOME")
-	}
-	if err := os.MkdirAll(path, 0o700); err != nil {
-		return "", fmt.Errorf("creating shared data directory %s: %w", path, err)
-	}
-	return path, nil
+	return ensureSharedDir(xdgDataHome, "data", "XDG_DATA_HOME", subdir)
 }
