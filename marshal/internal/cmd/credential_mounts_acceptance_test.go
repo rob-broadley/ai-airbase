@@ -3,6 +3,8 @@ package cmd_test
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/cmd"
@@ -67,6 +69,7 @@ func TestDefaultCmd_ConfigFilesFromXDGConfig(t *testing.T) {
 // bind-mounted from XDG_CONFIG_HOME/marshal/git/config so the user's git
 // identity and preferences override the image's /etc/gitconfig.
 func TestDefaultCmd_GitConfigMounted(t *testing.T) {
+	// Given deps configured for project "myapp" with shared config fakes
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
@@ -83,12 +86,98 @@ func TestDefaultCmd_GitConfigMounted(t *testing.T) {
 
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp"})
+
+	// When the default command is executed
 	assertNoError(t, root.Execute())
 
+	// Then the git config is bind-mounted from XDG_CONFIG_HOME/marshal/git/config
 	args := runner.createArgs()
 	want := cf.expectedConfigMount("git/config", container.ContainerGitConfigFile)
 	if !sliceContains(args, want) {
 		t.Errorf("expected git config mount %q in create args\ngot: %v", want, args)
+	}
+}
+
+// TestDefaultCmd_GitConfigPopulatedFromHost verifies that when the git config
+// file does not yet exist, it is created with user.name and user.email read
+// from the host git configuration.
+func TestDefaultCmd_GitConfigPopulatedFromHost(t *testing.T) {
+	// Given the git config file does not yet exist and LookupGitConfig returns name and email
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	cf := newCredFakes(t)
+	deps := cmd.Deps{
+		Runner:                &fakeRunner{exists: false},
+		ExecFn:                (&fakeExec{}).exec,
+		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
+		Getuid:                func() int { return 1001 },
+		Getgid:                func() int { return 1002 },
+		EnsureSharedDataDir:   cf.dataDirFn,
+		EnsureSharedConfigDir: cf.configDirFn,
+		LookupGitConfig: func(key string) string {
+			switch key {
+			case "user.name":
+				return "Test User"
+			case "user.email":
+				return "test@example.com"
+			}
+			return ""
+		},
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetArgs([]string{"--project", "myapp"})
+
+	// When the default command is executed
+	assertNoError(t, root.Execute())
+
+	// Then the git config file is created with the host user identity
+	content, err := os.ReadFile(filepath.Join(cf.configBase, "git", "config"))
+	assertNoError(t, err)
+	assertContains(t, string(content), `name = "Test User"`)
+	assertContains(t, string(content), `email = "test@example.com"`)
+}
+
+// TestDefaultCmd_GitConfigNotOverwrittenIfExists verifies that a pre-existing
+// git config file is never modified, even if LookupGitConfig returns values.
+func TestDefaultCmd_GitConfigNotOverwrittenIfExists(t *testing.T) {
+	// Given a pre-existing git config file with custom content
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	cf := newCredFakes(t)
+	gitDir := filepath.Join(cf.configBase, "git")
+	if err := os.MkdirAll(gitDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	existing := "[user]\n\tname = Existing User\n"
+	if err := os.WriteFile(filepath.Join(gitDir, "config"), []byte(existing), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	deps := cmd.Deps{
+		Runner:                &fakeRunner{exists: false},
+		ExecFn:                (&fakeExec{}).exec,
+		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
+		Getuid:                func() int { return 1001 },
+		Getgid:                func() int { return 1002 },
+		EnsureSharedDataDir:   cf.dataDirFn,
+		EnsureSharedConfigDir: cf.configDirFn,
+		LookupGitConfig: func(_ string) string {
+			return "Should Not Appear"
+		},
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetArgs([]string{"--project", "myapp"})
+
+	// When the default command is executed
+	assertNoError(t, root.Execute())
+
+	// Then the existing file is unchanged
+	content, err := os.ReadFile(filepath.Join(gitDir, "config"))
+	assertNoError(t, err)
+	if string(content) != existing {
+		t.Errorf("existing git config must not be overwritten\ngot: %s", content)
 	}
 }
 

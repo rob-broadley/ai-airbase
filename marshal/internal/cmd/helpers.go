@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
@@ -28,6 +29,7 @@ import (
 func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, error) {
 	specs := make([]container.MountSpec, 0, 8)
 	ensureConfigDir := deps.ensureSharedConfigDirFn()
+	lookupGit := deps.lookupGitConfigFn()
 
 	// User git config — overrides /etc/gitconfig baked into the image.
 	gitConfigDir, err := ensureConfigDir("git")
@@ -35,7 +37,7 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 		return nil, fmt.Errorf("ensuring config dir git: %w", err)
 	}
 	gitConfigPath := filepath.Join(gitConfigDir, "config")
-	if err := ensureConfigFile(gitConfigPath, []byte{}); err != nil {
+	if err := ensureConfigFile(gitConfigPath, buildGitConfigContent(lookupGit)); err != nil {
 		return nil, fmt.Errorf("ensuring git config file: %w", err)
 	}
 	specs = append(specs, container.MountSpec{
@@ -119,11 +121,57 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 	return specs, nil
 }
 
+// buildGitConfigContent generates a minimal git [user] section from the host
+// git configuration. Values are double-quoted per the gitconfig spec to handle
+// backslashes, semicolons, and hash characters safely. Control characters are
+// stripped before quoting. Returns an empty byte slice when neither value is
+// set so the file is still created, allowing the user to populate it manually.
+func buildGitConfigContent(lookup func(string) string) []byte {
+	name := sanitizeGitValue(lookup("user.name"))
+	email := sanitizeGitValue(lookup("user.email"))
+	if name == "" && email == "" {
+		return []byte{}
+	}
+	var b strings.Builder
+	b.WriteString("[user]\n")
+	if name != "" {
+		fmt.Fprintf(&b, "\tname = %s\n", gitQuote(name))
+	}
+	if email != "" {
+		fmt.Fprintf(&b, "\temail = %s\n", gitQuote(email))
+	}
+	return []byte(b.String())
+}
+
+// gitQuote wraps a git config value in double quotes and escapes the four
+// sequences the gitconfig spec recognises inside double-quoted strings: \\ \" \n \t.
+func gitQuote(v string) string {
+	v = strings.ReplaceAll(v, `\`, `\\`)
+	v = strings.ReplaceAll(v, `"`, `\"`)
+	v = strings.ReplaceAll(v, "\n", `\n`)
+	v = strings.ReplaceAll(v, "\t", `\t`)
+	return `"` + v + `"`
+}
+
+// sanitizeGitValue strips control characters (anything < 0x20 and DEL 0x7f)
+// from a git config value as a defence-in-depth measure before quoting.
+func sanitizeGitValue(v string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1 // drop control characters
+		}
+		return r
+	}, v)
+}
+
 // ensureConfigFile creates the file at path with defaultContent if it does not
 // already exist. Uses O_EXCL so a concurrent create wins cleanly — the file is
 // left with whatever content the other writer put there. Returns an error if
 // path exists as a directory, since Podman cannot bind-mount a file over a
 // directory. The file is created with 0o600 (owner-read/write) permissions.
+// A best-effort removal is attempted on write failure to avoid leaving a
+// partial file; if the removal itself fails the partial file may persist and
+// will be treated as a valid (though possibly corrupt) file on the next run.
 func ensureConfigFile(path string, defaultContent []byte) error {
 	fi, err := os.Stat(path)
 	if err == nil {
@@ -142,9 +190,12 @@ func ensureConfigFile(path string, defaultContent []byte) error {
 		}
 		return err
 	}
-	defer f.Close()
-	_, err = f.Write(defaultContent)
-	return err
+	if _, err = f.Write(defaultContent); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path) // best-effort: remove partial file so next run may retry
+		return err
+	}
+	return f.Close() // surface any flush/close error
 }
 
 // buildUserConfig constructs the container.UserConfig for the calling user.

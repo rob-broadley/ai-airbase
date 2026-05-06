@@ -28,6 +28,10 @@ type Deps struct {
 	EnsureSharedDataDir  func(subdir string) (string, error)
 	EnsureSharedConfigDir func(subdir string) (string, error)
 	SaveConfig           func(project string, cfg *config.Config) error // defaults to config.Save
+	// LookupGitConfig reads a git configuration key (e.g. "user.name") from the
+	// host and returns its trimmed value, or an empty string if unset or on error.
+	// Defaults to lookupHostGitConfig.
+	LookupGitConfig func(key string) string
 	// ResolveImage returns the container image to use. Defaults to defaultImage,
 	// which reads MARSHAL_IMAGE from the environment and falls back to the
 	// published revetment image. Override in tests to fix the image name without
@@ -52,6 +56,18 @@ func (d Deps) ensureSharedConfigDirFn() func(string) (string, error) {
 	}
 	return config.EnsureSharedConfigDir
 }
+
+// lookupGitConfigFn returns the injected LookupGitConfig or a no-op that
+// returns empty string. Production code always sets LookupGitConfig explicitly
+// in Execute(); the no-op fallback keeps tests hermetic by avoiding real git
+// subprocess calls when the dep is not injected.
+func (d Deps) lookupGitConfigFn() func(string) string {
+	if d.LookupGitConfig != nil {
+		return d.LookupGitConfig
+	}
+	return func(string) string { return "" }
+}
+
 // package-level defaultImage free function (which reads MARSHAL_IMAGE).
 func (d Deps) resolveImage() string {
 	if d.ResolveImage != nil {
@@ -99,6 +115,7 @@ func Execute(version string) {
 		EnsureSharedDataDir:   config.EnsureSharedDataDir,
 		EnsureSharedConfigDir: config.EnsureSharedConfigDir,
 		SaveConfig:            config.Save,
+		LookupGitConfig:       lookupHostGitConfig,
 		ResolveImage:          defaultImage,
 	}
 	rootCmd := NewRootCmd(deps)
