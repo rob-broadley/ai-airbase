@@ -17,8 +17,9 @@ dnf install -y --setopt=install_weak_deps=False \
 DNF_INSTALL
 
 # Install GitHub Copilot CLI
+ARG COPILOT_VERSION="1.0.42"
 RUN --mount=type=cache,target=/root/.npm <<NPM_INSTALL
-npm install -g @github/copilot@1.0.40
+npm install -g @github/copilot@${COPILOT_VERSION}
 NPM_INSTALL
 
 # Install extra tools via uv
@@ -113,6 +114,7 @@ LABEL org.opencontainers.image.title="revetment" \
       org.opencontainers.image.vendor="Rob Broadley" \
       org.opencontainers.image.authors="Rob Broadley" \
       io.ai-airbase.component="revetment" \
+      io.ai-airbase.copilot-version="${COPILOT_VERSION}" \
       io.ai-airbase.volume.nix-store=$NIX_STORE \
       io.ai-airbase.volume.nix-profile=$HOME/.local/state/nix \
       io.ai-airbase.volume.uv-tools=$XDG_DATA_HOME/uv
