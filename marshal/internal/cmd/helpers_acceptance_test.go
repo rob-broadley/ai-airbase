@@ -3,6 +3,7 @@ package cmd_test
 
 import (
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,11 +16,16 @@ import (
 
 // stubEnsureSharedDataDir returns a fake EnsureSharedDataDir that maps subdirs
 // into a per-test temp directory without touching the real XDG_DATA_HOME.
+// The directory is created so that callers can write files into it.
 func stubEnsureSharedDataDir(t *testing.T) func(string) (string, error) {
 	t.Helper()
 	base := t.TempDir()
 	return func(subdir string) (string, error) {
-		return filepath.Join(base, subdir), nil
+		p := filepath.Join(base, subdir)
+		if err := os.MkdirAll(p, 0o700); err != nil {
+			return "", err
+		}
+		return p, nil
 	}
 }
 
@@ -269,13 +275,18 @@ type credFakes struct {
 }
 
 // newCredFakes returns a credFakes wired to a per-test temp directory.
+// The directory is created so that callers can write files into it.
 func newCredFakes(t *testing.T) *credFakes {
 	t.Helper()
 	base := t.TempDir()
 	cf := &credFakes{base: base}
 	cf.ensureFn = func(subdir string) (string, error) {
 		cf.calls = append(cf.calls, subdir)
-		return filepath.Join(base, subdir), nil
+		p := filepath.Join(base, subdir)
+		if err := os.MkdirAll(p, 0o700); err != nil {
+			return "", err
+		}
+		return p, nil
 	}
 	return cf
 }

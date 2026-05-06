@@ -34,7 +34,7 @@ dev-image:
 	podman build $(BUILD_ARGS) -t $(DEV_IMAGE) -f dev/Containerfile .
 
 image:
-	podman build $(BUILD_ARGS) -t $(IMAGE) -f revetment/Containerfile revetment/
+	podman build $(BUILD_ARGS) -t $(IMAGE) -f revetment/Containerfile .
 
 build:
 	mkdir -p bin

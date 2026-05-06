@@ -9,7 +9,8 @@ import (
 )
 
 // TestDefaultCmd_CredentialMountsIncluded verifies that the default command mounts
-// credential directories when creating a container.
+// credential files when creating a container, and that the copilot agents/skills
+// directory is NOT bind-mounted (it is baked into the image).
 func TestDefaultCmd_CredentialMountsIncluded(t *testing.T) {
 	// Given marshal is run for any project with credential fakes injected
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -31,20 +32,30 @@ func TestDefaultCmd_CredentialMountsIncluded(t *testing.T) {
 	root.SetArgs([]string{"--project", "myapp"})
 	assertNoError(t, root.Execute())
 
-	// Then both credential mounts appear in the create args
-	copilotMount := cf.expectedMount("copilot", "/home/copilot/.copilot")
+	// Then the individual config file mounts appear in the create args
+	settingsMount := cf.expectedMount("copilot/settings.json", "/home/copilot/.copilot/settings.json")
+	mcpMount := cf.expectedMount("copilot/mcp-config.json", "/home/copilot/.copilot/mcp-config.json")
 	ghcMount := cf.expectedMount("config/github-copilot", "/home/copilot/.config/github-copilot")
 
-	if !runner.createArgsContain(copilotMount) {
-		t.Errorf("expected copilot mount %q in create args\ngot: %v", copilotMount, runner.createArgs())
+	if !runner.createArgsContain(settingsMount) {
+		t.Errorf("expected settings mount %q in create args\ngot: %v", settingsMount, runner.createArgs())
+	}
+	if !runner.createArgsContain(mcpMount) {
+		t.Errorf("expected mcp-config mount %q in create args\ngot: %v", mcpMount, runner.createArgs())
 	}
 	if !runner.createArgsContain(ghcMount) {
 		t.Errorf("expected github-copilot mount %q in create args\ngot: %v", ghcMount, runner.createArgs())
 	}
+
+	// And the whole copilot directory is NOT mounted (agents/skills stay from image)
+	wholeDirMount := cf.expectedMount("copilot", "/home/copilot/.copilot")
+	if runner.createArgsContain(wholeDirMount) {
+		t.Errorf("expected copilot whole-dir mount to be absent, but found %q in create args", wholeDirMount)
+	}
 }
 
 // TestRecreate_CredentialMountsIncluded verifies that the recreate command also
-// mounts credential directories when creating a container.
+// mounts credential files when creating a container.
 func TestRecreate_CredentialMountsIncluded(t *testing.T) {
 	// Given marshal recreate is run with credential fakes injected
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -66,12 +77,16 @@ func TestRecreate_CredentialMountsIncluded(t *testing.T) {
 	root.SetArgs([]string{"--project", "myapp", "recreate"})
 	assertNoError(t, root.Execute())
 
-	// Then both credential mounts appear in the create args
-	copilotMount := cf.expectedMount("copilot", "/home/copilot/.copilot")
+	// Then the individual config file mounts appear in the create args
+	settingsMount := cf.expectedMount("copilot/settings.json", "/home/copilot/.copilot/settings.json")
+	mcpMount := cf.expectedMount("copilot/mcp-config.json", "/home/copilot/.copilot/mcp-config.json")
 	ghcMount := cf.expectedMount("config/github-copilot", "/home/copilot/.config/github-copilot")
 
-	if !runner.createArgsContain(copilotMount) {
-		t.Errorf("expected copilot mount %q in recreate create args\ngot: %v", copilotMount, runner.createArgs())
+	if !runner.createArgsContain(settingsMount) {
+		t.Errorf("expected settings mount %q in recreate create args\ngot: %v", settingsMount, runner.createArgs())
+	}
+	if !runner.createArgsContain(mcpMount) {
+		t.Errorf("expected mcp-config mount %q in recreate create args\ngot: %v", mcpMount, runner.createArgs())
 	}
 	if !runner.createArgsContain(ghcMount) {
 		t.Errorf("expected github-copilot mount %q in recreate create args\ngot: %v", ghcMount, runner.createArgs())
@@ -108,20 +123,25 @@ func TestCredentialMounts_SharedAcrossProjects(t *testing.T) {
 	alphaArgs := runProject("alpha")
 	betaArgs := runProject("beta")
 
-	// Then the credential mount host paths are identical
-	copilotMount := cf.expectedMount("copilot", "/home/copilot/.copilot")
+	// Then the credential mount host paths are identical across projects
+	settingsMount := cf.expectedMount("copilot/settings.json", "/home/copilot/.copilot/settings.json")
+	mcpMount := cf.expectedMount("copilot/mcp-config.json", "/home/copilot/.copilot/mcp-config.json")
 	ghcMount := cf.expectedMount("config/github-copilot", "/home/copilot/.config/github-copilot")
 
-	if !sliceContains(alphaArgs, copilotMount) {
-		t.Errorf("alpha: expected shared copilot mount %q\ngot: %v", copilotMount, alphaArgs)
-	}
-	if !sliceContains(betaArgs, copilotMount) {
-		t.Errorf("beta: expected shared copilot mount %q\ngot: %v", copilotMount, betaArgs)
-	}
-	if !sliceContains(alphaArgs, ghcMount) {
-		t.Errorf("alpha: expected shared github-copilot mount %q\ngot: %v", ghcMount, alphaArgs)
-	}
-	if !sliceContains(betaArgs, ghcMount) {
-		t.Errorf("beta: expected shared github-copilot mount %q\ngot: %v", ghcMount, betaArgs)
+	for _, tc := range []struct {
+		name  string
+		args  []string
+		mount string
+	}{
+		{"alpha settings", alphaArgs, settingsMount},
+		{"beta settings", betaArgs, settingsMount},
+		{"alpha mcp-config", alphaArgs, mcpMount},
+		{"beta mcp-config", betaArgs, mcpMount},
+		{"alpha ghc", alphaArgs, ghcMount},
+		{"beta ghc", betaArgs, ghcMount},
+	} {
+		if !sliceContains(tc.args, tc.mount) {
+			t.Errorf("%s: expected shared mount %q\ngot: %v", tc.name, tc.mount, tc.args)
+		}
 	}
 }

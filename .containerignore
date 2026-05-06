@@ -1,0 +1,13 @@
+# Exclude files not needed for the revetment image build.
+# Only cadre/ and revetment/ are required.
+.git
+.github
+bin
+coverage.txt
+coverage.html
+dev
+docs
+marshal
+Makefile
+README.md
+DEVELOPMENT.md

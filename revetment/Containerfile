@@ -33,7 +33,7 @@ UV_TOOL_INSTALL
 # Configure nix; set HOME after all tool installs so build-time cache mounts
 # targeting /root/.npm and /root/.cache/uv are not redirected.
 ENV NIX_CONF_DIR=/etc/nix
-COPY etc/nix/ /etc/nix/
+COPY revetment/etc/nix/ /etc/nix/
 
 # Create home directory for the copilot user (any host UID can write to it via
 # --passwd-entry at runtime) and the /workspace mount point. Allow any user
@@ -90,6 +90,9 @@ VOLUME /nix/store
 VOLUME /home/copilot/.local/state/nix
 VOLUME /home/copilot/.local/share/uv
 
+
+# Bundle cadre agents and skills so they are available to Copilot CLI out of the box.
+COPY cadre/ $HOME/.copilot/
 
 WORKDIR $WORKSPACE
 
