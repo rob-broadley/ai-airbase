@@ -112,12 +112,11 @@ func removeAndRecreateContainer(runner container.Runner, containerName, image st
 }
 
 // prepareContainer ensures the container exists (creating it when absent),
-// handling the mountsChanged case: when the container is running with different
-// mounts it returns an actionable error; when stopped it removes and recreates.
-// It returns the container name and whether the container is currently running.
-// Callers use the returned state to decide between start-and-attach vs attach
-// (for the default command) or start-then-exec (for the shell command).
-func prepareContainer(cmd *cobra.Command, deps Deps, p containerParams, mountsChanged bool) (containerName string, running bool, err error) {
+// pulling the image if needed. It returns the container name and whether the
+// container is currently running. Callers use the returned state to decide
+// between start-and-attach vs attach (for the default command) or
+// start-then-exec (for the shell command).
+func prepareContainer(cmd *cobra.Command, deps Deps, p containerParams) (containerName string, running bool, err error) {
 	exists, err := container.Exists(deps.Runner, p.containerName)
 	if err != nil {
 		return "", false, fmt.Errorf("checking container: %w", err)
@@ -142,22 +141,6 @@ func prepareContainer(cmd *cobra.Command, deps Deps, p containerParams, mountsCh
 		return "", false, fmt.Errorf("checking running state: %w", err)
 	}
 
-	if mountsChanged {
-		if isRunning {
-			return "", false, fmt.Errorf(
-				"container %s is running with different mounts; stop it first with `marshal stop` or use `marshal recreate`",
-				p.containerName,
-			)
-		}
-		if err := pullImageIfMissing(cmd, deps, p.image); err != nil {
-			return "", false, err
-		}
-		if err := removeAndRecreateContainer(deps.Runner, p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir); err != nil {
-			return "", false, err
-		}
-		return p.containerName, false, nil
-	}
-
 	return p.containerName, isRunning, nil
 }
 
@@ -168,12 +151,12 @@ func prepareContainer(cmd *cobra.Command, deps Deps, p containerParams, mountsCh
 // running as PID 1 receives stdin/stdout directly.
 // For an already-running container it calls ExecFn with
 // ["podman", "attach", containerName] to join the existing PID 1 session.
-func ensureContainerAndStart(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues []string) error {
-	p, mountsChanged, err := resolveContainerParams(deps, projectFlag, mountFlagValues)
+func ensureContainerAndStart(cmd *cobra.Command, deps Deps, projectFlag string) error {
+	p, err := resolveContainerParams(deps, projectFlag)
 	if err != nil {
 		return err
 	}
-	containerName, running, err := prepareContainer(cmd, deps, p, mountsChanged)
+	containerName, running, err := prepareContainer(cmd, deps, p)
 	if err != nil {
 		return err
 	}
@@ -188,12 +171,12 @@ func ensureContainerAndStart(cmd *cobra.Command, deps Deps, projectFlag string, 
 // running /bin/bash inside the container.
 // When the container is stopped it is started via the runner first.
 // This function is used exclusively by the shell subcommand.
-func ensureContainerAndExec(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues []string) error {
-	p, mountsChanged, err := resolveContainerParams(deps, projectFlag, mountFlagValues)
+func ensureContainerAndExec(cmd *cobra.Command, deps Deps, projectFlag string) error {
+	p, err := resolveContainerParams(deps, projectFlag)
 	if err != nil {
 		return err
 	}
-	containerName, running, err := prepareContainer(cmd, deps, p, mountsChanged)
+	containerName, running, err := prepareContainer(cmd, deps, p)
 	if err != nil {
 		return err
 	}

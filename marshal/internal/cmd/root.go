@@ -54,25 +54,24 @@ func (d Deps) resolveImage() string {
 // NewRootCmd builds the root cobra.Command tree with the supplied dependencies.
 func NewRootCmd(deps Deps) *cobra.Command {
 	var projectFlag string
-	var mountFlags []string
 
 	root := &cobra.Command{
 		Use:   "marshal",
 		Short: "A sandbox for running GitHub Copilot CLI — one container per project, managed for you.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return ensureContainerAndStart(cmd, deps, projectFlag, mountFlags)
+			return ensureContainerAndStart(cmd, deps, projectFlag)
 		},
 	}
 
 	root.PersistentFlags().StringVarP(&projectFlag, "project", "p", "", "Project name (default: current directory name)")
-	root.PersistentFlags().StringArrayVarP(&mountFlags, "mount", "m", nil, "Extra directory to bind mount (repeatable)")
 
 	root.AddCommand(
+		newCreateCmd(deps, &projectFlag),
 		newStopCmd(deps, &projectFlag),
 		newStatusCmd(deps, &projectFlag),
-		newRecreateCmd(deps, &projectFlag, &mountFlags),
+		newRecreateCmd(deps, &projectFlag),
 		newRemoveCmd(deps, &projectFlag),
-		newShellCmd(deps, &projectFlag, &mountFlags),
+		newShellCmd(deps, &projectFlag),
 		newPullCmd(deps),
 	)
 

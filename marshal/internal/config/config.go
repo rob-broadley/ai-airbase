@@ -86,6 +86,19 @@ func Load(projectName string) (*Config, error) {
 	return cfg, nil
 }
 
+// Delete removes the config file for projectName.
+// If the file does not exist, Delete returns nil (idempotent).
+func Delete(projectName string) error {
+	if err := ValidateProjectName(projectName); err != nil {
+		return err
+	}
+	path := ConfigPath(projectName)
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing project config: %w", err)
+	}
+	return nil
+}
+
 // Save writes cfg for projectName to disk atomically via a temp-file-then-rename
 // pattern, so concurrent readers never observe a zero-byte or partial-write state.
 // Parent directories are created as needed. Close errors are always surfaced.

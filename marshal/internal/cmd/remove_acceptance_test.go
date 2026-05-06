@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/cmd"
+	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 )
 
 // TestRemove_RunningContainer verifies that remove stops and removes a running
@@ -217,7 +218,44 @@ func TestRemove_ProjectVolumeRemoveFails(t *testing.T) {
 	assertContains(t, err.Error(), "removing project volumes")
 }
 
-// TestRemove_InvalidProjectName verifies that remove returns an error when the
+// TestRemove_DeletesProjectConfig verifies that marshal remove deletes the
+// saved project config file so a subsequent create starts clean.
+func TestRemove_DeletesProjectConfig(t *testing.T) {
+	// Given a saved config for the project
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	if err := config.Save("myapp", &config.Config{Mounts: []string{"/large/dataset"}}); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	runner := &fakeRunner{exists: true}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	buf := &bytes.Buffer{}
+	root := cmd.NewRootCmd(deps)
+	root.SetOut(buf)
+
+	// When remove is executed
+	root.SetArgs([]string{"--project", "myapp", "remove"})
+	assertNoError(t, root.Execute())
+
+	// Then the config file is gone — Load returns an empty config
+	cfg, err := config.Load("myapp")
+	if err != nil {
+		t.Fatalf("Load after remove failed: %v", err)
+	}
+	if len(cfg.Mounts) != 0 {
+		t.Errorf("expected empty mounts after remove, got: %v", cfg.Mounts)
+	}
+}
+
 // --project flag contains an invalid project name (e.g. path traversal).
 func TestRemove_InvalidProjectName(t *testing.T) {
 	// Given a runner that would succeed if reached

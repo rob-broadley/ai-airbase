@@ -153,7 +153,7 @@ func (f *fakeRunner) ImageExists(_ string) (bool, error) {
 
 // PullImage is a spy: records that it was called and which image was requested,
 // writes pullOutput to stdout and pullStderrOutput to stderr when non-empty,
-// and returns pullImageErr.
+// and returns pullImageErr (or runErrors["pull"] if set).
 func (f *fakeRunner) PullImage(image string, stdout io.Writer, stderr io.Writer) error {
 	f.pullImageCalled = true
 	f.pullImageImage = image
@@ -162,6 +162,9 @@ func (f *fakeRunner) PullImage(image string, stdout io.Writer, stderr io.Writer)
 	}
 	if f.pullStderrOutput != "" {
 		_, _ = io.WriteString(stderr, f.pullStderrOutput)
+	}
+	if err, ok := f.runErrors["pull"]; ok {
+		return err
 	}
 	return f.pullImageErr
 }

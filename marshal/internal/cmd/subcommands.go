@@ -6,8 +6,87 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
 )
+
+// newCreateCmd returns the cobra.Command for the "create" subcommand, which
+// saves the project mount configuration and creates the container. This is the
+// entry point for setting up a new project; subsequent invocations of marshal
+// read the saved mounts from config rather than accepting them as flags.
+func newCreateCmd(deps Deps, projectFlag *string) *cobra.Command {
+	var mountFlags []string
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new container for the project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCreate(cmd, deps, *projectFlag, mountFlags)
+		},
+	}
+	cmd.Flags().StringArrayVarP(&mountFlags, "mount", "m", nil, "Directory to bind mount into /workspace/<basename> (repeatable)")
+	return cmd
+}
+
+// runCreate implements the "create" subcommand: it validates the project, errors
+// if the container already exists, saves the mount configuration, pulls the
+// image if needed, and creates the container.
+func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues []string) error {
+	project, containerName, err := resolveContainer(deps, projectFlag)
+	if err != nil {
+		return err
+	}
+
+	exists, err := container.Exists(deps.Runner, containerName)
+	if err != nil {
+		return fmt.Errorf("checking container: %w", err)
+	}
+	if exists {
+		return fmt.Errorf("project %s already has a container; use 'marshal recreate' to rebuild with existing configuration, or 'marshal remove' then 'marshal create' to reconfigure mounts", project)
+	}
+
+	cwd, err := deps.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting working directory: %w", err)
+	}
+
+	cfg, err := config.Load(project)
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
+	// resolveMountPaths updates cfg.Mounts when flags are provided; otherwise
+	// cfg.Mounts stays as loaded (empty for a fresh project).
+	if _, _, err = resolveMountPaths(cwd, mountFlagValues, cfg); err != nil {
+		return err
+	}
+	// If no explicit mounts were configured, fall back to CWD and persist it.
+	if len(cfg.Mounts) == 0 {
+		cfg.Mounts = []string{cwd}
+	}
+	if err := deps.saveConfig()(project, cfg); err != nil {
+		return fmt.Errorf("saving config: %w", err)
+	}
+
+	p, err := resolveContainerParams(deps, projectFlag)
+	if err != nil {
+		return err
+	}
+
+	if err := pullImageIfMissing(cmd, deps, p.image); err != nil {
+		return err
+	}
+
+	namedVolumes, err := provisionVolumes(deps.Runner, p.containerName, p.image)
+	if err != nil {
+		return err
+	}
+	if err := container.Create(deps.Runner, p.containerName, p.image, p.mountSpecs, namedVolumes, p.userConfig, p.workdir); err != nil {
+		return fmt.Errorf("creating container: %w", err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "container %s created\n", p.containerName)
+	return nil
+}
 
 // newStopCmd returns the cobra.Command for the "stop" subcommand, which stops
 // the running container for the resolved project.
@@ -103,21 +182,21 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 // newRecreateCmd returns the cobra.Command for the "recreate" subcommand,
 // which pulls the latest image, removes the existing container, and creates a
 // fresh one while preserving the per-project Nix store volume.
-func newRecreateCmd(deps Deps, projectFlag *string, mountFlags *[]string) *cobra.Command {
+func newRecreateCmd(deps Deps, projectFlag *string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "recreate",
 		Short: "Remove the existing container and create a fresh one",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRecreate(cmd, deps, *projectFlag, *mountFlags)
+			return runRecreate(cmd, deps, *projectFlag)
 		},
 	}
 }
 
 // runRecreate implements the "recreate" subcommand: it pulls the latest image,
-// resolves mounts, removes the existing container (if any), and creates a
-// replacement, leaving the Nix store volume intact.
-func runRecreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues []string) error {
-	p, _, err := resolveContainerParams(deps, projectFlag, mountFlagValues)
+// resolves mounts from saved config, removes the existing container (if any),
+// and creates a replacement, leaving the Nix store volume intact.
+func runRecreate(cmd *cobra.Command, deps Deps, projectFlag string) error {
+	p, err := resolveContainerParams(deps, projectFlag)
 	if err != nil {
 		return err
 	}
@@ -151,9 +230,10 @@ func newRemoveCmd(deps Deps, projectFlag *string) *cobra.Command {
 }
 
 // runRemove implements the "remove" subcommand: it stops the container if
-// running, removes the container, and removes the associated Nix store volume.
+// running, removes the container, removes the associated Nix store volume,
+// and deletes the saved project config so a subsequent create starts clean.
 func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
-	_, containerName, err := resolveContainer(deps, projectFlag)
+	project, containerName, err := resolveContainer(deps, projectFlag)
 	if err != nil {
 		return err
 	}
@@ -172,6 +252,9 @@ func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	if err := container.RemoveProjectVolumes(deps.Runner, containerName); err != nil {
 		return fmt.Errorf("removing project volumes: %w", err)
 	}
+	if err := config.Delete(project); err != nil {
+		return fmt.Errorf("removing project config: %w", err)
+	}
 	fmt.Fprintf(cmd.OutOrStdout(), "container %s removed\n", containerName)
 	return nil
 }
@@ -179,12 +262,12 @@ func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
 // newShellCmd returns the cobra.Command for the "shell" subcommand, which
 // opens an interactive bash shell in the managed container, creating and
 // starting it if needed.
-func newShellCmd(deps Deps, projectFlag *string, mountFlags *[]string) *cobra.Command {
+func newShellCmd(deps Deps, projectFlag *string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "shell",
 		Short: "Open an interactive shell inside the container",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return ensureContainerAndExec(cmd, deps, *projectFlag, *mountFlags)
+			return ensureContainerAndExec(cmd, deps, *projectFlag)
 		},
 	}
 }

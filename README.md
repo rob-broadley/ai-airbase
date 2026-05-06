@@ -75,32 +75,54 @@ Containers are **persistent by default** — stopping a container does not remov
 
 ## Usage
 
-Running `marshal` with no subcommand is the main workflow. It starts the revetment for the current project (creating it if needed) and launches Copilot CLI.
+`marshal create` sets up a new project — it saves the mount configuration and creates the container. Run it once per project.
 
-By default, the current directory is mounted as the working directory inside the container:
+`marshal` with no subcommand is the main day-to-day workflow: it attaches to the existing project container (or creates one with a CWD mount if no config exists yet) and launches Copilot CLI.
 
 ```sh
+# First-time setup — mount the project and an adjacent shared library:
+marshal create --mount ../shared-lib
+
+# Or with no extra mounts (current directory is used):
+marshal create
+
+# Subsequently, just run marshal to attach:
 marshal
 ```
 
-If you need to bring in multiple directories, use `--mount` for each one. When any `--mount` flags are given, the current directory is no longer mounted directly — instead, each specified directory is mounted inside the container working directory:
-
-```sh
-marshal --mount ../shared-lib --mount ~/configs
-```
-
-Mount paths are saved to the project's config file, so you only need to specify them once — subsequent runs of `marshal` will use them automatically.
+Mount paths are saved to config by `create`, so all subsequent commands use them automatically.
 
 ### Global Options
 
 | Flag               | Short | Description                                    |
 | ------------------ | ----- | ---------------------------------------------- |
 | `--project <name>` | `-p`  | Project name (default: current directory name) |
-| `--mount <path>`   | `-m`  | Extra directory to bind mount (repeatable)     |
 | `--help`           | `-h`  | Show help                                      |
 | `--version`        | `-v`  | Show version                                   |
 
 The project name can also be set via the `MARSHAL_PROJECT` environment variable. The `--project` flag takes precedence.
+
+`marshal create` has its own `--mount` flag for specifying extra bind mounts — see the [`marshal create`](#marshal-create) section below.
+
+______________________________________________________________________
+
+### `marshal create`
+
+Set up a new project: saves the mount configuration and creates the container. This is the first command to run for any new project.
+
+If no `--mount` flags are given, the current directory is used as the sole mount. When `--mount` flags are provided, each specified path is mounted inside the container working directory.
+
+Errors if the project already exists. To change mounts, use `marshal remove` then `marshal create`.
+
+```sh
+marshal create
+marshal create --mount ../shared-lib --mount ~/configs
+marshal create --project my-app --mount /abs/path
+```
+
+| Flag             | Short | Description                                             |
+| ---------------- | ----- | ------------------------------------------------------- |
+| `--mount <path>` | `-m`  | Directory to bind mount into the container (repeatable) |
 
 ______________________________________________________________________
 
@@ -203,7 +225,7 @@ paths = [
 ]
 ```
 
-You don't normally need to edit these files by hand — `marshal` writes them when you pass `--mount`.
+You don't normally need to edit these files by hand — `marshal` writes them when you run `marshal create`, saving either the explicit `--mount` paths or the current directory when no mounts are specified.
 
 ## Environment Variables
 
@@ -218,10 +240,10 @@ Containers are named `marshal-<project>`. For example, a project named `my-app` 
 
 ## Roadmap
 
-- [x] Container lifecycle management (`stop`, `remove`, `recreate`)
+- [x] Container lifecycle management (`create`, `stop`, `remove`, `recreate`)
 - [x] Per-project named containers
 - [x] CWD bind mounted as working directory
-- [x] Extra bind mounts via `--mount`
+- [x] Extra bind mounts via `marshal create --mount`
 - [x] On-demand tool installation via Nix inside the container
 - [x] Per-project tool cache — preserved across `recreate`, removed with `remove`
 - [ ] Bundled Copilot CLI agents inside the image

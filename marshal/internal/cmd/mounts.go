@@ -43,9 +43,9 @@ func resolveAbsolutePaths(cwd string, rawPaths []string) ([]string, error) {
 			return nil, fmt.Errorf("mount path %q must not contain ':'", p)
 		}
 		if !filepath.IsAbs(p) {
-			p = filepath.Clean(filepath.Join(cwd, p))
+			p = filepath.Join(cwd, p)
 		}
-		resolved = append(resolved, p)
+		resolved = append(resolved, filepath.Clean(p))
 	}
 	return resolved, nil
 }
@@ -88,51 +88,36 @@ type containerParams struct {
 
 // resolveContainerParams resolves the project name, working directory, config,
 // mounts, credentials, and user identity into a single containerParams value.
-// It returns the resolved params together with a mountsChanged bool that is
-// true when the --mount flags produced a different mount set than what was
-// previously stored in config (used by the caller to decide whether the
-// container must be recreated). When mountsChanged is true the updated config
-// is explicitly persisted here before the params are returned.
+// Mounts are always read from the saved project config; callers that need to
+// update the mount list (e.g. the create subcommand) must persist the config
+// before calling this function.
 // It is the single source of truth for how a container is configured and is
-// called by both ensureContainerAndStart/Exec and runRecreate.
-func resolveContainerParams(deps Deps, projectFlag string, mountFlagValues []string) (params containerParams, mountsChanged bool, err error) {
+// called by ensureContainerAndStart/Exec and runRecreate.
+func resolveContainerParams(deps Deps, projectFlag string) (params containerParams, err error) {
 	project := config.ResolveProject(projectFlag, deps.Getwd)
 	if err := config.ValidateProjectName(project); err != nil {
-		return containerParams{}, false, err
+		return containerParams{}, err
 	}
 	containerName := containerNameForProject(project)
 
 	cwd, err := deps.Getwd()
 	if err != nil {
-		return containerParams{}, false, fmt.Errorf("getting working directory: %w", err)
+		return containerParams{}, fmt.Errorf("getting working directory: %w", err)
 	}
 
 	cfg, err := config.Load(project)
 	if err != nil {
-		return containerParams{}, false, fmt.Errorf("loading config: %w", err)
-	}
-
-	mounts, mountsChanged, err := resolveMountPaths(cwd, mountFlagValues, cfg)
-	if err != nil {
-		return containerParams{}, false, err
-	}
-
-	// resolveMountPaths is a pure helper; persist the updated mount list here
-	// when it reports that the flags produced a different set than was saved.
-	if mountsChanged {
-		if err := deps.saveConfig()(project, cfg); err != nil {
-			return containerParams{}, false, fmt.Errorf("saving config: %w", err)
-		}
+		return containerParams{}, fmt.Errorf("loading config: %w", err)
 	}
 
 	image := deps.resolveImage()
-	mountSpecs := container.ResolveMounts(cwd, mounts)
+	mountSpecs := container.ResolveMounts(cwd, cfg.Mounts)
 
 	workdir := container.WorkdirFromMounts(mountSpecs)
 
 	credMounts, err := buildCredentialMounts(deps)
 	if err != nil {
-		return containerParams{}, false, err
+		return containerParams{}, err
 	}
 	mountSpecs = append(mountSpecs, credMounts...)
 
@@ -144,5 +129,5 @@ func resolveContainerParams(deps Deps, projectFlag string, mountFlagValues []str
 		mountSpecs:    mountSpecs,
 		userConfig:    uc,
 		workdir:       workdir,
-	}, mountsChanged, nil
+	}, nil
 }

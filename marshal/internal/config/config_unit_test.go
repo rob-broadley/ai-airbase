@@ -328,7 +328,53 @@ func TestSave_Overwrite(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. SharedDataPath
+// 7. Delete
+// ---------------------------------------------------------------------------
+
+// TestDelete_RemovesConfigFile verifies that Delete removes a previously saved
+// config file from disk.
+func TestDelete_RemovesConfigFile(t *testing.T) {
+	// Given a config file that was previously saved
+	tmp := t.TempDir()
+	setenv(t, "XDG_CONFIG_HOME", tmp)
+
+	if err := config.Save("deleteproject", &config.Config{Mounts: []string{"/data"}}); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+	path := config.ConfigPath("deleteproject")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Fatalf("expected config file to exist before Delete")
+	}
+
+	// When Delete is called
+	if err := config.Delete("deleteproject"); err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+
+	// Then the file no longer exists
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("expected config file to be absent after Delete, but it exists")
+	}
+}
+
+// TestDelete_NoopWhenFileAbsent verifies that Delete returns nil when the config
+// file does not exist (idempotent behaviour).
+func TestDelete_NoopWhenFileAbsent(t *testing.T) {
+	// Given XDG_CONFIG_HOME points to a temp dir with no config file
+	tmp := t.TempDir()
+	setenv(t, "XDG_CONFIG_HOME", tmp)
+
+	// When Delete is called for a project that has no config file
+	err := config.Delete("nonexistent")
+
+	// Then no error is returned
+	if err != nil {
+		t.Errorf("expected nil error for absent config, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 8. SharedDataPath
 // ---------------------------------------------------------------------------
 
 // TestSharedDataPath_XDGOverride verifies that SharedDataPath returns a path
