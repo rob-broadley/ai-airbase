@@ -63,6 +63,35 @@ func TestDefaultCmd_ConfigFilesFromXDGConfig(t *testing.T) {
 	}
 }
 
+// TestDefaultCmd_GitConfigMounted verifies that the user git config is
+// bind-mounted from XDG_CONFIG_HOME/marshal/git/config so the user's git
+// identity and preferences override the image's /etc/gitconfig.
+func TestDefaultCmd_GitConfigMounted(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	cf := newCredFakes(t)
+	runner := &fakeRunner{exists: false}
+	deps := cmd.Deps{
+		Runner:                runner,
+		ExecFn:                (&fakeExec{}).exec,
+		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
+		Getuid:                func() int { return 1001 },
+		Getgid:                func() int { return 1002 },
+		EnsureSharedDataDir:   cf.dataDirFn,
+		EnsureSharedConfigDir: cf.configDirFn,
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetArgs([]string{"--project", "myapp"})
+	assertNoError(t, root.Execute())
+
+	args := runner.createArgs()
+	want := cf.expectedConfigMount("git/config", container.ContainerGitConfigFile)
+	if !sliceContains(args, want) {
+		t.Errorf("expected git config mount %q in create args\ngot: %v", want, args)
+	}
+}
+
 // TestDefaultCmd_SessionStoreMounted verifies that session-store.db is
 // bind-mounted from the per-project XDG_DATA_HOME/marshal/projects/<project>/
 // path so conversation history is preserved across container recreates.

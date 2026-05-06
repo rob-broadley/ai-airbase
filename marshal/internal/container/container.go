@@ -58,8 +58,9 @@ const (
 	// ContainerCopilotDir is the container-side path for the Copilot extension state directory.
 	ContainerCopilotDir = ContainerUserHome + "/.copilot"
 
-	// ContainerGHCopilotDir is the container-side path for the GitHub Copilot configuration directory.
-	ContainerGHCopilotDir = ContainerUserHome + "/.config/github-copilot"
+	// ContainerGitConfigFile is the XDG user-level git config path inside the container.
+	// This overrides the system /etc/gitconfig baked into the image.
+	ContainerGitConfigFile = ContainerUserHome + "/.config/git/config"
 )
 
 // ---------------------------------------------------------------------------
