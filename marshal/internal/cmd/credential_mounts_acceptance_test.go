@@ -63,34 +63,6 @@ func TestDefaultCmd_ConfigFilesFromXDGConfig(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_AuthDirFromXDGConfig verifies that the GitHub Copilot auth
-// directory is mounted from XDG_CONFIG_HOME/marshal/github-copilot/, not XDG_DATA.
-func TestDefaultCmd_AuthDirFromXDGConfig(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
-	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
-	deps := cmd.Deps{
-		Runner:                runner,
-		ExecFn:                (&fakeExec{}).exec,
-		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
-		Getuid:                func() int { return 1001 },
-		Getgid:                func() int { return 1002 },
-		EnsureSharedDataDir:   cf.dataDirFn,
-		EnsureSharedConfigDir: cf.configDirFn,
-	}
-
-	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
-	assertNoError(t, root.Execute())
-
-	args := runner.createArgs()
-	want := cf.expectedConfigMount("github-copilot", container.ContainerGHCopilotDir)
-	if !sliceContains(args, want) {
-		t.Errorf("expected auth dir mount %q from XDG_CONFIG in create args\ngot: %v", want, args)
-	}
-}
-
 // TestDefaultCmd_SessionStoreMounted verifies that session-store.db is
 // bind-mounted from the per-project XDG_DATA_HOME/marshal/projects/<project>/
 // path so conversation history is preserved across container recreates.
@@ -217,7 +189,7 @@ func TestCredentialMounts_SessionStateIsolatedByProject(t *testing.T) {
 }
 
 // TestCredentialMounts_ConfigSharedAcrossProjects verifies that config files
-// and the auth directory are identical across different projects (shared state).
+// are identical across different projects (shared state).
 func TestCredentialMounts_ConfigSharedAcrossProjects(t *testing.T) {
 	// Given two separate projects "alpha" and "beta" sharing the same config fakes
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -251,21 +223,14 @@ func TestCredentialMounts_ConfigSharedAcrossProjects(t *testing.T) {
 	shared := []struct {
 		subdir        string
 		containerPath string
-		kind          string
 	}{
-		{"copilot/settings.json", container.ContainerCopilotDir + "/settings.json", "config"},
-		{"copilot/mcp-config.json", container.ContainerCopilotDir + "/mcp-config.json", "config"},
-		{"copilot/copilot-instructions.md", container.ContainerCopilotDir + "/copilot-instructions.md", "config"},
-		{"github-copilot", container.ContainerGHCopilotDir, "config"},
+		{"copilot/settings.json", container.ContainerCopilotDir + "/settings.json"},
+		{"copilot/mcp-config.json", container.ContainerCopilotDir + "/mcp-config.json"},
+		{"copilot/copilot-instructions.md", container.ContainerCopilotDir + "/copilot-instructions.md"},
 	}
 
 	for _, tc := range shared {
-		var mount string
-		if tc.kind == "config" {
-			mount = cf.expectedConfigMount(tc.subdir, tc.containerPath)
-		} else {
-			mount = cf.expectedDataMount(tc.subdir, tc.containerPath)
-		}
+		mount := cf.expectedConfigMount(tc.subdir, tc.containerPath)
 		if !sliceContains(alphaArgs, mount) {
 			t.Errorf("alpha: expected shared mount %q\ngot: %v", mount, alphaArgs)
 		}
@@ -307,13 +272,13 @@ func TestRecreate_CredentialMountsIncluded(t *testing.T) {
 	// Then credential mounts (settings and session-store) are included
 	args := runner.createArgs()
 	settingsMount := cf.expectedConfigMount("copilot/settings.json", container.ContainerCopilotDir+"/settings.json")
-	ghcMount := cf.expectedConfigMount("github-copilot", container.ContainerGHCopilotDir)
+	sessionMount := cf.expectedDataMount("projects/myapp/session-store.db", container.ContainerCopilotDir+"/session-store.db")
 
 	if !sliceContains(args, settingsMount) {
 		t.Errorf("recreate: expected settings mount %q\ngot: %v", settingsMount, args)
 	}
-	if !sliceContains(args, ghcMount) {
-		t.Errorf("recreate: expected auth mount %q\ngot: %v", ghcMount, args)
+	if !sliceContains(args, sessionMount) {
+		t.Errorf("recreate: expected session-store mount %q\ngot: %v", sessionMount, args)
 	}
 }
 

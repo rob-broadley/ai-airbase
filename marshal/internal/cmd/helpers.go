@@ -17,8 +17,8 @@ import (
 // buildCredentialMounts returns MountSpec values that bind host credential files
 // into the container. These mounts are shared across all projects unless noted.
 //
-// Config files (settings, mcp-config, etc.) and the GitHub Copilot auth directory
-// come from XDG_CONFIG_HOME so backup tools and dotfile managers handle them.
+// Config files (settings, mcp-config, etc.) come from XDG_CONFIG_HOME so
+// backup tools and dotfile managers handle them.
 //
 // Session-store.db and session-state/ are both per-project under XDG_DATA_HOME
 // so conversation history and checkpoints survive container recreates.
@@ -26,18 +26,8 @@ import (
 // The agents/ and skills/ directories baked into the container image are left
 // untouched — no whole-directory ~/.copilot mount is used.
 func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, error) {
-	specs := make([]container.MountSpec, 0, 8)
+	specs := make([]container.MountSpec, 0, 7)
 	ensureConfigDir := deps.ensureSharedConfigDirFn()
-
-	// GitHub Copilot auth tokens — whole directory, from XDG_CONFIG.
-	ghcPath, err := ensureConfigDir("github-copilot")
-	if err != nil {
-		return nil, fmt.Errorf("ensuring auth dir github-copilot: %w", err)
-	}
-	specs = append(specs, container.MountSpec{
-		HostPath:      ghcPath,
-		ContainerPath: container.ContainerGHCopilotDir,
-	})
 
 	// User-editable config files — individual file mounts from XDG_CONFIG.
 	configDir, err := ensureConfigDir("copilot")
