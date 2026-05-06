@@ -2,22 +2,29 @@ BINARY         := marshal
 DEV_IMAGE      := sapper
 GOMOD_CACHE    := marshal-gomod-cache
 GOBUILD_CACHE  := marshal-gobuild-cache
+IMAGE          := revetment
+VERSION        := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+REVISION       := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+CREATED        := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+BUILD_ARGS     := --build-arg VERSION=$(VERSION) \
+                  --build-arg REVISION=$(REVISION) \
+                  --build-arg CREATED=$(CREATED)
 
-GO := podman run --rm \
+INSTALL_DIR := $(HOME)/.local/bin
+
+# When running inside a container (/.containerenv set by Podman, /.dockerenv by Docker),
+# tools are available directly. Otherwise delegate to the dev container on the host.
+ifneq (,$(or $(wildcard /.containerenv),$(wildcard /.dockerenv)))
+RUN :=
+GORUN = sh -c 'cd $(CURDIR)/marshal && "$$@"' --
+else
+RUN := podman run --rm \
     -v $(CURDIR):/workspace:Z \
     -v $(GOMOD_CACHE):/root/go/pkg/mod \
     -v $(GOBUILD_CACHE):/root/.cache/go-build \
-    -w /workspace/marshal \
     $(DEV_IMAGE)
-IMAGE         := revetment
-VERSION       := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-REVISION      := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
-CREATED       := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-BUILD_ARGS    := --build-arg VERSION=$(VERSION) \
-                 --build-arg REVISION=$(REVISION) \
-                 --build-arg CREATED=$(CREATED)
-
-INSTALL_DIR := $(HOME)/.local/bin
+GORUN = $(RUN) sh -c 'cd /workspace/marshal && "$$@"' --
+endif
 
 .DEFAULT_GOAL := build
 
@@ -31,36 +38,36 @@ image:
 
 build:
 	mkdir -p bin
-	$(GO) go build -ldflags "-X main.version=$(VERSION)" -o ../bin/$(BINARY) ./cmd
+	$(GORUN) go build -ldflags "-X main.version=$(VERSION)" -o ../bin/$(BINARY) ./cmd
 
 test:
-	$(GO) go test -race ./...
+	$(GORUN) go test -race ./...
 
 coverage:
-	$(GO) sh -c 'go test -race -coverprofile=../coverage.txt ./... && go tool cover -html=../coverage.txt -o ../coverage.html'
+	$(GORUN) sh -c 'go test -race -coverprofile=../coverage.txt ./... && go tool cover -html=../coverage.txt -o ../coverage.html'
 
 fmt:
-	$(GO) goimports -w -local github.com/rob-broadley/ai-airbase/marshal .
+	$(GORUN) goimports -w -local github.com/rob-broadley/ai-airbase/marshal .
 
 fmt-check:
-	@$(GO) sh -c 'out=$$(gofmt -l .); [ -z "$$out" ] || { printf "unformatted:\n%s\n" "$$out"; exit 1; }'
+	@$(GORUN) sh -c 'out=$$(gofmt -l .); [ -z "$$out" ] || { printf "unformatted:\n%s\n" "$$out"; exit 1; }'
 
 fmt-md:
-	$(GO) mdformat --wrap keep /workspace
+	$(RUN) mdformat --wrap keep .
 
 fmt-md-check:
-	$(GO) mdformat --check --wrap keep /workspace
+	$(RUN) mdformat --check --wrap keep .
 
 vet:
-	$(GO) go vet ./...
+	$(GORUN) go vet ./...
 
 lint:
-	$(GO) golangci-lint run
+	$(GORUN) golangci-lint run
 
 check: fmt-check fmt-md-check vet lint
 
 tidy:
-	$(GO) go mod tidy
+	$(GORUN) go mod tidy
 
 install: build
 	mkdir -p $(INSTALL_DIR)
