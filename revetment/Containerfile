@@ -50,24 +50,31 @@ mkdir -p \
     $NIX_DIR/store \
     $NIX_DIR/var/nix/profiles \
     $NIX_DIR/var/nix/gcroots
-chmod -R 1777 \
-    $HOME \
-    $WORKSPACE \
-    $NIX_DIR
 # Pre-create the nix profile symlink so PATH resolution works immediately
 # after a recreate, even before the user runs nix profile add.
 # The symlink target ($HOME/.local/state/nix/profiles/profile) lives on the
 # persistent nix-profile volume and is populated at runtime.
 mkdir -p $HOME/.local/state/nix/profiles
 ln -s $HOME/.local/state/nix/profiles/profile $HOME/.nix-profile
+# chmod after all mkdirs so that $HOME/.local and its subtree are also writable
+# by the dynamic runtime user (not just $HOME itself).
+chmod -R 1777 \
+    $HOME \
+    $WORKSPACE \
+    $NIX_DIR
 PERMISSIONS
 
 # Ensure tools installed by the runtime user via `uv tool install`
-# are installed to a dedicated directory under $HOME/.local/share/uv so that
+# are installed to a dedicated directory under $XDG_DATA_HOME/uv so that
 # both tool data and binaries share a single volume mount point.
-ENV UV_TOOL_BIN_DIR=$HOME/.local/share/uv/bin
-ENV UV_TOOL_DIR=$HOME/.local/share/uv/tools
-ENV PATH=$UV_TOOL_BIN_DIR:$HOME/.nix-profile/bin:$PATH
+ENV XDG_DATA_HOME=$HOME/.local/share
+ENV UV_TOOL_BIN_DIR=$XDG_DATA_HOME/uv/bin
+ENV UV_TOOL_DIR=$XDG_DATA_HOME/uv/tools
+# Configure npm, Go, and Rust to install under XDG_DATA_HOME for consistency.
+ENV NPM_CONFIG_PREFIX=$XDG_DATA_HOME/npm
+ENV GOPATH=$XDG_DATA_HOME/go
+ENV CARGO_HOME=$XDG_DATA_HOME/cargo
+ENV PATH=$UV_TOOL_BIN_DIR:$HOME/.nix-profile/bin:$NPM_CONFIG_PREFIX/bin:$GOPATH/bin:$CARGO_HOME/bin:$PATH
 
 # Declare the paths that require persistent external volume mounts.
 # The Nix store holds all downloaded packages; the nix state directory holds
@@ -76,7 +83,7 @@ ENV PATH=$UV_TOOL_BIN_DIR:$HOME/.nix-profile/bin:$PATH
 # Callers (e.g. marshal) are responsible for providing named volumes at these
 # paths — anonymous volumes created by the runtime are not sufficient.
 # Note: VOLUME does not expand ENV variables, so paths must be hardcoded and
-# kept in sync with $NIX_STORE and $HOME manually. The corresponding
+# kept in sync with $NIX_STORE and $XDG_DATA_HOME manually. The corresponding
 # io.ai-airbase.volume.* labels below use ENV vars and are the authoritative
 # source — update both if these paths ever change.
 VOLUME /nix/store
@@ -105,6 +112,6 @@ LABEL org.opencontainers.image.title="revetment" \
       io.ai-airbase.component="revetment" \
       io.ai-airbase.volume.nix-store=$NIX_STORE \
       io.ai-airbase.volume.nix-profile=$HOME/.local/state/nix \
-      io.ai-airbase.volume.uv-tools=$HOME/.local/share/uv
+      io.ai-airbase.volume.uv-tools=$XDG_DATA_HOME/uv
 
 CMD ["copilot"]
