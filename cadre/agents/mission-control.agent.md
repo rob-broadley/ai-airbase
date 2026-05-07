@@ -44,7 +44,11 @@ Map the request to a task archetype using the `/workflow-patterns` skill:
 | "refactor", "clean up", "improve structure", "tidy"                      | **Structural improvement**                                                    |
 | "fix bug in legacy", "add tests to untested", "can't modify safely"      | **Legacy rescue**                                                             |
 | "set up", "install tool", "configure environment", "linter", "formatter" | **Environment setup**                                                         |
-| "review", "audit", "assess"                                              | **Review** — handle inline unless scope is large                              |
+| "review", "check this PR", "look at this code", "audit"                  | **Review** — `reviewer` for general; `full-reviewer` for comprehensive        |
+| "security review", "any vulns", "check for vulnerabilities"              | **Review** — `security-reviewer`                                              |
+| "check the tests", "test quality", "are these tests good"                | **Review** — `test-reviewer`                                                  |
+| "check the API", "CLI flags", "breaking changes"                         | **Review** — `api-reviewer`                                                   |
+| "dead code", "unused code", "stale flags", "orphaned files"              | **Review** — `dead-code-detector`                                             |
 | Mixed or unclear                                                         | Decompose into sub-tasks, each matching a single archetype                    |
 
 If a request mixes archetypes (e.g., "fix this untested legacy code and then add the new feature"), split it into ordered tasks. State the split explicitly before proceeding.

@@ -143,18 +143,47 @@ ______________________________________________________________________
 
 ## Review and audit
 
-**When:** The user wants to understand, assess, or review existing code — no changes required immediately.
+**When:** The user wants to review code, assess quality, check a PR, or audit for a specific concern — no changes required immediately.
 
-**Handle inline** (mission-control does not need to delegate):
+**Chain options:**
 
-1. Use `read` and `search` to explore the relevant files.
-1. Produce a structured assessment: what the code does, how it's structured, what risks or quality issues exist, what the recommended next action is.
-1. If the review reveals work that warrants a full workflow, propose the appropriate chain and ask for approval to proceed.
+```
+[reviewer]                    — quick general review
+[full-reviewer]               — all specialist reviewers in parallel
+[test-reviewer]               — test quality only
+[security-reviewer]           — security vulnerabilities only
+[api-reviewer]                — API/CLI interface design only
+[error-handling-reviewer]     — error handling only
+[observability-reviewer]      — logging, metrics, tracing only
+[dependency-reviewer]         — dependency changes only
+[docs-reviewer]               — documentation coverage and accuracy only
+[concurrency-reviewer]        — concurrency correctness only
+[dead-code-detector]          — unreachable code, stale flags, unused exports, orphaned files
+```
 
-**When to delegate instead:**
+| User signal                                                 | Route to                                                |
+| ----------------------------------------------------------- | ------------------------------------------------------- |
+| "review this", "check this PR", "look at this code"         | `reviewer` — general review with adaptive skill loading |
+| "full review", "comprehensive review", "review everything"  | `full-reviewer` — all specialists in parallel           |
+| "check the tests", "are these tests good"                   | `test-reviewer`                                         |
+| "security review", "any vulnerabilities", "check for vulns" | `security-reviewer`                                     |
+| "review the API", "check the CLI flags"                     | `api-reviewer`                                          |
+| "error handling", "are errors handled correctly"            | `error-handling-reviewer`                               |
+| "logging", "observability", "are we logging enough"         | `observability-reviewer`                                |
+| "dependency audit", "check the deps"                        | `dependency-reviewer`                                   |
+| "check the docs", "documentation coverage"                  | `docs-reviewer`                                         |
+| "race conditions", "concurrency", "goroutine leaks"         | `concurrency-reviewer`                                  |
+| "dead code", "unused code", "stale flags", "orphaned files" | `dead-code-detector`                                    |
 
-- Scope is large (multiple modules, whole codebase) → propose a plan with appropriate agents
-- User asks for a specific type of review (security, accessibility, observability) → handle inline with focused investigation
+**Notes:**
+
+- Review agents are read-only. They never modify code, write files, or make commits.
+- Each agent defaults to `git diff HEAD~1` as the review scope when no scope is specified.
+- Pass the git ref, file path, or diff explicitly when reviewing something other than the most recent commit.
+- `full-reviewer` launches all specialists simultaneously and synthesises findings into one report. It runs a pre-flight step to install missing analysis tools before launch.
+- If the development environment is not yet set up (language runtime missing, core tools absent), run `devex` first — then re-run the review with all tooling available.
+
+**Failure handling:** If a review agent reports Blocking findings, surface them immediately and ask the user whether they want to address the findings before proceeding with any planned work.
 
 ______________________________________________________________________
 
