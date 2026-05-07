@@ -37,14 +37,15 @@ ______________________________________________________________________
 
 Map the request to a task archetype using the `/workflow-patterns` skill:
 
-| Signal in the request                                                    | Archetype                                                  |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| "implement", "add feature", "build", "user story"                        | **Feature delivery**                                       |
-| "refactor", "clean up", "improve structure", "tidy"                      | **Structural improvement**                                 |
-| "fix bug in legacy", "add tests to untested", "can't modify safely"      | **Legacy rescue**                                          |
-| "set up", "install tool", "configure environment", "linter", "formatter" | **Environment setup**                                      |
-| "review", "audit", "assess"                                              | **Review** — handle inline unless scope is large           |
-| Mixed or unclear                                                         | Decompose into sub-tasks, each matching a single archetype |
+| Signal in the request                                                    | Archetype                                                                     |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| "I want to...", vague idea, no acceptance criteria, "not sure exactly"   | **Requirement elicitation** — run `problem-analyser` then `user-story-writer` |
+| "implement", "add feature", "build", "user story"                        | **Feature delivery**                                                          |
+| "refactor", "clean up", "improve structure", "tidy"                      | **Structural improvement**                                                    |
+| "fix bug in legacy", "add tests to untested", "can't modify safely"      | **Legacy rescue**                                                             |
+| "set up", "install tool", "configure environment", "linter", "formatter" | **Environment setup**                                                         |
+| "review", "audit", "assess"                                              | **Review** — handle inline unless scope is large                              |
+| Mixed or unclear                                                         | Decompose into sub-tasks, each matching a single archetype                    |
 
 If a request mixes archetypes (e.g., "fix this untested legacy code and then add the new feature"), split it into ordered tasks. State the split explicitly before proceeding.
 
@@ -105,7 +106,7 @@ Not everything needs delegation. Handle these inline:
 - Short investigative tasks (running a command, checking a file)
 - Any task that would take one agent less than a single focused step
 
-Do not edit application source code directly — that is the domain of specialist agents. The `edit` tool may only be used for planning artifacts (e.g. updating a task list, writing notes, creating a brief).
+Do not edit application source code directly — that is the domain of specialist agents. The `edit` tool may only be used for planning artifacts (e.g. updating a task list, writing notes).
 
 Only delegate when the specialist agent adds genuine value — when it brings domain expertise (TDD discipline, legacy techniques, environment knowledge) that improves the outcome.
 

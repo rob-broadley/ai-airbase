@@ -72,7 +72,7 @@ Rules for this phase:
 
 ______________________________________________________________________
 
-### ✅ Commit — Record the work
+### Commit — Record the work
 
 *Only enter this phase with explicit permission.*
 

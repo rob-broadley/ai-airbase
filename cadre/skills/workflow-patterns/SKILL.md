@@ -13,27 +13,54 @@ These are templates, not rules. Adapt based on what you find in the codebase. Th
 
 ______________________________________________________________________
 
-## Feature delivery
+## Requirement elicitation
 
-**When:** The user wants to add new behaviour — a feature, user story, or acceptance criterion.
-
-**Precondition check:** Before starting, confirm the development environment is ready. If the test runner is not configured or baseline tests are not passing, run the `devex` step first.
+**When:** The request is vague, the problem isn't fully understood, or the user hasn't described acceptance criteria. Run this before any execution workflow when requirements are unclear.
 
 **Chain:**
 
 ```
-[devex?] → [atdd] → [refactor?]
+[problem-analyser] → [user-story-writer]
 ```
 
-| Step         | Agent      | Hand it                                                               | Success                                                                 |
-| ------------ | ---------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| 0 (optional) | `devex`    | Project language/framework; what tooling is needed                    | Test runner works; `make test` or equivalent passes cleanly             |
-| 1            | `atdd`     | User story + acceptance criteria; relevant source files; test command | Acceptance test passes; new behaviour works end-to-end; committed       |
-| 2 (optional) | `refactor` | Files changed in step 1; passing test suite; complexity baseline      | No method over CC 10; no new SRP violations; metrics stable or improved |
+| Step | Agent               | Hand it                                  | Success                                                                                   |
+| ---- | ------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 1    | `problem-analyser`  | The raw request as the user expressed it | An approved problem analysis: goal, subproblem decomposition, contradictions, NFRs, risks |
+| 2    | `user-story-writer` | The approved problem analysis            | An approved story set: INVEST-scored stories with AC, dependency diagram, risk/value/size |
 
 **Notes:**
 
-- The `atdd` agent's internal Refactor phase covers local cleanup of the code written in the Green phase — making the new code readable and principle-compliant. The optional post-feature `refactor` step (step 2) is for broader structural review: god classes introduced, coupling increased, metrics degraded. Only run step 2 if cyclomatic complexity or coupling metrics degraded measurably during step 1.
+- Run both steps in sequence. The `user-story-writer` input is the `problem-analyser` output — do not skip step 1.
+- Do not run either agent when requirements are already clear and testable — it adds no value and creates friction.
+- If the user is technical and has expressed the requirement as a clear story with acceptance criteria, skip both and go directly to feature delivery.
+
+**Failure handling:** If the user cannot answer the Impact Mapping questions (especially "Why?"), the work should not start. Surface the missing goal as a blocker and stop.
+
+______________________________________________________________________
+
+## Feature delivery
+
+**When:** The user wants to add new behaviour — a feature, user story, or acceptance criterion.
+
+**Precondition check:** Before starting, confirm the development environment is ready. If the test runner is not configured or baseline tests are not passing, run the `devex` step first. If requirements are vague, run the `analyst` step first.
+
+**Chain:**
+
+```
+[problem-analyser?] → [user-story-writer?] → [devex?] → [atdd] → [refactor?]
+```
+
+| Step         | Agent               | Hand it                                                               | Success                                                                 |
+| ------------ | ------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 0 (optional) | `problem-analyser`  | The raw request; project README                                       | Approved problem analysis: goal, subproblems, contradictions, NFRs      |
+| 1 (optional) | `user-story-writer` | Approved problem analysis                                             | Approved stories with AC, INVEST scores, risk/value/size                |
+| 2 (optional) | `devex`             | Project language/framework; what tooling is needed                    | Test runner works; `make test` or equivalent passes cleanly             |
+| 3            | `atdd`              | User story + acceptance criteria; relevant source files; test command | Acceptance test passes; new behaviour works end-to-end; committed       |
+| 4 (optional) | `refactor`          | Files changed in step 3; passing test suite; complexity baseline      | No method over CC 10; no new SRP violations; metrics stable or improved |
+
+**Notes:**
+
+- The `atdd` agent's internal Refactor phase covers local cleanup of the code written in the Green phase — making the new code readable and principle-compliant. The optional post-feature `refactor` step (step 3) is for broader structural review: god classes introduced, coupling increased, metrics degraded. Only run step 3 if cyclomatic complexity or coupling metrics degraded measurably during step 2.
 - If the story touches untested legacy code, insert a `legacy-code` step before `atdd`.
 
 **Failure handling:** If `atdd` cannot make the acceptance test pass, STOP. Do not run the optional refactor step. Report the failing test and the implementation state to the user.
@@ -157,6 +184,7 @@ ______________________________________________________________________
 
 Apply these when composing or adapting chains:
 
+1. **Clarity before planning.** A vague brief produces a vague plan. If the requirement is unclear, run `problem-analyser` then `user-story-writer` before building a plan. Do not plan against ambiguity.
 1. **Environment before feature.** A broken test suite poisons every subsequent step. Always confirm the environment is working before writing new code.
 1. **Safety net before structure.** Never run `refactor` on code with no passing tests. Insert `legacy-code` first.
 1. **Behaviour before cleanup.** In legacy rescue, establish the seams and characterisation tests before writing new behaviour. Don't refactor and add features simultaneously.
