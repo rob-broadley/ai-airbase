@@ -399,4 +399,3 @@ func TestRecreate_CredentialMountsIncluded(t *testing.T) {
 		t.Errorf("recreate: expected session-store mount %q\ngot: %v", sessionMount, args)
 	}
 }
-

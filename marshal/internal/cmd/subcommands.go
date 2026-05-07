@@ -76,12 +76,8 @@ func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValue
 		return err
 	}
 
-	namedVolumes, err := provisionVolumes(deps.Runner, p.containerName, p.image)
-	if err != nil {
+	if err := createContainerWithVolumes(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir); err != nil {
 		return err
-	}
-	if err := container.Create(deps.Runner, p.containerName, p.image, p.mountSpecs, namedVolumes, p.userConfig, p.workdir); err != nil {
-		return fmt.Errorf("creating container: %w", err)
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "container %s created\n", p.containerName)
@@ -125,6 +121,7 @@ func runStop(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		return nil
 	}
 
+	deps.logger().Info("stopping container", "container", containerName)
 	if err := container.Stop(deps.Runner, containerName); err != nil {
 		return fmt.Errorf("stopping container: %w", err)
 	}
@@ -208,7 +205,7 @@ func runRecreate(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		return err
 	}
 
-	if err := removeAndRecreateContainer(deps.Runner, p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir); err != nil {
+	if err := removeAndRecreateContainer(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir); err != nil {
 		return err
 	}
 
@@ -246,6 +243,7 @@ func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		return fmt.Errorf("container %s does not exist", containerName)
 	}
 
+	deps.logger().Info("removing container", "container", containerName)
 	if err := container.Remove(deps.Runner, containerName); err != nil {
 		return fmt.Errorf("removing container: %w", err)
 	}
@@ -288,6 +286,7 @@ func newPullCmd(deps Deps) *cobra.Command {
 // it, and prints a confirmation message on success.
 func runPull(cmd *cobra.Command, deps Deps) error {
 	image := deps.resolveImage()
+	deps.logger().Info("pulling image", "image", image)
 	if err := container.PullImage(deps.Runner, image, cmd.OutOrStdout(), cmd.ErrOrStderr()); err != nil {
 		return fmt.Errorf("pulling image: %w", err)
 	}

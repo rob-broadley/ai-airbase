@@ -233,13 +233,13 @@ func TestRecreate_PullFails_LocalImageExists_WarnAndProceed(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	pullErr := errors.New("registry unavailable")
-	stderr := &bytes.Buffer{}
 	runner := &fakeRunner{
 		exists:            true,
 		running:           false,
 		pullImageErr:      pullErr,
 		imageExistsResult: true,
 	}
+	var logBuf bytes.Buffer
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -247,17 +247,17 @@ func TestRecreate_PullFails_LocalImageExists_WarnAndProceed(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		Logger:              cmd.NewCLILogger(&logBuf),
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetErr(stderr)
 	root.SetOut(&bytes.Buffer{})
 
 	// When the recreate subcommand is executed
 	root.SetArgs([]string{"--project", "myapp", "recreate"})
 	assertNoError(t, root.Execute())
 
-	// Then a warning is emitted and the container is recreated
+	// Then a warning is emitted via the progress logger and the container is recreated
 	if !runner.pullImageCalled {
 		t.Error("expected PullImage to be called")
 	}
@@ -267,7 +267,7 @@ func TestRecreate_PullFails_LocalImageExists_WarnAndProceed(t *testing.T) {
 	if !runner.calledSubcommand("create") {
 		t.Error("expected container to be created after fallback to local image")
 	}
-	assertContains(t, stderr.String(), "warning")
+	assertContains(t, logBuf.String(), "pull failed")
 }
 
 // TestRecreate_PullSuccess_ProceedsWithRemoveAndCreate verifies that recreate

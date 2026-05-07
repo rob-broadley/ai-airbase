@@ -117,6 +117,7 @@ func TestPullFallback_ForwardsPodmanStderrToUser(t *testing.T) {
 		pullImageErr:         errors.New("exit status 125"),
 		pullStderrOutput:     podmanNoise,
 	}
+	var logBuf bytes.Buffer
 	stderr := &bytes.Buffer{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -125,6 +126,7 @@ func TestPullFallback_ForwardsPodmanStderrToUser(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		Logger:              cmd.NewCLILogger(&logBuf),
 	}
 
 	// When the root command is executed
@@ -141,9 +143,12 @@ func TestPullFallback_ForwardsPodmanStderrToUser(t *testing.T) {
 	if !strings.Contains(got, "unable to copy") {
 		t.Errorf("expected podman Error message to be forwarded to user stderr, got: %q", got)
 	}
-	// Marshal's own fallback warning must also be present
-	if !strings.Contains(got, "warning:") {
-		t.Errorf("expected marshal warning in stderr, got: %q", got)
+	// Marshal's fallback warning is routed through the progress logger, not cobra's stderr
+	if strings.Contains(got, "warning:") {
+		t.Errorf("expected marshal warning to be absent from cobra stderr (should be in logger), got: %q", got)
+	}
+	if !strings.Contains(logBuf.String(), "pull failed") {
+		t.Errorf("expected marshal warning in progress logger output, got: %q", logBuf.String())
 	}
 }
 

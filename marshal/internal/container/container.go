@@ -236,17 +236,29 @@ func ImageVolumeSpecs(r Runner, image string) ([]ImageVolumeSpec, error) {
 
 // EnsureProjectVolume creates a named Podman volume called name if it does not
 // already exist, labelling it with the project label so RemoveProjectVolumes
-// can find it. If the volume already exists (from a previous create cycle) the
-// call is a no-op; any other error is returned.
-func EnsureProjectVolume(r Runner, name, containerName string) error {
-	_, err := r.Run(podmanBin, "volume", "create",
+// can find it. It returns true when the volume was newly created, and false
+// when it already existed. Any unexpected error is returned as the error value.
+func EnsureProjectVolume(r Runner, name, containerName string) (bool, error) {
+	out, err := r.Run(podmanBin, "volume", "ls", "--filter", "name="+name, "--format", "{{.Name}}")
+	if err != nil {
+		return false, fmt.Errorf("checking volume: %w", err)
+	}
+	for _, line := range splitLines(string(out)) {
+		if line == name {
+			return false, nil // volume already exists
+		}
+	}
+	_, err = r.Run(podmanBin, "volume", "create",
 		"--label", labelProject+"="+containerName,
 		name,
 	)
 	if err != nil && strings.Contains(err.Error(), "already exists") {
-		return nil
+		return false, nil
 	}
-	return err
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // RemoveProjectVolumes removes all named Podman volumes that carry the project

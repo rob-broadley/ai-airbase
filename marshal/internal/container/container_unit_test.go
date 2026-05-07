@@ -682,22 +682,25 @@ func TestImageVolumeSpecs_VolumeInspectError_ReturnsError(t *testing.T) {
 }
 
 // TestEnsureProjectVolume_CreatesVolume verifies that EnsureProjectVolume calls
-// "podman volume create" with the project label.
+// "podman volume create" with the project label when the volume does not exist.
 func TestEnsureProjectVolume_CreatesVolume(t *testing.T) {
-	// Given a runner that succeeds
-	r := newFake(okEmpty())
+	// Given a runner: volume ls returns empty (does not exist), then create succeeds
+	r := newFake(okOut(""), okEmpty())
 
 	// When EnsureProjectVolume is called
-	err := container.EnsureProjectVolume(r, "marshal-myapp-nix-store", "marshal-myapp")
+	created, err := container.EnsureProjectVolume(r, "marshal-myapp-nix-store", "marshal-myapp")
 
-	// Then no error is returned and volume create was called
+	// Then no error is returned, created is true, and volume create was called
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(r.calls) != 1 {
-		t.Fatalf("expected 1 call, got %d", len(r.calls))
+	if !created {
+		t.Error("expected created=true for a new volume")
 	}
-	args := r.calls[0].args
+	if len(r.calls) != 2 {
+		t.Fatalf("expected 2 calls (ls then create), got %d", len(r.calls))
+	}
+	args := r.calls[1].args
 	if !hasArg(args, "create") {
 		t.Errorf("expected 'create' in args; got %v", args)
 	}
@@ -709,18 +712,25 @@ func TestEnsureProjectVolume_CreatesVolume(t *testing.T) {
 	}
 }
 
-// TestEnsureProjectVolume_AlreadyExists_NoError verifies that EnsureProjectVolume
-// returns nil when podman reports the volume already exists.
-func TestEnsureProjectVolume_AlreadyExists_NoError(t *testing.T) {
-	// Given a runner that returns an "already exists" error
-	r := newFake(errOut(errors.New("volume marshal-myapp-nix-store already exists")))
+// TestEnsureProjectVolume_AlreadyExists_ReturnsNotCreated verifies that
+// EnsureProjectVolume returns (false, nil) without calling volume create when
+// the volume already exists, so that callers can skip spurious log output.
+func TestEnsureProjectVolume_AlreadyExists_ReturnsNotCreated(t *testing.T) {
+	// Given a runner: volume ls returns the volume name (it already exists)
+	r := newFake(okOut("marshal-myapp-nix-store"))
 
 	// When EnsureProjectVolume is called
-	err := container.EnsureProjectVolume(r, "marshal-myapp-nix-store", "marshal-myapp")
+	created, err := container.EnsureProjectVolume(r, "marshal-myapp-nix-store", "marshal-myapp")
 
-	// Then nil is returned (idempotent)
+	// Then nil is returned, created is false, and volume create was not called
 	if err != nil {
-		t.Errorf("expected nil for already-exists, got: %v", err)
+		t.Errorf("expected nil for existing volume, got: %v", err)
+	}
+	if created {
+		t.Error("expected created=false for a pre-existing volume")
+	}
+	if len(r.calls) != 1 {
+		t.Errorf("expected only 1 call (volume ls), got %d: %v", len(r.calls), r.calls)
 	}
 }
 

@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"log/slog"
 	"os"
 	"os/exec"
 	"syscall"
@@ -20,14 +21,14 @@ type ExecFunc func(argv []string) error
 // Deps holds injectable dependencies so commands can be tested without real
 // Podman or a real working directory.
 type Deps struct {
-	Runner               container.Runner
-	ExecFn               ExecFunc
-	Getwd                func() (string, error)
-	Getuid               func() int
-	Getgid               func() int
-	EnsureSharedDataDir  func(subdir string) (string, error)
+	Runner                container.Runner
+	ExecFn                ExecFunc
+	Getwd                 func() (string, error)
+	Getuid                func() int
+	Getgid                func() int
+	EnsureSharedDataDir   func(subdir string) (string, error)
 	EnsureSharedConfigDir func(subdir string) (string, error)
-	SaveConfig           func(project string, cfg *config.Config) error // defaults to config.Save
+	SaveConfig            func(project string, cfg *config.Config) error // defaults to config.Save
 	// LookupGitConfig reads a git configuration key (e.g. "user.name") from the
 	// host and returns its trimmed value, or an empty string if unset or on error.
 	// Defaults to lookupHostGitConfig.
@@ -37,6 +38,10 @@ type Deps struct {
 	// published revetment image. Override in tests to fix the image name without
 	// touching the environment.
 	ResolveImage func() string
+	// Logger receives progress messages during slow operations (image pulls,
+	// container creation, volume provisioning). When nil, a discard logger is
+	// used so callers that do not inject a logger are not affected.
+	Logger *slog.Logger
 }
 
 // saveConfig returns the effective config-save function: the injected one or config.Save.
@@ -66,6 +71,15 @@ func (d Deps) lookupGitConfigFn() func(string) string {
 		return d.LookupGitConfig
 	}
 	return func(string) string { return "" }
+}
+
+// logger returns the injected Logger or a discard logger when none is set.
+// All code should use this accessor rather than accessing Logger directly.
+func (d Deps) logger() *slog.Logger {
+	if d.Logger != nil {
+		return d.Logger
+	}
+	return slog.New(slog.DiscardHandler)
 }
 
 // package-level defaultImage free function (which reads MARSHAL_IMAGE).
@@ -117,6 +131,7 @@ func Execute(version string) {
 		SaveConfig:            config.Save,
 		LookupGitConfig:       lookupHostGitConfig,
 		ResolveImage:          defaultImage,
+		Logger:                NewCLILogger(os.Stderr),
 	}
 	rootCmd := NewRootCmd(deps)
 	rootCmd.Version = version

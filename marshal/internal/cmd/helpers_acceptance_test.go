@@ -59,6 +59,12 @@ type fakeRunner struct {
 	imageExistsResult    bool
 	imageExistsAfterPull bool
 	pullImageCalled      bool
+	// imageInspectVolumeJSON overrides the JSON returned for image inspect
+	// --format "{{json .Config.Volumes}}". Defaults to "{}" when empty.
+	imageInspectVolumeJSON string
+	// imageInspectLabelJSON overrides the JSON returned for image inspect
+	// --format "{{json .Config.Labels}}". Defaults to "{}" when empty.
+	imageInspectLabelJSON string
 }
 
 func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
@@ -117,6 +123,22 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 		return []byte(""), nil
 
 	case "image":
+		// Differentiate between the two image inspect format calls so tests
+		// can inject custom volume and label JSON for volume provisioning.
+		for i, a := range args {
+			if a == "--format" && i+1 < len(args) {
+				switch {
+				case strings.Contains(args[i+1], "Volumes"):
+					if f.imageInspectVolumeJSON != "" {
+						return []byte(f.imageInspectVolumeJSON), nil
+					}
+				case strings.Contains(args[i+1], "Labels"):
+					if f.imageInspectLabelJSON != "" {
+						return []byte(f.imageInspectLabelJSON), nil
+					}
+				}
+			}
+		}
 		// Return empty JSON for any image inspect format query (Config.Volumes,
 		// Config.Labels, etc.) so callers see no declared volumes by default.
 		return []byte("{}"), nil

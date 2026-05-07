@@ -145,7 +145,7 @@ func TestAutoPull_PullFails_ImageExistsLocally_WarnsAndContinues(t *testing.T) {
 		pullImageErr:         pullErr,
 	}
 	fe := &fakeExec{}
-	stderr := &bytes.Buffer{}
+	var logBuf bytes.Buffer
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              fe.exec,
@@ -153,18 +153,18 @@ func TestAutoPull_PullFails_ImageExistsLocally_WarnsAndContinues(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		Logger:              cmd.NewCLILogger(&logBuf),
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetErr(stderr)
 	root.SetArgs([]string{"--project", "myapp"})
 
 	// When the root command is executed
 	assertNoError(t, root.Execute())
 
-	// Then a pull-failure warning is emitted to stderr and the container is created
-	if !strings.Contains(stderr.String(), "pull") {
-		t.Errorf("expected a pull-failure warning in stderr, got: %q", stderr.String())
+	// Then a pull-failure warning is emitted via the progress logger and the container is created
+	if !strings.Contains(logBuf.String(), "pull failed") {
+		t.Errorf("expected a pull-failure warning in logger output, got: %q", logBuf.String())
 	}
 	if !runner.calledSubcommand("create") {
 		t.Error("expected container to be created despite pull failure (image exists locally)")
