@@ -1,24 +1,24 @@
 # golangci-lint configuration for AI-Airbase
 # https://golangci-lint.run/usage/configuration/
 
+version: "2"
+
 run:
   timeout: 5m
 
 linters:
   # Disable the default set and explicitly enable what we want.
-  disable-all: true
+  default: none
   enable:
     # --- Correctness ---
     # Go vet: catches suspicious constructs (printf format mismatches, etc.)
     - govet
     # Unchecked error returns — critical for a CLI that runs external commands.
     - errcheck
-    # Comprehensive static analysis (supersedes golint, gas, etc.)
+    # Comprehensive static analysis (supersedes golint, gosimple, gas, etc.)
     - staticcheck
 
     # --- Simplification & dead code ---
-    # Suggests code simplifications (e.g. s[0:n] → s[:n]).
-    - gosimple
     # Variables assigned but never used after assignment.
     - ineffassign
     # Unused exported/unexported identifiers.
@@ -27,63 +27,85 @@ linters:
     # --- Style & formatting ---
     # Spelling mistakes in comments and string literals.
     - misspell
+    # Opinionated style checks; highlights common anti-patterns.
+    - gocritic
+
+  settings:
+    govet:
+      # Enable all analyzers except shadow — the `if err := foo(); err != nil` pattern
+      # is idiomatic Go, and shadow warnings on it are false positives.
+      enable-all: true
+      disable:
+        - shadow
+        - fieldalignment
+
+    errcheck:
+      # Check for errors ignored with `_ = expr`.
+      check-blank: false
+      # Also check type-asserted errors (e.g. `val, _ := x.(T)`).
+      check-type-assertions: true
+      # Writing to stdout/stderr almost never fails in practice; ignoring the
+      # return value of fmt.Fprintf/Fprint/Fprintln is idiomatic for CLI tools.
+      # Likewise, Close() errors after write errors are typically secondary.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (*os.File).Close
+        - (io.Closer).Close
+
+    misspell:
+      locale: UK
+      # "broadley" is the author's surname (Rob Broadley), not a misspelling.
+      ignore-rules:
+        - broadley
+
+    gocritic:
+      # Enable all stable checks; disable individual ones below if they're too noisy.
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        # hugeParam warns about large value copies — not relevant at this scale.
+        - hugeParam
+        # whyNoLint requires explanations for every nolint comment — too strict.
+        - whyNoLint
+
+  exclusions:
+    rules:
+      # errcheck is less critical in test files — failures surface as test panics.
+      - path: _test\.go
+        linters:
+          - errcheck
+      # gocritic's paramTypeCombine and unnamedResult checks fire on many interface
+      # methods and test helpers; suppress in tests.
+      - path: _test\.go
+        linters:
+          - gocritic
+      # misspell flags "broadley" in import paths; suppress those source lines.
+      - source: '"github\.com/rob-broadley'
+        linters:
+          - misspell
+
+formatters:
+  enable:
     # Enforces gofmt formatting (check only — run `gofmt -w` to fix).
     - gofmt
     # Ensures imports are grouped and ordered correctly.
     - goimports
-    # Opinionated style checks; highlights common anti-patterns.
-    - gocritic
 
-linters-settings:
-  govet:
-    # Enable all analyzers except shadow — the `if err := foo(); err != nil` pattern
-    # is idiomatic Go, and shadow warnings on it are false positives.
-    enable-all: true
-    disable:
-      - shadow
+  settings:
+    gofmt:
+      # Enforce `gofmt -s` simplifications as well.
+      simplify: true
 
-  errcheck:
-    # Check for errors ignored with `_ = expr`.
-    check-blank: true
-    # Also check type-asserted errors (e.g. `val, _ := x.(T)`).
-    check-type-assertions: true
-
-  gofmt:
-    # Enforce `gofmt -s` simplifications as well.
-    simplify: true
-
-  goimports:
-    # Group local module imports separately from stdlib and third-party.
-    local-prefixes: github.com/rob-broadley/ai-airbase/marshal
-
-  misspell:
-    locale: UK
-    ignore-words:
-      - broadley
-
-  gocritic:
-    # Enable all stable checks; disable individual ones below if they're too noisy.
-    enabled-tags:
-      - diagnostic
-      - style
-      - performance
-    disabled-checks:
-      # hugeParam warns about large value copies — not relevant at this scale.
-      - hugeParam
-      # whyNoLint requires explanations for every nolint comment — too strict.
-      - whyNoLint
+    goimports:
+      # Group local module imports separately from stdlib and third-party.
+      local-prefixes:
+        - github.com/rob-broadley/ai-airbase/marshal
 
 issues:
   # Show every issue; don't suppress after a count threshold.
   max-issues-per-linter: 0
   max-same-issues: 0
-
-  exclude-rules:
-    # errcheck is less critical in test files — failures surface as test panics.
-    - path: _test\.go
-      linters:
-        - errcheck
-    # gocritic's unnamedResult check fires on many interface methods; suppress in tests.
-    - path: _test\.go
-      linters:
-        - gocritic
