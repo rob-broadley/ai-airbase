@@ -137,7 +137,10 @@ func removeAndRecreateContainer(runner container.Runner, log *slog.Logger, conta
 	if err := container.Create(runner, pendingName, image, mountSpecs, namedVolumes, uc, workdir); err != nil {
 		// Creation failed — clean up any partial pending container (best-effort)
 		// and leave the original container untouched.
-		_ = container.Remove(runner, pendingName)
+		if cleanupErr := container.Remove(runner, pendingName); cleanupErr != nil {
+			log.Warn("failed to clean up pending container after creation failure",
+				"container", pendingName, "err", cleanupErr)
+		}
 		return fmt.Errorf("creating container: %w", err)
 	}
 

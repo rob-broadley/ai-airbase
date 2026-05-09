@@ -23,6 +23,40 @@ make check       # fmt + vet + lint quality gate
 make install     # build + copy to ~/.local/bin
 ```
 
+## Pre-commit hooks
+
+Install [pre-commit](https://pre-commit.com/) and register the hooks once:
+
+```sh
+pip install pre-commit
+pre-commit install
+```
+
+Hooks that run on every `git commit`:
+
+| Hook         | What it checks                                                                                            |
+| ------------ | --------------------------------------------------------------------------------------------------------- |
+| File hygiene | Large files, case conflicts, merge markers, private keys, trailing whitespace, line endings, EOF newlines |
+| `gitlint`    | Commit message style (min 15-character title, conventional subject line)                                  |
+| `go-fmt`     | `gofmt` formatting — auto-fixes staged Go files via `make fmt`                                            |
+| `go-vet`     | `go vet` analysis                                                                                         |
+| `go-lint`    | `golangci-lint`                                                                                           |
+| `mdformat`   | Markdown formatting — run `make fmt-md` to fix                                                            |
+
+The Go and Markdown hooks delegate to the existing `make` targets. The Makefile detects whether it is running inside a container by checking the `container` env var (set automatically by Podman and systemd-nspawn); when set it runs tools directly, otherwise it dispatches into the `sapper` dev image.
+
+When committing Go changes outside the dev container, `CGO_ENABLED=0` must be set in the shell so `go vet` and `golangci-lint` work without a C compiler:
+
+```sh
+export CGO_ENABLED=0
+```
+
+To run all hooks against every file manually:
+
+```sh
+pre-commit run --all-files
+```
+
 ## Makefile reference
 
 | Target              | What it does                                               |

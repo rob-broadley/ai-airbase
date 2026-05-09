@@ -1,0 +1,57 @@
+default_stages: [pre-commit]
+default_install_hook_types: [commit-msg, pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-shebang-scripts-are-executable
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-yaml
+      - id: destroyed-symlinks
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  - repo: https://github.com/jorisroovers/gitlint
+    rev: v0.19.1
+    hooks:
+      - id: gitlint
+        args: ["--msg-filename"]
+
+  - repo: local
+    hooks:
+      - id: go-fmt
+        name: go fmt
+        language: unsupported
+        entry: make fmt
+        types: [go]
+        pass_filenames: false
+
+      - id: go-vet
+        name: go vet
+        language: unsupported
+        entry: make vet
+        types: [go]
+        pass_filenames: false
+
+      - id: go-lint
+        name: go lint
+        language: unsupported
+        entry: make lint
+        types: [go]
+        pass_filenames: false
+
+      - id: mdformat
+        name: mdformat
+        language: unsupported
+        entry: make fmt-md
+        types: [markdown]
+        pass_filenames: false

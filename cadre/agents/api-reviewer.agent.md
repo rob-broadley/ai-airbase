@@ -96,8 +96,8 @@ Every finding gets exactly one severity level: Blocking, Recommendation, or Obse
 For each finding you intend to include in the report:
 
 1. **File exists check:** use the `read` tool to open the cited file. If the file does not exist, drop the finding entirely — do not report it.
-2. **Location check:** confirm the cited line number or function name is present in the file. If the specific location cannot be found, either correct it to the actual location or drop the finding.
-3. **Behaviour check:** confirm that the described issue or the described absence of a pattern is actually visible in the code at that location. If the code does not match the finding description, drop the finding.
+1. **Location check:** confirm the cited line number or function name is present in the file. If the specific location cannot be found, either correct it to the actual location or drop the finding.
+1. **Behaviour check:** confirm that the described issue or the described absence of a pattern is actually visible in the code at that location. If the code does not match the finding description, drop the finding.
 
 A finding that cannot be verified against the actual source is not a finding — it is speculation. Do not report unverified findings. If all findings in a severity tier are dropped, omit that tier from the report.
 

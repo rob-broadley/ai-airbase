@@ -14,9 +14,9 @@ BUILD_ARGS     := --build-arg VERSION=$(VERSION) \
 
 INSTALL_DIR := $(HOME)/.local/bin
 
-# When running inside a container (/.containerenv set by Podman, /.dockerenv by Docker),
-# tools are available directly. Otherwise delegate to the dev container on the host.
-ifneq (,$(or $(wildcard /.containerenv),$(wildcard /.dockerenv)))
+# Inside a container the `container` env var is set by Podman and systemd
+# container runtimes. Run tools directly; otherwise delegate to the dev image.
+ifneq (,$(container))
 RUN :=
 GORUN = sh -c 'cd $(CURDIR)/marshal && "$$@"' --
 else

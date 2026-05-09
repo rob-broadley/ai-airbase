@@ -1061,4 +1061,3 @@ func TestValidateProjectName_RejectsPendingNames(t *testing.T) {
 		})
 	}
 }
-
