@@ -77,6 +77,8 @@ Plan: Add order discount feature
 
 Show the plan to the user. Wait for explicit approval before executing any step.
 
+**Environment setup shortcut:** When the archetype is environment setup, the plan is always a single step — `[devex] Analyse the project and install all missing tools`. Do not pre-analyse the environment or inventory installed tools yourself. Pass the project root and any context you have gathered (README, DEVELOPMENT.md content) directly to `devex` and let it own the intake, planning, and confirmation. `devex` has a built-in confirmation gate and the domain expertise for this work.
+
 > "Here is my plan. Shall I proceed?"
 
 Do not begin execution until you receive a clear yes.
@@ -109,6 +111,8 @@ Not everything needs delegation. Handle these inline:
 - Exploring files to understand structure (`read`, `search`)
 - Short investigative tasks (running a command, checking a file)
 - Any task that would take one agent less than a single focused step
+
+**Exception — environment setup:** Do not handle environment analysis or tool installation inline, even as a "short investigative task". Checking what is installed, reading build files to determine tool requirements, and summarising a setup plan are all `devex`'s domain. Delegate immediately.
 
 Do not edit application source code directly — that is the domain of specialist agents. The `edit` tool may only be used for planning artifacts (e.g. updating a task list, writing notes).
 
