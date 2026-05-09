@@ -22,9 +22,12 @@ import (
 // Constants — eliminate magic values and keep command construction DRY.
 // ---------------------------------------------------------------------------
 
-const (
-	podmanBin = "podman"
+// podmanBin is the name (or path) of the Podman executable. It is a package-
+// level variable rather than a constant so that internal tests can substitute a
+// fake binary without requiring a real Podman daemon.
+var podmanBin = "podman"
 
+const (
 	// workspaceDir is the container-side path where project directories are mounted.
 	workspaceDir       = "/workspace"
 	formatNames        = "{{.Names}}"
@@ -135,13 +138,16 @@ func (p PodmanRunner) Run(name string, args ...string) ([]byte, error) {
 // It runs `podman image exists <image>`: exit 0 → present, exit 1 → absent.
 // Any other failure is returned as an error.
 func (p PodmanRunner) ImageExists(image string) (bool, error) {
-	err := exec.Command(podmanBin, "image", "exists", image).Run()
+	out, err := exec.Command(podmanBin, "image", "exists", image).CombinedOutput()
 	if err == nil {
 		return true, nil
 	}
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) && exitErr.ExitCode() == imageAbsentExitCode {
 		return false, nil
+	}
+	if len(out) > 0 {
+		return false, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return false, err
 }

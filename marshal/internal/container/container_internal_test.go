@@ -4,7 +4,46 @@
 // unexported functions directly without exporting them for testing.
 package container
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// TestPodmanRunner_ImageExists_UnexpectedFailureIncludesOutput verifies that
+// when `podman image exists` fails with an unexpected (non-exit-1) error AND
+// produces output (e.g. "Error: cannot connect to Podman socket"), that output
+// is included in the error returned to the caller.
+//
+// Acceptance criterion: error messages from unexpected ImageExists failures
+// include Podman output.
+func TestPodmanRunner_ImageExists_UnexpectedFailureIncludesOutput(t *testing.T) {
+	// Given: a fake podman binary that exits with an unexpected error code (2)
+	// and writes a diagnostic message to stderr.
+	dir := t.TempDir()
+	fakePodman := filepath.Join(dir, "fake-podman")
+	script := "#!/bin/sh\necho 'Error: cannot connect to Podman socket' >&2\nexit 2\n"
+	if err := os.WriteFile(fakePodman, []byte(script), 0o755); err != nil {
+		t.Fatalf("writing fake podman script: %v", err)
+	}
+
+	orig := podmanBin
+	podmanBin = fakePodman
+	t.Cleanup(func() { podmanBin = orig })
+
+	// When: ImageExists is called.
+	_, err := PodmanRunner{}.ImageExists("any-image")
+
+	// Then: an error is returned AND it includes the Podman diagnostic output.
+	if err == nil {
+		t.Fatal("expected an error from unexpected Podman failure, got nil")
+	}
+	const wantSubstr = "cannot connect to Podman socket"
+	if !strings.Contains(err.Error(), wantSubstr) {
+		t.Errorf("error %q does not contain expected Podman output %q", err.Error(), wantSubstr)
+	}
+}
 
 // TestParseInspectOutput_WithLeadingWarning verifies that parseInspectOutput
 // returns the correct image and created values when podman prefixes its output
