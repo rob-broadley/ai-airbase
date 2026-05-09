@@ -159,6 +159,10 @@ Incremental beats rewrite in almost every case — until it doesn't. Lean toward
 
 Document the reasoning. The team that comes after you shouldn't have to figure out why this module was rewritten instead of repaired.
 
+## Tool cache hygiene
+
+Never write language runtime caches inside the repository working directory. If cache environment variables are unset or point inside the workspace, redirect them to directories under `$HOME`.
+
 ______________________________________________________________________
 
 ## Output format

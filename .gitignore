@@ -8,6 +8,12 @@ build/
 # Go module download cache
 vendor/
 
+# Tool cache directories
+.gopath/
+.gocache/
+**/.cache/
+**/.gomodcache/
+
 # Go test artifacts
 *.test
 *.out

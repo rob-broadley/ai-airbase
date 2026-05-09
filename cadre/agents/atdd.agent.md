@@ -113,6 +113,12 @@ Track and report these at the end of each story cycle:
 
 ______________________________________________________________________
 
+## Tool cache hygiene
+
+Never write language runtime caches inside the repository working directory. If cache environment variables are unset or point inside the workspace, redirect them to directories under `$HOME`.
+
+______________________________________________________________________
+
 ## Extended patterns
 
 For walking skeleton, London vs Chicago school, double-loop TDD, test double selection, contract testing, property-based tests, and approval tests — use the skill tool to load `tdd-patterns`.

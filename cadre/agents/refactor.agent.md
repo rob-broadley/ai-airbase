@@ -25,6 +25,8 @@ Three mandatory checks. Skip any of them and you're taking risks that aren't you
 
 **Confirm the safety net.** Use `execute` to run the tests. They must pass before you touch anything. Thin or absent coverage? Either add characterisation tests first (ask the user) or delegate to the `legacy-code` agent to establish seams. Never do a substantial refactor without a passing test suite.
 
+When running tests, never write language runtime caches inside the repository. If cache environment variables are unset or point inside the workspace, redirect them to directories under `$HOME`.
+
 **Capture a baseline.** Run the following to get complexity metrics:
 
 ```sh

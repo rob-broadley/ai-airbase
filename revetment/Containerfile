@@ -80,6 +80,17 @@ ENV NPM_CONFIG_PREFIX=$XDG_DATA_HOME/npm
 ENV GOPATH=$XDG_DATA_HOME/go
 ENV CARGO_HOME=$XDG_DATA_HOME/cargo
 ENV PATH=$UV_TOOL_BIN_DIR:$HOME/.nix-profile/bin:$NPM_CONFIG_PREFIX/bin:$GOPATH/bin:$CARGO_HOME/bin:$PATH
+# Redirect all ecosystem cache directories to XDG paths so that agents and
+# build tools never write caches inside the project workspace directory.
+ENV XDG_CACHE_HOME=$HOME/.cache
+ENV GOCACHE=$XDG_CACHE_HOME/go-build
+ENV UV_CACHE_DIR=$XDG_CACHE_HOME/uv
+ENV PIP_CACHE_DIR=$XDG_CACHE_HOME/pip
+ENV GRADLE_USER_HOME=$XDG_DATA_HOME/gradle
+ENV MAVEN_USER_HOME=$XDG_DATA_HOME/maven
+ENV NUGET_PACKAGES=$XDG_DATA_HOME/nuget
+ENV CONAN_USER_HOME=$XDG_DATA_HOME/conan
+ENV VCPKG_DEFAULT_BINARY_CACHE=$XDG_DATA_HOME/vcpkg
 
 # Declare the paths that require persistent external volume mounts.
 # The Nix store holds all downloaded packages; the nix state directory holds

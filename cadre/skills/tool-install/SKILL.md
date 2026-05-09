@@ -284,3 +284,9 @@ If the tool requires a language runtime that is not installed (for example, Java
 1. Inform the caller that the required runtime is absent and the task cannot be completed until it is installed.
 
 The caller is responsible for deciding whether to install the runtime (using the package manager guidance above) or to defer the work.
+
+______________________________________________________________________
+
+## Cache hygiene
+
+Never write tool caches inside the repository working directory. If a cache or data environment variable is unset or points inside the workspace, redirect it to a directory under `$HOME`. Always check `.github/copilot-instructions.md` for project-specific overrides.
