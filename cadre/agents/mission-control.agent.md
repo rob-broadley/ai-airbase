@@ -1,6 +1,6 @@
 ---
 name: mission-control
-description: Use for any complex or multi-step software task. Plans the work, selects the right specialist agents, confirms the approach with the user, then orchestrates execution. Start here when the task spans more than one concern or you are unsure which agent to use.
+description: Default agent for all software tasks. Plans and coordinates work, selects the right specialist agents, confirms the approach, then orchestrates delivery. Handles feature work, refactoring, bug fixes, environment setup, and reviews. Start here for any task — especially complex or multi-step ones, or when unsure which specialist to use.
 license: AGPL-3.0-or-later
 tools: [read, search, execute, edit, agent]
 ---
