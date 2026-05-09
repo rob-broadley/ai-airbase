@@ -64,8 +64,15 @@ mkdir -p \
 # persistent nix-profile volume and is populated at runtime.
 mkdir -p $HOME/.local/state/nix/profiles
 ln -s $HOME/.local/state/nix/profiles/profile $HOME/.nix-profile
-# chmod after all mkdirs so that $HOME/.local and its subtree are also writable
-# by the dynamic runtime user (not just $HOME itself).
+# Pre-create the uv volume subdirectories so the VOLUME declaration below does
+# not create them as root:root 755. Named volumes are initialised from the image
+# layer on first use, so these must exist (and be world-writable) before the
+# VOLUME instruction is processed.
+mkdir -p \
+    $HOME/.local/share/uv/bin \
+    $HOME/.local/share/uv/tools
+# chmod after all mkdirs so that $HOME and its entire subtree — including the
+# uv volume paths above — are writable by the dynamic runtime user (any host UID).
 chmod -R 1777 \
     $HOME \
     $WORKSPACE \
