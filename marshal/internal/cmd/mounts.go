@@ -84,6 +84,7 @@ type containerParams struct {
 	workdir       string
 	mountSpecs    []container.MountSpec
 	userConfig    container.UserConfig
+	cmd           []string
 }
 
 // resolveContainerParams resolves the project name, working directory, config,
@@ -131,5 +132,6 @@ func resolveContainerParams(deps Deps, projectFlag string) (params containerPara
 		mountSpecs:    mountSpecs,
 		userConfig:    uc,
 		workdir:       workdir,
+		cmd:           container.DefaultContainerCmd,
 	}, nil
 }

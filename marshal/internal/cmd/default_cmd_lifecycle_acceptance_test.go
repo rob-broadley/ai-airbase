@@ -518,6 +518,41 @@ func TestDefaultCmd_ErrorMessageContainsContext(t *testing.T) {
 	assertContains(t, err.Error(), "no space left on device")
 }
 
+// TestDefaultCmd_CreatePassesCmd verifies that when marshal creates a container
+// the default command ["copilot", "--agent=mission-control"] is forwarded to
+// `podman create` as trailing arguments after the image name, so the agent is
+// configured at the container level rather than relying solely on the image CMD.
+func TestDefaultCmd_CreatePassesCmd(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: false, running: false, imageExistsResult: true}
+	fe := &fakeExec{}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              fe.exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetArgs([]string{"--project", "myapp"})
+
+	assertNoError(t, root.Execute())
+
+	createArgs := runner.createArgs()
+	if createArgs == nil {
+		t.Fatal("expected 'podman create' to be called but it was not")
+	}
+	if !runner.createArgsContain("copilot") {
+		t.Errorf("expected 'copilot' in create args; full create args: %v", createArgs)
+	}
+	if !runner.createArgsContain("--agent=mission-control") {
+		t.Errorf("expected '--agent=mission-control' in create args; full create args: %v", createArgs)
+	}
+}
+
 // TestDefaultCmd_CreatePassesLabels verifies that the three required
 // io.ai-airbase.* labels are forwarded to `podman create` so that containers
 // created by marshal can be identified and filtered by tooling.

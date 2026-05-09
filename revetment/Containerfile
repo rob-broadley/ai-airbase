@@ -137,4 +137,4 @@ LABEL org.opencontainers.image.title="revetment" \
       io.ai-airbase.volume.nix-profile=$HOME/.local/state/nix \
       io.ai-airbase.volume.uv-tools=$XDG_DATA_HOME/uv
 
-CMD ["copilot"]
+CMD ["copilot", "--agent=mission-control"]

@@ -468,7 +468,7 @@ func TestCreate_InvokesCorrectPodmanArgs(t *testing.T) {
 	}
 
 	// When Create is called with workdir matching the mount path
-	err := container.Create(r, "mycontainer", "myimage:latest", mounts, namedVols, container.UserConfig{}, "/workspace/src")
+	err := container.Create(r, "mycontainer", "myimage:latest", mounts, namedVols, container.UserConfig{}, "/workspace/src", nil)
 
 	// Then the correct podman create arguments are passed
 	if err != nil {
@@ -502,7 +502,7 @@ func TestCreate_PassesWorkdirToContainer(t *testing.T) {
 	const workdir = "/workspace/myapp"
 
 	// When Create is called with that workdir
-	err := container.Create(r, "mycontainer", "myimage:latest", mounts, nil, container.UserConfig{}, workdir)
+	err := container.Create(r, "mycontainer", "myimage:latest", mounts, nil, container.UserConfig{}, workdir, nil)
 
 	// Then the -w flag is set to the supplied workdir, not /workspace
 	if err != nil {
@@ -525,7 +525,7 @@ func TestCreate_MultipleMount_AllMountsPresent(t *testing.T) {
 	}
 
 	// When Create is called
-	err := container.Create(r, "c", "img", mounts, nil, container.UserConfig{}, "/workspace")
+	err := container.Create(r, "c", "img", mounts, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then both mounts appear in the podman create arguments
 	if err != nil {
@@ -547,7 +547,7 @@ func TestCreate_RunnerError_PropagatesError(t *testing.T) {
 	r := newFake(errOut(errors.New("image not found")))
 
 	// When Create is called
-	err := container.Create(r, "c", "bad-image", nil, nil, container.UserConfig{}, "/workspace")
+	err := container.Create(r, "c", "bad-image", nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then the error is propagated
 	if err == nil {
@@ -566,7 +566,7 @@ func TestCreate_AllMountsHaveZSELinuxSuffix(t *testing.T) {
 	}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", mounts, nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "c", "img", mounts, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then every mount argument includes the :Z SELinux suffix
 	args := r.calls[0].args
@@ -580,6 +580,65 @@ func TestCreate_AllMountsHaveZSELinuxSuffix(t *testing.T) {
 		if hasArg(args, plain) {
 			t.Errorf("mount arg %q must not appear without :Z suffix; full args: %v", plain, args)
 		}
+	}
+}
+
+// TestCreate_AppendsCmdAfterImage verifies that Create appends the supplied cmd
+// slice as trailing arguments after the image name in the podman create call.
+func TestCreate_AppendsCmdAfterImage(t *testing.T) {
+	// Given a runner that succeeds and a cmd to forward
+	r := newFake(okEmpty())
+	cmd := []string{"copilot", "--agent=mission-control"}
+
+	// When Create is called with the cmd slice
+	err := container.Create(r, "mycontainer", "myimage:latest", nil, nil, container.UserConfig{}, "/workspace", cmd)
+
+	// Then the error is nil and the args end with the image name followed by the cmd
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	args := r.calls[0].args
+
+	// Locate the image name in the args
+	imageIdx := -1
+	for i, a := range args {
+		if a == "myimage:latest" {
+			imageIdx = i
+			break
+		}
+	}
+	if imageIdx == -1 {
+		t.Fatalf("image name not found in args: %v", args)
+	}
+
+	// cmd elements must follow immediately after the image
+	tail := args[imageIdx+1:]
+	if len(tail) != len(cmd) {
+		t.Fatalf("expected %d trailing args after image, got %d; tail: %v", len(cmd), len(tail), tail)
+	}
+	for i, want := range cmd {
+		if tail[i] != want {
+			t.Errorf("trailing arg[%d]: expected %q, got %q", i, want, tail[i])
+		}
+	}
+}
+
+// TestCreate_EmptyCmdAppendsNothing verifies that passing a nil cmd slice does
+// not add any extra arguments after the image name.
+func TestCreate_EmptyCmdAppendsNothing(t *testing.T) {
+	// Given a runner that succeeds and no cmd
+	r := newFake(okEmpty())
+
+	// When Create is called with a nil cmd
+	err := container.Create(r, "mycontainer", "myimage:latest", nil, nil, container.UserConfig{}, "/workspace", nil)
+
+	// Then the image name is the last argument
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	args := r.calls[0].args
+	if len(args) == 0 || args[len(args)-1] != "myimage:latest" {
+		t.Errorf("expected image name to be the last arg; full args: %v", args)
 	}
 }
 
@@ -807,7 +866,7 @@ func TestCreate_NamedVolumesAppearInArgs(t *testing.T) {
 	}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, namedVols, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "c", "img", nil, namedVols, container.UserConfig{}, "/workspace", nil)
 
 	// Then both named volumes are present without a :Z suffix
 	args := r.calls[0].args
@@ -829,7 +888,7 @@ func TestCreate_NamedVolumes_NoZSuffix(t *testing.T) {
 	}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, namedVols, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "c", "img", nil, namedVols, container.UserConfig{}, "/workspace", nil)
 
 	// Then the named volume arg does not have a :Z suffix
 	args := r.calls[0].args
@@ -870,7 +929,7 @@ func TestCreate_HasManagedByLabel(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called with a container name and image
-	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then --label io.ai-airbase.managed-by=marshal is present in the podman create arguments
 	args := r.calls[0].args
@@ -889,7 +948,7 @@ func TestCreate_HasProjectLabel(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called with containerName "marshal-myapp"
-	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then --label io.ai-airbase.project=marshal-myapp is present in the podman create arguments
 	args := r.calls[0].args
@@ -905,7 +964,7 @@ func TestCreate_HasImageLabel(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called with image "ghcr.io/org/img:latest"
-	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then --label io.ai-airbase.image=ghcr.io/org/img:latest is present in the podman create arguments
 	args := r.calls[0].args
@@ -921,7 +980,7 @@ func TestCreate_LabelFlagsAreAdjacentPairs(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called
-	_ = container.Create(r, "marshal-proj", "myimage:1.0", nil, nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "marshal-proj", "myimage:1.0", nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then each label value is immediately preceded by --label (pair format)
 	args := r.calls[0].args
@@ -951,7 +1010,7 @@ func TestCreate_HasUsernsKeepId(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "c", "img", nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then --userns=keep-id is present in the podman create arguments
 	if !hasArg(r.calls[0].args, "--userns=keep-id") {
@@ -966,7 +1025,7 @@ func TestCreate_HasNoNewPrivileges(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, nil, container.UserConfig{}, "/workspace")
+	_ = container.Create(r, "c", "img", nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	args := r.calls[0].args
 	// Then --security-opt no-new-privileges is present as a consecutive pair
@@ -983,7 +1042,7 @@ func TestCreate_UserConfig_SetsUserFlag(t *testing.T) {
 	uc := container.UserConfig{UID: 1001, GID: 1001, HomeDir: "/home/alice"}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, nil, uc, "/workspace")
+	_ = container.Create(r, "c", "img", nil, nil, uc, "/workspace", nil)
 
 	// Then --user 1001:1001 is present in the podman create arguments
 	args := r.calls[0].args
@@ -1010,7 +1069,7 @@ func TestCreate_UserConfig_SetsHomeEnv(t *testing.T) {
 	uc := container.UserConfig{UID: 1001, GID: 1001, HomeDir: "/home/alice"}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, nil, uc, "/workspace")
+	_ = container.Create(r, "c", "img", nil, nil, uc, "/workspace", nil)
 
 	// Then -e HOME=/home/alice is present in the podman create arguments
 	args := r.calls[0].args
@@ -1544,7 +1603,7 @@ func TestUserIdentityArgs_IncludesPasswdEntry(t *testing.T) {
 	uc := container.UserConfig{UID: 1001, GID: 1002, HomeDir: "/home/copilot"}
 
 	// When Create is called
-	_ = container.Create(runner, "marshal-myapp", "img", nil, nil, uc, "/workspace")
+	_ = container.Create(runner, "marshal-myapp", "img", nil, nil, uc, "/workspace", nil)
 
 	// Then --passwd-entry with copilot:x:1001:1002 is included in the args
 	args := runner.lastCreateArgs()
@@ -1574,7 +1633,7 @@ func TestUserIdentityArgs_HomeInPasswdEntry(t *testing.T) {
 	uc := container.UserConfig{UID: 500, GID: 500, HomeDir: "/home/copilot"}
 
 	// When Create is called
-	_ = container.Create(runner, "marshal-myapp", "img", nil, nil, uc, "/workspace")
+	_ = container.Create(runner, "marshal-myapp", "img", nil, nil, uc, "/workspace", nil)
 
 	// Then the passwd entry contains the correct home directory and UID:GID
 	args := runner.lastCreateArgs()

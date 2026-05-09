@@ -66,6 +66,10 @@ const (
 	ContainerGitConfigFile = ContainerUserHome + "/.config/git/config"
 )
 
+// DefaultContainerCmd is the command run inside the container when started
+// by marshal. It launches Copilot CLI routing through the mission-control agent.
+var DefaultContainerCmd = []string{"copilot", "--agent=mission-control"}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -342,7 +346,7 @@ func IsRunning(r Runner, containerName string) (bool, error) {
 // uc.UID/GID are passed as --user; uc.HomeDir is exported via -e HOME.
 // workdir sets the container's working directory via -w.
 // The container will run the image's default CMD when started.
-func Create(r Runner, containerName, image string, mounts []MountSpec, namedVolumes []NamedVolumeMount, uc UserConfig, workdir string) error {
+func Create(r Runner, containerName, image string, mounts []MountSpec, namedVolumes []NamedVolumeMount, uc UserConfig, workdir string, cmd []string) error {
 	args := []string{
 		"create",
 		"--name", containerName,
@@ -364,6 +368,7 @@ func Create(r Runner, containerName, image string, mounts []MountSpec, namedVolu
 		"--label", labelImage+"="+image,
 		"-w", workdir, image,
 	)
+	args = append(args, cmd...)
 	_, err := r.Run(podmanBin, args...)
 	return err
 }

@@ -77,7 +77,7 @@ func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValue
 		return err
 	}
 
-	if err := createContainerWithVolumes(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir); err != nil {
+	if err := createContainerWithVolumes(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir, p.cmd); err != nil {
 		return err
 	}
 
@@ -206,7 +206,7 @@ func runRecreate(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		return err
 	}
 
-	if err := removeAndRecreateContainer(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir); err != nil {
+	if err := removeAndRecreateContainer(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir, p.cmd); err != nil {
 		return err
 	}
 

@@ -98,13 +98,13 @@ func provisionVolumes(runner container.Runner, log *slog.Logger, containerName, 
 // container. It is the single implementation of the
 // "provision → log → create" sequence shared by prepareContainer,
 // runCreate, and removeAndRecreateContainer.
-func createContainerWithVolumes(runner container.Runner, log *slog.Logger, containerName, image string, mountSpecs []container.MountSpec, uc container.UserConfig, workdir string) error {
+func createContainerWithVolumes(runner container.Runner, log *slog.Logger, containerName, image string, mountSpecs []container.MountSpec, uc container.UserConfig, workdir string, cmd []string) error {
 	namedVolumes, err := provisionVolumes(runner, log, containerName, image)
 	if err != nil {
 		return err
 	}
 	log.Info("creating container", "container", containerName)
-	if err := container.Create(runner, containerName, image, mountSpecs, namedVolumes, uc, workdir); err != nil {
+	if err := container.Create(runner, containerName, image, mountSpecs, namedVolumes, uc, workdir, cmd); err != nil {
 		return fmt.Errorf("creating container: %w", err)
 	}
 	return nil
@@ -118,7 +118,7 @@ func createContainerWithVolumes(runner container.Runner, log *slog.Logger, conta
 // container is cleaned up (best-effort) and the original is left untouched.
 // Per-project volumes are provisioned using the real container name so cached
 // packages survive the rebuild.
-func removeAndRecreateContainer(runner container.Runner, log *slog.Logger, containerName, image string, mountSpecs []container.MountSpec, uc container.UserConfig, workdir string) error {
+func removeAndRecreateContainer(runner container.Runner, log *slog.Logger, containerName, image string, mountSpecs []container.MountSpec, uc container.UserConfig, workdir string, cmd []string) error {
 	exists, err := container.Exists(runner, containerName)
 	if err != nil {
 		return fmt.Errorf("checking container: %w", err)
@@ -134,7 +134,7 @@ func removeAndRecreateContainer(runner container.Runner, log *slog.Logger, conta
 	// Create the replacement under a temporary name first.
 	pendingName := fmt.Sprintf("%s-pending-%d", containerName, os.Getpid())
 	log.Info("creating container", "container", pendingName)
-	if err := container.Create(runner, pendingName, image, mountSpecs, namedVolumes, uc, workdir); err != nil {
+	if err := container.Create(runner, pendingName, image, mountSpecs, namedVolumes, uc, workdir, cmd); err != nil {
 		// Creation failed — clean up any partial pending container (best-effort)
 		// and leave the original container untouched.
 		if cleanupErr := container.Remove(runner, pendingName); cleanupErr != nil {
@@ -177,7 +177,7 @@ func prepareContainer(cmd *cobra.Command, deps Deps, p containerParams) (contain
 		if err := pullImageIfMissing(cmd, deps, p.image); err != nil {
 			return "", false, err
 		}
-		if err := createContainerWithVolumes(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir); err != nil {
+		if err := createContainerWithVolumes(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir, p.cmd); err != nil {
 			return "", false, err
 		}
 		return p.containerName, false, nil
