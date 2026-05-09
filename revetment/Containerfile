@@ -51,6 +51,9 @@ ENV NIX_STORE=$NIX_DIR/store
 RUN <<PERMISSIONS
 mkdir -p \
     $HOME \
+    $HOME/.config \
+    $HOME/.copilot \
+    $HOME/.local/share \
     $WORKSPACE \
     $NIX_DIR/store \
     $NIX_DIR/var/nix/profiles \
