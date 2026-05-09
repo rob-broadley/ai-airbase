@@ -60,6 +60,17 @@ func (f *fakeRunner) PullImage(image string, stdout, stderr io.Writer) error {
 	return f.pullImageErr
 }
 
+// Rename records the rename call and returns the next queued response error,
+// if any.
+func (f *fakeRunner) Rename(from, to string) error {
+	f.calls = append(f.calls, fakeCall{name: "podman", args: []string{"rename", from, to}})
+	idx := len(f.calls) - 1
+	if idx < len(f.responses) {
+		return f.responses[idx].err
+	}
+	return nil
+}
+
 // lastCreateArgs returns the args slice from the most recent "podman create" call
 // (nil if no create call was recorded). Used to verify user identity args.
 func (f *fakeRunner) lastCreateArgs() []string {

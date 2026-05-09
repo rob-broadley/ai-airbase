@@ -197,6 +197,17 @@ func (f *fakeRunner) PullImage(image string, stdout io.Writer, stderr io.Writer)
 	return f.pullImageErr
 }
 
+// Rename records a "podman rename <from> <to>" call and returns any injected
+// "rename" error from runErrors.
+func (f *fakeRunner) Rename(from, to string) error {
+	call := []string{"podman", "rename", from, to}
+	f.calls = append(f.calls, call)
+	if err, ok := f.runErrors["rename"]; ok {
+		return err
+	}
+	return nil
+}
+
 // calledSubcommand returns true if "podman <sub>" appears in the recorded calls.
 func (f *fakeRunner) calledSubcommand(sub string) bool {
 	for _, call := range f.calls {
@@ -217,10 +228,33 @@ func (f *fakeRunner) createArgs() []string {
 	return nil
 }
 
+// rmCalledFor reports whether "podman rm <name>" appears in the recorded calls.
+// Unlike calledSubcommand("rm"), this checks the specific container argument so
+// tests can distinguish cleanup of a pending container from removal of the
+// original one.
+func (f *fakeRunner) rmCalledFor(name string) bool {
+	for _, call := range f.calls {
+		if len(call) >= 3 && call[0] == "podman" && call[1] == "rm" && call[2] == name {
+			return true
+		}
+	}
+	return false
+}
+
 // createArgsContain reports whether any single arg in the create call equals s.
 func (f *fakeRunner) createArgsContain(s string) bool {
 	for _, a := range f.createArgs() {
 		if a == s {
+			return true
+		}
+	}
+	return false
+}
+
+// renameCalledWith reports whether "podman rename <from> <to>" was recorded.
+func (f *fakeRunner) renameCalledWith(from, to string) bool {
+	for _, call := range f.calls {
+		if len(call) >= 4 && call[0] == "podman" && call[1] == "rename" && call[2] == from && call[3] == to {
 			return true
 		}
 	}

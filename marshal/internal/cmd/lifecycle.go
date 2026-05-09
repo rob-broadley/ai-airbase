@@ -4,6 +4,7 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -109,24 +110,53 @@ func createContainerWithVolumes(runner container.Runner, log *slog.Logger, conta
 	return nil
 }
 
-// removeAndRecreateContainer removes an existing container (when present) and
-// creates a fresh one with the supplied image, mounts, user config, and workdir.
-// The container is left in the stopped/created state; it will be started and
-// attached on the next marshal invocation. Per-project volumes labelled with
-// the project name are intentionally left intact so that cached packages survive
-// the rebuild.
+// removeAndRecreateContainer atomically replaces an existing container with a
+// freshly created one. To avoid leaving the user with no container when creation
+// fails, the new container is first created under a temporary "-pending" name.
+// Only once creation succeeds is the old container removed and the temporary
+// container renamed to the canonical name. If creation fails the pending
+// container is cleaned up (best-effort) and the original is left untouched.
+// Per-project volumes are provisioned using the real container name so cached
+// packages survive the rebuild.
 func removeAndRecreateContainer(runner container.Runner, log *slog.Logger, containerName, image string, mountSpecs []container.MountSpec, uc container.UserConfig, workdir string) error {
 	exists, err := container.Exists(runner, containerName)
 	if err != nil {
 		return fmt.Errorf("checking container: %w", err)
 	}
+
+	// Provision named volumes using the real container name so that existing
+	// volume data (e.g. Nix store) is preserved across recreates.
+	namedVolumes, err := provisionVolumes(runner, log, containerName, image)
+	if err != nil {
+		return err
+	}
+
+	// Create the replacement under a temporary name first.
+	pendingName := fmt.Sprintf("%s-pending-%d", containerName, os.Getpid())
+	log.Info("creating container", "container", pendingName)
+	if err := container.Create(runner, pendingName, image, mountSpecs, namedVolumes, uc, workdir); err != nil {
+		// Creation failed — clean up any partial pending container (best-effort)
+		// and leave the original container untouched.
+		_ = container.Remove(runner, pendingName)
+		return fmt.Errorf("creating container: %w", err)
+	}
+
+	// Creation succeeded — now it is safe to remove the old container.
 	if exists {
 		log.Info("removing container", "container", containerName)
 		if err := container.Remove(runner, containerName); err != nil {
 			return fmt.Errorf("removing container: %w", err)
 		}
 	}
-	return createContainerWithVolumes(runner, log, containerName, image, mountSpecs, uc, workdir)
+
+	// Promote the pending container to the canonical name.
+	if err := container.Rename(runner, pendingName, containerName); err != nil {
+		if cleanupErr := container.Remove(runner, pendingName); cleanupErr != nil {
+			log.Warn("failed to remove stranded pending container", "container", pendingName, "error", cleanupErr)
+		}
+		return fmt.Errorf("renaming container %s to %s: %w; recover with: podman rename %s %s", pendingName, containerName, err, pendingName, containerName)
+	}
+	return nil
 }
 
 // prepareContainer ensures the container exists (creating it when absent),

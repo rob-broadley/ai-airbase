@@ -52,6 +52,12 @@ func ResolveProject(flagValue string, getwd func() (string, error)) (string, err
 // that could cause path traversal when constructing config file paths.
 var validProjectName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.\-]{0,126}[a-zA-Z0-9]$|^[a-zA-Z0-9]$`)
 
+// pendingProjectName matches names that end with the staging-container suffix
+// pattern used by removeAndRecreateContainer. Such names are reserved to prevent
+// a legitimate project's canonical container name from colliding with another
+// project's internal staging container.
+var pendingProjectName = regexp.MustCompile(`-pending(-\d+)?$`)
+
 // ValidateProjectName returns an error if name is empty or contains characters
 // that would allow it to escape the projects/ config subdirectory.
 func ValidateProjectName(name string) error {
@@ -60,6 +66,9 @@ func ValidateProjectName(name string) error {
 	}
 	if !validProjectName.MatchString(name) {
 		return fmt.Errorf("invalid project name %q: must contain only letters, digits, hyphens, underscores, or dots and must not start with a dot", name)
+	}
+	if pendingProjectName.MatchString(name) {
+		return fmt.Errorf("invalid project name %q: must not end with \"-pending\" or \"-pending-<digits>\" (reserved for internal staging containers)", name)
 	}
 	return nil
 }
@@ -83,9 +92,11 @@ func Load(projectName string) (*Config, error) {
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		return cfg, nil
 	}
-	if _, err := toml.DecodeFile(path, cfg); err != nil {
+	meta, err := toml.DecodeFile(path, cfg)
+	if err != nil {
 		return nil, fmt.Errorf("decoding config %s: %w", path, err)
 	}
+	_ = meta
 	return cfg, nil
 }
 

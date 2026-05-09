@@ -397,6 +397,14 @@ func Remove(r Runner, containerName string) error {
 	return nil
 }
 
+// Rename renames the container identified by from to the name given by to.
+// It runs `podman rename <from> <to>`, following the same calling convention
+// as all other operations in this package.
+func Rename(r Runner, from, to string) error {
+	_, err := r.Run(podmanBin, "rename", from, to)
+	return err
+}
+
 // GetStatus returns the full Status of a container.
 // When the container does not exist, Status.Exists is false and all other
 // fields are zero values.

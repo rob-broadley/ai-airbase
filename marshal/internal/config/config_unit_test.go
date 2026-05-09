@@ -786,3 +786,4 @@ func TestSave_AtomicRoundTrip(t *testing.T) {
 	}
 	assertMounts(t, loaded, cfg.Mounts)
 }
+
