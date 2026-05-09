@@ -384,7 +384,136 @@ func TestDelete_NoopWhenFileAbsent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 8. SharedDataPath
+// 8. EnsureSharedConfigDir
+// ---------------------------------------------------------------------------
+
+// TestEnsureSharedConfigDir_XDGOverride verifies that EnsureSharedConfigDir
+// returns a path under XDG_CONFIG_HOME when that environment variable is set.
+func TestEnsureSharedConfigDir_XDGOverride_ReturnsExpectedPath(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set to a temp directory
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+
+	// When EnsureSharedConfigDir is called
+	got, err := config.EnsureSharedConfigDir("copilot")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Then the path is under the XDG_CONFIG_HOME directory
+	want := filepath.Join(tmp, "marshal", "copilot")
+	if got != want {
+		t.Errorf("expected %q, got %q", want, got)
+	}
+}
+
+// TestEnsureSharedConfigDir_DefaultXDG verifies that EnsureSharedConfigDir falls
+// back to ~/.config when XDG_CONFIG_HOME is unset.
+func TestEnsureSharedConfigDir_DefaultXDG_UsesHomeConfig(t *testing.T) {
+	// Given XDG_CONFIG_HOME is cleared and HOME is set to a known directory
+	homeRoot := t.TempDir()
+	home := filepath.Join(homeRoot, "test-home")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", home)
+
+	// When EnsureSharedConfigDir is called
+	got, err := config.EnsureSharedConfigDir("copilot")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Then the path falls back to ~/.config/marshal/<subdir>
+	want := filepath.Join(home, ".config", "marshal", "copilot")
+	if got != want {
+		t.Errorf("expected %q, got %q", want, got)
+	}
+}
+
+// TestEnsureSharedConfigDir_CreatesDir verifies that EnsureSharedConfigDir
+// creates the target directory when it does not yet exist.
+func TestEnsureSharedConfigDir_CreatesDirWhenAbsent(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set to a temp directory and the target is absent
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	target := filepath.Join(tmp, "marshal", "credentials")
+
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Fatalf("expected %q to be absent before test, got err=%v", target, err)
+	}
+
+	// When EnsureSharedConfigDir is called
+	got, err := config.EnsureSharedConfigDir("credentials")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Then the directory is created at the expected path
+	if got != target {
+		t.Errorf("expected %q, got %q", target, got)
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatalf("expected directory to exist at %q: %v", target, err)
+	}
+	if !info.IsDir() {
+		t.Errorf("expected %q to be a directory", target)
+	}
+}
+
+// TestEnsureSharedConfigDir_Idempotent verifies that EnsureSharedConfigDir
+// succeeds when the target directory already exists.
+func TestEnsureSharedConfigDir_SucceedsWhenDirAlreadyExists(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set and the target directory already exists
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	target := filepath.Join(tmp, "marshal", "copilot")
+	if err := os.MkdirAll(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	// When EnsureSharedConfigDir is called
+	got, err := config.EnsureSharedConfigDir("copilot")
+
+	// Then no error is returned and the existing directory path is returned
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != target {
+		t.Errorf("expected %q, got %q", target, got)
+	}
+}
+
+// TestEnsureSharedConfigDir_FileAtTargetPath_ReturnsError verifies that
+// EnsureSharedConfigDir returns an error when the target path exists as a file.
+func TestEnsureSharedConfigDir_FileAtTargetPath_ReturnsCreateError(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set and a file exists at the target path
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	if err := os.MkdirAll(filepath.Join(tmp, "marshal"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(tmp, "marshal", "copilot")
+	if err := os.WriteFile(target, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// When EnsureSharedConfigDir is called
+	_, err := config.EnsureSharedConfigDir("copilot")
+
+	// Then an error is returned
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "creating shared config directory") {
+		t.Errorf("expected 'creating shared config directory' in error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 9. SharedDataPath
 // ---------------------------------------------------------------------------
 
 // TestSharedDataPath_XDGOverride verifies that SharedDataPath returns a path
