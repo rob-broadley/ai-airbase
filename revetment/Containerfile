@@ -5,9 +5,13 @@ FROM registry.fedoraproject.org/fedora-toolbox:44
 # Install core tools
 RUN --mount=type=cache,target=/var/cache/dnf <<DNF_INSTALL
 dnf install -y --setopt=install_weak_deps=False \
+    gcc \
+    gcc-c++ \
     gh \
     gitleaks \
+    glibc-devel \
     jq \
+    make \
     nix-core \
     nix-filesystem \
     nodejs \
