@@ -164,6 +164,8 @@ Remove the existing container and create a fresh one. Useful when you want a cle
 
 The per-project tool cache (Nix store) is preserved across recreate — tools fetched by agents do not need to be re-downloaded.
 
+Conversation history and agent checkpoints (`session-store.db` and `session-state/`) are stored under `$XDG_DATA_HOME/marshal/projects/<project>/` on the host and bind-mounted into the container. They are not stored on the container volume, so they also survive a recreate.
+
 ```sh
 marshal recreate
 marshal recreate --project my-app
@@ -218,8 +220,7 @@ marshal stores per-project configuration in `$XDG_CONFIG_HOME/marshal/` — typi
 Configuration grows with the tool, but at minimum each project file records the directories to bind mount. An example:
 
 ```toml
-[mounts]
-paths = [
+mounts = [
     "/home/user/work/shared-lib",
     "/home/user/configs",
 ]
