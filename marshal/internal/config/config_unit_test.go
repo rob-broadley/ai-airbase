@@ -916,3 +916,149 @@ func TestSave_AtomicRoundTrip(t *testing.T) {
 	assertMounts(t, loaded, cfg.Mounts)
 }
 
+// ---------------------------------------------------------------------------
+// Unrecognised TOML fields must be rejected (silent misconfiguration)
+// ---------------------------------------------------------------------------
+
+// TestLoad_RejectsOldTableSyntax verifies that Load returns an error when a
+// config file uses the old, incorrect schema ([mounts] table with a paths key)
+// instead of the correct top-level array (mounts = [...]).
+//
+// Acceptance criterion: Load must not silently accept files written against the
+// old README schema — the TOML decoder's own type checking catches the mismatch
+// between a table value and the expected []string, so the user is never silently
+// given zero mounts.
+func TestLoad_RejectsOldTableSyntax(t *testing.T) {
+	// Given a config file written with the old, incorrect schema
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+
+	projectsDir := filepath.Join(tmp, "marshal", "projects")
+	if err := os.MkdirAll(projectsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	oldSchema := "[mounts]\npaths = [\"/foo\"]\n"
+	if err := os.WriteFile(filepath.Join(projectsDir, "oldschema.toml"), []byte(oldSchema), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// When Load is called for that project
+	_, err := config.Load("oldschema")
+
+	// Then an error is returned (the TOML library catches the type mismatch
+	// between a table and []string — the user is not silently given zero mounts)
+	if err == nil {
+		t.Fatal("expected an error for old-schema config file, got nil — silent misconfiguration bug is present")
+	}
+}
+
+// TestLoad_RejectsUnknownTopLevelKey verifies that Load returns an error when
+// a config file contains an unknown top-level key.
+//
+// Acceptance criterion: Any unrecognised field in the config file must cause
+// Load to return an error so the user knows their config is malformed.
+func TestLoad_RejectsUnknownTopLevelKey(t *testing.T) {
+	// Given a config file with an unknown top-level key
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+
+	projectsDir := filepath.Join(tmp, "marshal", "projects")
+	if err := os.MkdirAll(projectsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	badConfig := "unknown_key = \"value\"\n"
+	if err := os.WriteFile(filepath.Join(projectsDir, "badkeys.toml"), []byte(badConfig), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// When Load is called for that project
+	_, err := config.Load("badkeys")
+
+	// Then an error is returned containing "unrecognised"
+	if err == nil {
+		t.Fatal("expected an error for config file with unknown key, got nil")
+	}
+	if !strings.Contains(err.Error(), "unrecognised") {
+		t.Errorf("expected 'unrecognised' in error message, got: %v", err)
+	}
+}
+
+// TestLoad_ValidConfig_StillWorks verifies that Load continues to parse a
+// correctly-formed config file (mounts = [...]) without error after the
+// undecoded-key check is added.
+//
+// Acceptance criterion: A valid config file must still be accepted and its
+// mounts returned correctly.
+func TestLoad_ValidConfig_StillWorks(t *testing.T) {
+	// Given a config file with the correct schema
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+
+	projectsDir := filepath.Join(tmp, "marshal", "projects")
+	if err := os.MkdirAll(projectsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	validConfig := "mounts = [\"/foo\", \"/bar\"]\n"
+	if err := os.WriteFile(filepath.Join(projectsDir, "validproject.toml"), []byte(validConfig), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// When Load is called for that project
+	cfg, err := config.Load("validproject")
+
+	// Then no error is returned and the mounts are correctly parsed
+	if err != nil {
+		t.Fatalf("expected no error for valid config, got: %v", err)
+	}
+	assertMounts(t, cfg, []string{"/foo", "/bar"})
+}
+
+// TestValidateProjectName_RejectsPendingNames verifies that ValidateProjectName
+// rejects project names ending with the staging-container suffix pattern
+// "-pending" or "-pending-<digits>". These suffixes are reserved for the
+// atomic recreate operation's staging containers.
+//
+// Names that merely contain "-pending" as an infix (e.g. "my-pending-tasks")
+// are valid — only the suffix form poses a collision risk.
+//
+// Acceptance criterion: ValidateProjectName returns an error for
+
+// ---------------------------------------------------------------------------
+// Project names ending with the staging-container suffix must be rejected
+// ---------------------------------------------------------------------------
+
+// names ending with "-pending" or "-pending-<digits>".
+func TestValidateProjectName_RejectsPendingNames(t *testing.T) {
+	rejectCases := []string{
+		"myapp-pending",
+		"myapp-pending-123",
+		"a-pending",
+		"foo-pending-99999",
+	}
+	for _, name := range rejectCases {
+		name := name
+		t.Run("reject/"+name, func(t *testing.T) {
+			err := config.ValidateProjectName(name)
+			if err == nil {
+				t.Errorf("ValidateProjectName(%q) returned nil; want error for reserved suffix", name)
+			}
+		})
+	}
+
+	// Names containing "-pending" as an infix (not a suffix) are valid.
+	allowCases := []string{
+		"my-pending-tasks",
+		"pending-review",
+		"foo-pending-bar",
+	}
+	for _, name := range allowCases {
+		name := name
+		t.Run("allow/"+name, func(t *testing.T) {
+			err := config.ValidateProjectName(name)
+			if err != nil {
+				t.Errorf("ValidateProjectName(%q) returned %v; want nil for non-suffix use of \"-pending\"", name, err)
+			}
+		})
+	}
+}
+

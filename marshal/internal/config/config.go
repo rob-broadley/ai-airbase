@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -96,7 +97,13 @@ func Load(projectName string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decoding config %s: %w", path, err)
 	}
-	_ = meta
+	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
+		keys := make([]string, len(undecoded))
+		for i, k := range undecoded {
+			keys[i] = k.String()
+		}
+		return nil, fmt.Errorf("config %s contains unrecognised fields: %s", path, strings.Join(keys, ", "))
+	}
 	return cfg, nil
 }
 
