@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -247,14 +248,17 @@ func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	if err := container.Remove(deps.Runner, containerName); err != nil {
 		return fmt.Errorf("removing container: %w", err)
 	}
+	fmt.Fprintf(cmd.OutOrStdout(), "container %s removed\n", containerName)
+
+	// Best-effort cleanup — continue past individual failures.
+	var errs []error
 	if err := container.RemoveProjectVolumes(deps.Runner, containerName); err != nil {
-		return fmt.Errorf("removing project volumes: %w", err)
+		errs = append(errs, fmt.Errorf("removing project volumes: %w", err))
 	}
 	if err := config.Delete(project); err != nil {
-		return fmt.Errorf("removing project config: %w", err)
+		errs = append(errs, fmt.Errorf("removing project config: %w", err))
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "container %s removed\n", containerName)
-	return nil
+	return errors.Join(errs...)
 }
 
 // newShellCmd returns the cobra.Command for the "shell" subcommand, which
