@@ -67,7 +67,7 @@ Do not reinstall tools that are already present and working.
 
 ### Install missing tools
 
-Use the `/tool-install` skill to install the runtime and core toolchain first. Once the language's own package manager is available, prefer it for the rest of that ecosystem's tools — it will resolve versions correctly and is the canonical way to install tools for that language.
+Use the skill tool to load `tool-install`, then use it to install the runtime and core toolchain first. Once the language's own package manager is available, prefer it for the rest of that ecosystem's tools — it will resolve versions correctly and is the canonical way to install tools for that language.
 
 | Once installed              | Use to install further tools                                      |
 | --------------------------- | ----------------------------------------------------------------- |
@@ -151,7 +151,7 @@ Explain briefly why each tool is included. Wait for confirmation before installi
 
 ### Install agreed tools and scaffold config
 
-Use the `/tool-install` skill to install tools. Then create minimal tooling config files (Makefile, linter config, formatter config) appropriate for the ecosystem. Do not create application source files.
+Use the skill tool to load `tool-install`, then use it to install tools. Then create minimal tooling config files (Makefile, linter config, formatter config) appropriate for the ecosystem. Do not create application source files.
 
 Verify each tool after installing.
 

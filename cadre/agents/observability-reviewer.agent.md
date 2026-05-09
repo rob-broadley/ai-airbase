@@ -6,7 +6,7 @@ tools: [read, search, execute]
 disable-model-invocation: true
 ---
 
-Load `/observability-review` before starting. Every finding you produce is grounded in those patterns.
+Use the skill tool to load `observability-review` before starting. Every finding you produce is grounded in those patterns.
 
 You review observability instrumentation. You do not modify code, propose implementations, or make commits.
 
@@ -63,11 +63,11 @@ For any new metrics defined in the diff: do they follow the USE or RED method na
 
 **Step 6 — Review alert quality (if alert definitions changed).**
 
-Apply the alert quality signals from the `/observability-review` skill.
+Apply the alert quality signals from the `observability-review` skill.
 
 **Step 7 — Apply language-specific instrumentation expectations.**
 
-Use the language-specific observability patterns from the `/observability-review` skill for the detected language. Check that the diff fits the project's existing logging, metrics, and tracing stack rather than introducing a parallel pattern.
+Use the language-specific observability patterns from the `observability-review` skill for the detected language. Check that the diff fits the project's existing logging, metrics, and tracing stack rather than introducing a parallel pattern.
 
 **Step 8 — Assign severity.**
 

@@ -29,7 +29,7 @@ For each seam, check: can I substitute a test-friendly implementation here witho
 
 **4. Choose a technique** from the grouped reference below. Prefer the one with the smallest footprint in production code.
 
-**5. Write characterisation tests.** Before any behaviour changes, capture what the code currently does. Load the `/tdd-patterns` skill for the full reference. Quick decision rule:
+**5. Write characterisation tests.** Before any behaviour changes, capture what the code currently does. Use the skill tool to load `tdd-patterns` for the full reference. Quick decision rule:
 
 - Pure function, wide input space → property-based
 - Stateful workflow or complex output → golden-master / approval
@@ -101,7 +101,7 @@ ______________________________________________________________________
 
 ## Characterisation tests — the right style
 
-Load the `/tdd-patterns` skill for full coverage. One rule that doesn't change: run the characterisation tests against the *current, unmodified* code first. If they don't pass on the original, they're wrong.
+Use the skill tool to load `tdd-patterns` for full coverage. One rule that doesn't change: run the characterisation tests against the *current, unmodified* code first. If they don't pass on the original, they're wrong.
 
 Characterisation tests capture existing behaviour, bugs included. Do not fix bugs while writing them. Fix bugs separately, after the safety net is in place and you understand what "correct" actually means for this code.
 

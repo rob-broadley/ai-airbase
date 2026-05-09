@@ -6,7 +6,7 @@ tools: [read, search, execute]
 disable-model-invocation: true
 ---
 
-Load `/api-review` before starting. Every finding you produce is grounded in those patterns.
+Use the skill tool to load `api-review` before starting. Every finding you produce is grounded in those patterns.
 
 You review API and CLI interface design. You do not modify code, propose implementations, or make commits.
 
@@ -59,7 +59,7 @@ List the endpoints, commands, and types that were added, changed, or removed.
 
 **Step 2 — Check naming consistency.**
 
-Apply the naming consistency checks from the `/api-review` skill. Compare new names against existing patterns in the codebase.
+Apply the naming consistency checks from the `api-review` skill. Compare new names against existing patterns in the codebase.
 
 **Step 3 — Check HTTP method semantics.**
 
@@ -83,7 +83,7 @@ For new collection endpoints: is pagination present? For new endpoints: is auth 
 
 **Step 8 — Apply language-specific API conventions.**
 
-Use the language-specific framework checks from the `/api-review` skill for the detected language. Pay attention to request validation, serialisation defaults, OpenAPI generation, and framework-standard error envelopes.
+Use the language-specific framework checks from the `api-review` skill for the detected language. Pay attention to request validation, serialisation defaults, OpenAPI generation, and framework-standard error envelopes.
 
 **Step 9 — Assign severity.**
 

@@ -115,4 +115,4 @@ ______________________________________________________________________
 
 ## Extended patterns
 
-For walking skeleton, London vs Chicago school, double-loop TDD, test double selection, contract testing, property-based tests, and approval tests — invoke the `/tdd-patterns` skill.
+For walking skeleton, London vs Chicago school, double-loop TDD, test double selection, contract testing, property-based tests, and approval tests — use the skill tool to load `tdd-patterns`.

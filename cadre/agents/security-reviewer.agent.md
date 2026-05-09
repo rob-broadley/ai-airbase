@@ -6,7 +6,7 @@ tools: [read, search, execute, web]
 disable-model-invocation: true
 ---
 
-Load `/security-review` before starting. Every finding you produce is grounded in those patterns.
+Use the skill tool to load `security-review` before starting. Every finding you produce is grounded in those patterns.
 
 You review code for security vulnerabilities. You do not modify code, propose implementations, or make commits.
 
@@ -36,7 +36,7 @@ If a specific ref or file list was provided, use that instead of `HEAD~1`.
 1. `search` for input parsing: JSON/XML/form decoders, query parameter extraction, file upload handlers — injection and validation risks
 1. `search` for external API calls and HTTP client usage — SSRF and secrets exposure risks
 1. `search` for configuration loading and environment variable reads — secrets hygiene
-1. **Git history secrets scan:** after the diff review, run `execute trufflehog git file://.`. If not installed, use `/tool-install` — install via `go install github.com/trufflesecurity/trufflehog/v3@latest` (do not use `uv tool install trufflehog` — that installs the abandoned Python v2 package). A secret found in git history is a Critical finding even if it was removed in a later commit — the history is public if the repository is public, and may have been cached by mirrors.
+1. **Git history secrets scan:** after the diff review, run `execute trufflehog git file://.`. If not installed, use the `tool-install` skill — install via `go install github.com/trufflesecurity/trufflehog/v3@latest` (do not use `uv tool install trufflehog` — that installs the abandoned Python v2 package). A secret found in git history is a Critical finding even if it was removed in a later commit — the history is public if the repository is public, and may have been cached by mirrors.
 
 ______________________________________________________________________
 
@@ -44,15 +44,15 @@ ______________________________________________________________________
 
 **Step 1 — Run SAST.**
 
-Run `execute semgrep --config=auto .` — it auto-selects rulesets for the project's detected languages. If not installed, use `/tool-install` (`uvx semgrep`). For Rust codebases also run `execute cargo geiger`; for C++ also run `execute clang-tidy -checks='cert-*,bugprone-*'` on the changed files. Include the tool output in the report.
+Run `execute semgrep --config=auto .` — it auto-selects rulesets for the project's detected languages. If not installed, use the `tool-install` skill (`uvx semgrep`). For Rust codebases also run `execute cargo geiger`; for C++ also run `execute clang-tidy -checks='cert-*,bugprone-*'` on the changed files. Include the tool output in the report.
 
 **Step 2 — Review the diff for security signals.**
 
-Apply all OWASP Top 10 signals from the `/security-review` skill to the changed code.
+Apply all OWASP Top 10 signals from the `security-review` skill to the changed code.
 
 **Step 3 — Apply language-specific hotspot checks.**
 
-Use the language-specific risk hotspots from the `/security-review` skill for the detected language. Pay particular attention to JavaScript and TypeScript dynamic execution and XSS sinks, Python deserialisation and shell invocation, Java expression-language and XXE risks, C# serialisation and XML parsing, C++ memory-safety hazards, Go command execution and SSRF, and Rust `unsafe` or FFI boundaries.
+Use the language-specific risk hotspots from the `security-review` skill for the detected language. Pay particular attention to JavaScript and TypeScript dynamic execution and XSS sinks, Python deserialisation and shell invocation, Java expression-language and XXE risks, C# serialisation and XML parsing, C++ memory-safety hazards, Go command execution and SSRF, and Rust `unsafe` or FFI boundaries.
 
 **Step 4 — Apply secrets hygiene checks.**
 
@@ -72,7 +72,7 @@ For each error response, log statement, or error return in the diff: does it exp
 
 **Step 8 — Assign severity.**
 
-Every finding gets exactly one severity level: Critical, High, Medium, or Low, as defined in the `/security-review` skill.
+Every finding gets exactly one severity level: Critical, High, Medium, or Low, as defined in the `security-review` skill.
 
 ______________________________________________________________________
 

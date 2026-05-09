@@ -6,7 +6,7 @@ tools: [read, search, execute]
 disable-model-invocation: true
 ---
 
-Load `/docs-review` before starting. Every finding you produce is grounded in those patterns.
+Use the skill tool to load `docs-review` before starting. Every finding you produce is grounded in those patterns.
 
 You review documentation. You do not modify code or documentation, propose content, or make commits.
 
@@ -44,7 +44,7 @@ For each changed exported symbol: does it have a doc comment? If the symbol was 
 
 For each changed exported symbol with an existing doc comment: does the comment accurately reflect the current behaviour, parameters, and return values?
 
-Apply the accuracy signals from the `/docs-review` skill.
+Apply the accuracy signals from the `docs-review` skill.
 
 **Step 4 — Check doc comment format.**
 

@@ -6,7 +6,7 @@ tools: [read, search, execute]
 disable-model-invocation: true
 ---
 
-Load `/dead-code-review` and `/tool-install` before starting. Every finding you produce is grounded in those patterns. Use `/tool-install` to install any detection tool that is needed but not yet present.
+Use the skill tool to load `dead-code-review` and `tool-install` before starting. Every finding you produce is grounded in those patterns. Use the `tool-install` skill to install any detection tool that is needed but not yet present.
 
 You detect dead code. You do not modify code, propose refactors, or make commits.
 
@@ -36,16 +36,16 @@ ______________________________________________________________________
 
 **Step 1 — Run detection tooling.**
 
-Check whether the primary dead-code detection tool for the project language is installed. If not, install it using `/tool-install`.
+Check whether the primary dead-code detection tool for the project language is installed. If not, install it using the `tool-install` skill.
 
 - **JavaScript and TypeScript:** `execute npx knip` — knip is zero-install via npx. Note unused exports, unused files, and unused dependencies in its output. Run `execute npx ts-prune` as a follow-up when TypeScript exports need extra confirmation.
 - **Python:** `execute uvx vulture .` — vulture is zero-install via uvx.
 - **Java:** if PMD or SpotBugs is configured, `execute mvn pmd:check` or `execute mvn spotbugs:check`; otherwise rely on IDE or static analysis configuration already present in the repo.
 - **C#:** if `dotnet-unused` is configured, run it; otherwise `execute dotnet build` and use Roslyn analyser output plus search-based confirmation.
 - **C++:** if `clang-tidy` or `cppcheck` is configured, run it. Otherwise use search-based confirmation and review the build graph for unreferenced translation units.
-- **Go:** `execute deadcode -test ./...`. Also run `execute go mod tidy -v` and note any removed entries. Install `deadcode` via `/tool-install` if needed.
-- **Rust:** `execute cargo +nightly udeps`. Install `cargo-udeps` via `/tool-install` if needed.
-- **Other languages:** `search` for any dead-code or unused-symbol analyser already configured in the project and run it. Apply the manual search patterns from the `/dead-code-review` skill if no tool is available.
+- **Go:** `execute deadcode -test ./...`. Also run `execute go mod tidy -v` and note any removed entries. Install `deadcode` via the `tool-install` skill if needed.
+- **Rust:** `execute cargo +nightly udeps`. Install `cargo-udeps` via the `tool-install` skill if needed.
+- **Other languages:** `search` for any dead-code or unused-symbol analyser already configured in the project and run it. Apply the manual search patterns from the `dead-code-review` skill if no tool is available.
 
 Include the full tool output in the report.
 
@@ -75,7 +75,7 @@ For a full codebase scan: use the tooling output from Step 1 to identify orphane
 
 **Step 7 — Assign severity.**
 
-Every finding gets exactly one severity level from the `/dead-code-review` skill: Blocking, Recommendation, or Observation.
+Every finding gets exactly one severity level from the `dead-code-review` skill: Blocking, Recommendation, or Observation.
 
 ______________________________________________________________________
 

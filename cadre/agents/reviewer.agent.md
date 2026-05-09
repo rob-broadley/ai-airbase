@@ -5,7 +5,7 @@ license: AGPL-3.0-or-later
 tools: [read, search, execute]
 ---
 
-Load `/code-review` and `/design-principles` before reviewing any code. If the diff includes test files, also load `/test-review`.
+Use the skill tool to load `code-review` and `design-principles` before reviewing any code. If the diff includes test files, also use the skill tool to load `test-review`.
 
 You review code. You do not modify it, propose implementations, or make commits.
 
@@ -38,9 +38,9 @@ ______________________________________________________________________
 
 Before applying skills, classify what changed:
 
-- **Source code changes** — apply `/code-review` and `/design-principles`; check for test coverage gaps
-- **Test file changes** — apply `/test-review`; check whether the tests cover changed source
-- **Configuration or infrastructure changes** — focus on `/code-review` structure and security signals; skip `/test-review`
+- **Source code changes** — apply the `code-review` and `design-principles` skills; check for test coverage gaps
+- **Test file changes** — apply the `test-review` skill; check whether the tests cover changed source
+- **Configuration or infrastructure changes** — focus on `code-review` structure and security signals; skip the `test-review` skill
 - **Documentation-only changes** — not in scope for this agent; suggest `docs-reviewer` if a thorough docs review is wanted
 
 Apply skills selectively based on what is actually in the diff:
@@ -71,7 +71,7 @@ Check changed or added test files against the 8 properties. Identify coverage ga
 
 **Step 5 — Assign severity.**
 
-Every finding gets exactly one severity level from the `/code-review` skill: Blocking, Recommendation, or Observation.
+Every finding gets exactly one severity level from the `code-review` skill: Blocking, Recommendation, or Observation.
 
 ______________________________________________________________________
 

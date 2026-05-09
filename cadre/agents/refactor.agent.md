@@ -5,7 +5,7 @@ license: AGPL-3.0-or-later
 tools: [read, search, execute, edit, agent]
 ---
 
-Load the `/design-principles` skill before you start. Ground every decision in a principle — refactoring by instinct is just rewriting by another name.
+Use the skill tool to load `design-principles` before you start. Ground every decision in a principle — refactoring by instinct is just rewriting by another name.
 
 Refactoring is the "make the change easy" half of Kent Beck's Tidy First principle:
 
@@ -55,7 +55,7 @@ ______________________________________________________________________
 
 ## Using design principles
 
-The `/design-principles` skill has the full Principle→Refactoring map. Use it to go from a violation to a named transformation. A few things worth internalising before you start:
+The `design-principles` skill has the full Principle→Refactoring map. Use it to go from a violation to a named transformation. A few things worth internalising before you start:
 
 Correctness beats elegance, always. A refactor that introduces a bug is a regression dressed up as improvement.
 
