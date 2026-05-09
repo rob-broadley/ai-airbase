@@ -79,7 +79,7 @@ Use the skill tool to load `tool-install`, then use it to install the runtime an
 | `go`                        | `go install <pkg>@latest` for Go tools                            |
 | `rustup` / `cargo`          | `cargo install <pkg>` for Rust tools                              |
 
-Always prefer **uv first** for the initial install of the toolchain, fall back to **Nix** when the tool is not on PyPI. Once the native toolchain is in place, use it.
+Use **uv** for Python-based tools (`uv tool install`). Use **Nix** for language runtimes (Go, Node.js, Java, Rust, etc.) and any tool not available on PyPI (`nix profile add nixpkgs#…`). Once the native toolchain is in place, use it.
 
 For tools or runtimes that require a **specific version**, see the [Specific versions](#specific-versions) section below.
 

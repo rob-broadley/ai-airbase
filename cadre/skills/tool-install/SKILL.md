@@ -5,21 +5,23 @@ license: AGPL-3.0-or-later
 allowed-tools: execute
 ---
 
+> **No root access.** `sudo`, `apt`, `dnf`, and all system package managers are unavailable. Never attempt them. All installs must go through `uv`, `nix`, or `npm`.
+
 Two package managers are available as the bootstrap layer: **uv** and **Nix**. Once a language runtime is installed, its own toolchain should be used for the rest of that ecosystem.
 
-| Use when                                                                       | Tool                                  |
-| ------------------------------------------------------------------------------ | ------------------------------------- |
-| Tool is on PyPI (try first — fastest)                                          | `uv`                                  |
-| Tool is not on PyPI, or a specific runtime version is needed                   | `nix`                                 |
-| JavaScript and TypeScript runtime is installed — installing a package globally | `npm install -g`                      |
-| Python runtime is installed — installing a tool                                | `uv tool install`                     |
-| Java runtime is installed — installing project tools                           | `mvn`, `gradle`, or `nix profile add` |
-| C# runtime is installed — installing a tool                                    | `dotnet tool install --global`        |
-| C++ toolchain is installed — installing or resolving packages                  | `cmake`, `conan`, or `vcpkg`          |
-| Go runtime is installed — installing a Go tool                                 | `go install`                          |
-| Rust and Cargo are installed — installing a Rust tool                          | `cargo install`                       |
+| Use when                                                                         | Tool                                  |
+| -------------------------------------------------------------------------------- | ------------------------------------- |
+| Tool is a Python package or Python-based CLI (check PyPI first)                  | `uv`                                  |
+| Tool is a language runtime (Go, Node.js, Java, Rust, …) or not available on PyPI | `nix`                                 |
+| JavaScript and TypeScript runtime is installed — installing a package globally   | `npm install -g`                      |
+| Python runtime is installed — installing a tool                                  | `uv tool install`                     |
+| Java runtime is installed — installing project tools                             | `mvn`, `gradle`, or `nix profile add` |
+| C# runtime is installed — installing a tool                                      | `dotnet tool install --global`        |
+| C++ toolchain is installed — installing or resolving packages                    | `cmake`, `conan`, or `vcpkg`          |
+| Go runtime is installed — installing a Go tool                                   | `go install`                          |
+| Rust and Cargo are installed — installing a Rust tool                            | `cargo install`                       |
 
-Try **uv first** for the bootstrap layer. Once a native toolchain is available, prefer it for that ecosystem.
+Use **uv** for Python-based tools and **Nix** for language runtimes and non-Python tools. Once a native toolchain is available, prefer it for that ecosystem.
 
 ## Language runtime quick reference
 
