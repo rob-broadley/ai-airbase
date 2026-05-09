@@ -49,6 +49,8 @@ Use the dominant framework conventions for the language in scope:
 
 Skip implementation internals: database queries, business logic, helper functions that are not part of the public contract. If the diff contains only implementation files with no interface exposure, state: *"No API or CLI interface definitions found in scope. API review is not applicable to this diff."* and stop.
 
+**If a file list was provided in your context** (full-codebase review rather than a diff-based review): use the `read` tool to examine each listed file directly before applying any review checks. Do not use `git diff` as your primary source of code in this case — the diff only covers recent commits and will cause you to miss issues in unchanged files. Read the actual files, then apply your full review process to their contents.
+
 ______________________________________________________________________
 
 ## Review process

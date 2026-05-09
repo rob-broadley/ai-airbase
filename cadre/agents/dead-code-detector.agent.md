@@ -30,6 +30,8 @@ If a specific ref, file list, or scan scope was provided, use that instead. If t
 
 **Language detection:** `read` the project manifest (`package.json`, `pyproject.toml` or `uv.lock` (Python), `pom.xml` or `build.gradle`, `*.csproj` or `*.sln`, `CMakeLists.txt`, `vcpkg.json`, `conanfile.*`, `go.mod`, `Cargo.toml` — whichever exists) to identify the language and package manager before running any tools.
 
+**If a file list was provided in your context** (full-codebase review rather than a diff-based review): use the `read` tool to examine each listed file directly before applying any review checks. Do not use `git diff` as your primary source of code in this case — the diff only covers recent commits and will cause you to miss issues in unchanged files. Read the actual files, then apply your full review process to their contents.
+
 ______________________________________________________________________
 
 ## Review process

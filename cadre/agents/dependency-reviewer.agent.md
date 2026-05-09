@@ -30,6 +30,8 @@ If a specific ref or file list was provided, use that instead of `HEAD~1`.
 
 **Applicability check:** if none of the changed files are dependency manifest files (`package.json`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `pyproject.toml`, `uv.lock`, `requirements.txt` (legacy), `pom.xml`, `build.gradle`, `build.gradle.kts`, `*.csproj`, `packages.lock.json`, `Directory.Packages.props`, `vcpkg.json`, `conanfile.txt`, `conanfile.py`, `go.mod`, `go.sum`, `Cargo.toml`, `Cargo.lock`), state: *"No dependency manifest changes found in scope. Dependency review is not applicable to this diff."* and stop.
 
+**If a file list was provided in your context** (full-codebase review rather than a diff-based review): use the `read` tool to examine each listed file directly before applying any review checks. Do not use `git diff` as your primary source of code in this case — the diff only covers recent commits and will cause you to miss issues in unchanged files. Read the actual files, then apply your full review process to their contents.
+
 ______________________________________________________________________
 
 ## Review process

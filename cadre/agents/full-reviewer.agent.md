@@ -24,11 +24,16 @@ ______________________________________________________________________
 
 ## Orientation
 
-1. `execute git diff HEAD~1 --stat` — understand what changed
 1. `execute git log --no-pager -5` — understand recent context
 1. `read README.md` — establish project context to pass to agents
 
-If a specific git ref or file list was provided, use that as the review scope. If no scope was given, default to `HEAD~1`.
+**Scope resolution — do this before Pre-flight:**
+
+- **If a specific git ref was provided:** run `execute git diff <ref> --stat` to see what changed. Pass the git ref to each specialist as the review scope.
+- **If the scope is the full codebase (no specific ref given):**
+  1. Discover all source files: run `execute git ls-files` — this lists every file tracked by git, regardless of language, and excludes untracked build artefacts, vendor directories, and generated files automatically. Collect the full file list.
+  1. Read the key source files using the `read` tool — prioritise entry points, core packages, and any file mentioned in the README as significant. Read as many as needed to understand the codebase structure.
+  1. Build an **explicit file manifest** (the full list of discovered source files). This manifest must be passed to every specialist agent in the handoff — not just a description.
 
 ______________________________________________________________________
 
@@ -56,9 +61,12 @@ ______________________________________________________________________
 
 Launch ALL of the following agents simultaneously using the `agent` tool. Pass each agent:
 
-- The review scope (git ref or file list)
-- The project context (language, framework, brief description from README)
-- The instruction to produce findings in the standard severity format
+- **Review scope** — one of:
+  - A git ref (e.g. `HEAD~1`) when reviewing a specific diff
+  - An explicit list of source file paths when reviewing the full codebase
+- **When scope is full-codebase:** include the explicit file list in the handoff and instruct the agent to use the `read` tool to examine each listed file. Tell the agent explicitly: *"Do not use `git diff` as your source of code — read the listed files directly with the `read` tool."*
+- **Project context** — language, framework, and brief description from README
+- **Instruction** to produce findings in the standard severity format
 
 Agents to launch in parallel:
 

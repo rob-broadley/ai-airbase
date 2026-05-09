@@ -28,6 +28,8 @@ ______________________________________________________________________
 
 If a specific ref or file list was provided, use that instead of `HEAD~1`.
 
+**If a file list was provided in your context** (full-codebase review rather than a diff-based review): use the `read` tool to examine each listed file directly before applying any review checks. Do not use `git diff` as your primary source of code in this case — the diff only covers recent commits and will cause you to miss issues in unchanged files. Read the actual files, then apply your full review process to their contents.
+
 ______________________________________________________________________
 
 ## Review process

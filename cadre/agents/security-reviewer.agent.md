@@ -38,6 +38,8 @@ If a specific ref or file list was provided, use that instead of `HEAD~1`.
 1. `search` for configuration loading and environment variable reads — secrets hygiene
 1. **Git history secrets scan:** after the diff review, run `execute trufflehog git file://.`. If not installed, use the `tool-install` skill — install via `go install github.com/trufflesecurity/trufflehog/v3@latest` (do not use `uv tool install trufflehog` — that installs the abandoned Python v2 package). A secret found in git history is a Critical finding even if it was removed in a later commit — the history is public if the repository is public, and may have been cached by mirrors.
 
+**If a file list was provided in your context** (full-codebase review rather than a diff-based review): use the `read` tool to examine each listed file directly before applying any review checks. Do not use `git diff` as your primary source of code in this case — the diff only covers recent commits and will cause you to miss issues in unchanged files. Read the actual files, then apply your full review process to their contents.
+
 ______________________________________________________________________
 
 ## Review process

@@ -26,9 +26,14 @@ ______________________________________________________________________
 
 1. `execute git log --no-pager -5` — understand recent context
 1. `read README.md` — if the scope involves unfamiliar code
-1. `execute git diff HEAD~1` — read the full diff
 
-If a specific ref, file path, or diff was provided, use that as the review target instead of `HEAD~1`.
+**Scope resolution:**
+
+- **If a specific git ref, file path, or diff was provided:** run `execute git diff <ref>` to read the changes. Use that as the review target.
+- **If the scope is the full codebase (no specific ref given):**
+  1. Discover all source files: run `execute git ls-files` — language-agnostic and automatically excludes untracked build artefacts and generated files. Collect the full file list.
+  1. Read the key source files using the `read` tool — prioritise entry points, core packages, and any file mentioned in the README as significant.
+  1. Use the file list (not `git diff`) as the basis for the review.
 
 If the scope is ambiguous — for example, the request mentions both a feature branch and a specific file — ask one clarifying question before proceeding: *"Should I review the full branch diff or just [specific file]?"*
 
