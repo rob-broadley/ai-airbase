@@ -200,12 +200,20 @@ func ensureConfigFile(path string, defaultContent []byte) error {
 
 // buildUserConfig constructs the container.UserConfig for the calling user.
 // HomeDir is set to ContainerUserHome, which matches the container image convention.
-func buildUserConfig(deps Deps) container.UserConfig {
-	return container.UserConfig{
-		UID:     deps.Getuid(),
-		GID:     deps.Getgid(),
-		HomeDir: container.ContainerUserHome,
+// Returns an error if UID is 0 to prevent the container from running as root.
+// GID 0 is intentionally permitted: on some distributions (e.g. Fedora) regular
+// users may have the root group as their primary GID.
+func buildUserConfig(deps Deps) (container.UserConfig, error) {
+	uid := deps.Getuid()
+	gid := deps.Getgid()
+	if uid == 0 {
+		return container.UserConfig{}, fmt.Errorf("marshal must not run as root: UID 0")
 	}
+	return container.UserConfig{
+		UID:     uid,
+		GID:     gid,
+		HomeDir: container.ContainerUserHome,
+	}, nil
 }
 
 // resolveContainer resolves the project name from projectFlag and deps,

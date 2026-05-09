@@ -120,7 +120,10 @@ func resolveContainerParams(deps Deps, projectFlag string) (params containerPara
 	}
 	mountSpecs = append(mountSpecs, credMounts...)
 
-	uc := buildUserConfig(deps)
+	uc, err := buildUserConfig(deps)
+	if err != nil {
+		return containerParams{}, err
+	}
 
 	return containerParams{
 		containerName: containerName,
