@@ -94,11 +94,10 @@ type containerParams struct {
 // It is the single source of truth for how a container is configured and is
 // called by ensureContainerAndStart/Exec and runRecreate.
 func resolveContainerParams(deps Deps, projectFlag string) (params containerParams, err error) {
-	project := config.ResolveProject(projectFlag, deps.Getwd)
-	if err := config.ValidateProjectName(project); err != nil {
+	project, containerName, err := resolveContainer(deps, projectFlag)
+	if err != nil {
 		return containerParams{}, err
 	}
-	containerName := containerNameForProject(project)
 
 	cwd, err := deps.Getwd()
 	if err != nil {

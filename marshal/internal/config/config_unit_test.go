@@ -2,6 +2,7 @@
 package config_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -65,9 +66,12 @@ func TestResolveProject_FlagTakesPrecedence(t *testing.T) {
 	setenv(t, "MARSHAL_PROJECT", "env-project")
 
 	// When ResolveProject is called with the flag value
-	got := config.ResolveProject("flag-project", os.Getwd)
+	got, err := config.ResolveProject("flag-project", os.Getwd)
 
-	// Then the flag value is returned
+	// Then no error occurs and the flag value is returned
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if got != "flag-project" {
 		t.Errorf("expected %q, got %q", "flag-project", got)
 	}
@@ -80,9 +84,12 @@ func TestResolveProject_EnvFallback(t *testing.T) {
 	setenv(t, "MARSHAL_PROJECT", "env-project")
 
 	// When ResolveProject is called with an empty flag
-	got := config.ResolveProject("", os.Getwd)
+	got, err := config.ResolveProject("", os.Getwd)
 
-	// Then the environment variable value is returned
+	// Then no error occurs and the environment variable value is returned
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if got != "env-project" {
 		t.Errorf("expected %q, got %q", "env-project", got)
 	}
@@ -113,9 +120,12 @@ func TestResolveProject_CWDFallback(t *testing.T) {
 	}
 
 	// When ResolveProject is called with an empty flag
-	got := config.ResolveProject("", os.Getwd)
+	got, err := config.ResolveProject("", os.Getwd)
 
-	// Then the basename of the current working directory is returned
+	// Then no error occurs and the basename of the current working directory is returned
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if got != "myproject" {
 		t.Errorf("expected %q, got %q", "myproject", got)
 	}
@@ -596,20 +606,25 @@ func TestEnsureSharedDataDir_DirectoryCreationFails(t *testing.T) {
 // ResolveProject — injected getwd
 // ---------------------------------------------------------------------------
 
-// TestResolveProject_GetwdFails verifies that ResolveProject returns an empty
-// string when getwd fails and neither a flag value nor MARSHAL_PROJECT is set.
-func TestResolveProject_GetwdFails(t *testing.T) {
+// TestResolveProject_GetwdFails_PropagatesError verifies that when getwd fails
+// and neither a flag value nor MARSHAL_PROJECT is set, the getwd error is
+// propagated to the caller rather than silently returning an empty string that
+// would cause a misleading "invalid project name" validation error downstream.
+func TestResolveProject_GetwdFails_PropagatesError(t *testing.T) {
 	// Given MARSHAL_PROJECT is unset and getwd returns an error
 	unsetenv(t, "MARSHAL_PROJECT")
-
-	failingGetwd := func() (string, error) { return "", fmt.Errorf("no working directory") }
+	getwdErr := fmt.Errorf("no working directory: filesystem unavailable")
+	failingGetwd := func() (string, error) { return "", getwdErr }
 
 	// When ResolveProject is called with an empty flag and failing getwd
-	got := config.ResolveProject("", failingGetwd)
+	_, err := config.ResolveProject("", failingGetwd)
 
-	// Then an empty string is returned
-	if got != "" {
-		t.Errorf("expected empty string on getwd failure, got %q", got)
+	// Then the getwd error is propagated (not swallowed as an empty string)
+	if err == nil {
+		t.Fatal("expected an error when getwd fails, got nil")
+	}
+	if !errors.Is(err, getwdErr) {
+		t.Errorf("expected error to wrap getwdErr, got: %v", err)
 	}
 }
 

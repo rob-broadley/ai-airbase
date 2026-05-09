@@ -213,7 +213,10 @@ func buildUserConfig(deps Deps) container.UserConfig {
 // name. Returns an "invalid project" error when the resolved name fails
 // validation.
 func resolveContainer(deps Deps, projectFlag string) (project, containerName string, err error) {
-	project = config.ResolveProject(projectFlag, deps.Getwd)
+	project, err = config.ResolveProject(projectFlag, deps.Getwd)
+	if err != nil {
+		return "", "", fmt.Errorf("resolving project: %w", err)
+	}
 	if err = config.ValidateProjectName(project); err != nil {
 		return "", "", fmt.Errorf("invalid project: %w", err)
 	}

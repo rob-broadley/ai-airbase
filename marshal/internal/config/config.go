@@ -29,18 +29,21 @@ type Config struct {
 //
 // getwd is injected so callers can supply deps.Getwd in tests and os.Getwd
 // in production — keeping the function fully testable.
-func ResolveProject(flagValue string, getwd func() (string, error)) string {
+//
+// An error is returned only when the CWD path is taken and getwd fails.
+// The flag and env-var paths never fail.
+func ResolveProject(flagValue string, getwd func() (string, error)) (string, error) {
 	if flagValue != "" {
-		return flagValue
+		return flagValue, nil
 	}
 	if v := os.Getenv("MARSHAL_PROJECT"); v != "" {
-		return v
+		return v, nil
 	}
 	cwd, err := getwd()
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("resolving project from working directory: %w", err)
 	}
-	return filepath.Base(cwd)
+	return filepath.Base(cwd), nil
 }
 
 // validProjectName matches project names that are safe to use as path components.
