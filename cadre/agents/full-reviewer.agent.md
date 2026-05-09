@@ -103,7 +103,17 @@ Wait for all agents to complete. Then:
 
 Group: all Blocking findings together, all Recommendations together, all Observations together. Retain the original severity label in the finding body (e.g., `[CRITICAL]`) so security context is not lost.
 
-**Step 3 — Produce the unified report.**
+**Step 3 — Verify findings.**
+
+Before producing the report, verify every finding that cites a specific file or location:
+
+1. **File exists check:** use the `read` tool to open each cited file. Drop any finding where the file does not exist.
+2. **Location check:** confirm the cited line number or function/symbol name is present in the file at the stated location. Correct or drop findings with wrong locations.
+3. **Behaviour check:** confirm the described issue is actually visible in the code — or, for absence-based findings (e.g. "no timeout", "no validation"), confirm the absence using `search`. Drop findings where the described issue or absence cannot be confirmed.
+
+Record how many findings were dropped in this step. Include the count in the report summary as: *"N findings dropped after verification (unconfirmed against source)."* If zero were dropped, omit this note.
+
+**Step 4 — Produce the unified report.**
 
 ______________________________________________________________________
 
