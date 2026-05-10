@@ -23,10 +23,17 @@ ______________________________________________________________________
 [problem-analyser] → [user-story-writer]
 ```
 
-| Step | Agent               | Hand it                                  | Success                                                                                   |
-| ---- | ------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 1    | `problem-analyser`  | The raw request as the user expressed it | An approved problem analysis: goal, subproblem decomposition, contradictions, NFRs, risks |
-| 2    | `user-story-writer` | The approved problem analysis            | An approved story set: INVEST-scored stories with AC, dependency diagram, risk/value/size |
+**Step 1 — `problem-analyser`**
+
+**Hand it:** The raw request as the user expressed it.
+
+**Success:** An approved problem analysis: goal, subproblem decomposition, contradictions, NFRs, risks.
+
+**Step 2 — `user-story-writer`**
+
+**Hand it:** The approved problem analysis.
+
+**Success:** An approved story set: INVEST-scored stories with AC, dependency diagram, risk/value/size.
 
 **Notes:**
 
@@ -50,14 +57,41 @@ ______________________________________________________________________
 [problem-analyser?] → [user-story-writer?] → [devex?] → [atdd] → [refactor?] → [technical-author?]
 ```
 
-| Step         | Agent               | Hand it                                                                                        | Success                                                                 |
-| ------------ | ------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| 0 (optional) | `problem-analyser`  | The raw request; project README                                                                | Approved problem analysis: goal, subproblems, contradictions, NFRs      |
-| 1 (optional) | `user-story-writer` | Approved problem analysis                                                                      | Approved stories with AC, INVEST scores, risk/value/size                |
-| 2 (optional) | `devex`             | Project language/framework; what tooling is needed                                             | Test runner works; `make test` or equivalent passes cleanly             |
-| 3            | `atdd`              | User story + acceptance criteria; relevant source files; test command                          | Acceptance test passes; new behaviour works end-to-end; committed       |
-| 4 (optional) | `refactor`          | Files changed in step 3; passing test suite; complexity baseline                               | No method over CC 10; no new SRP violations; metrics stable or improved |
-| 5 (optional) | `technical-author`  | Changed source files; updated `--help` output or behaviour description; relevant existing docs | Docs updated to reflect new or changed user-facing behaviour; committed |
+**Step 0 (optional) — `problem-analyser`**
+
+**Hand it:** The raw request; project README.
+
+**Success:** Approved problem analysis: goal, subproblems, contradictions, NFRs.
+
+**Step 1 (optional) — `user-story-writer`**
+
+**Hand it:** Approved problem analysis.
+
+**Success:** Approved stories with AC, INVEST scores, risk/value/size.
+
+**Step 2 (optional) — `devex`**
+
+**Hand it:** Project language/framework; what tooling is needed.
+
+**Success:** Test runner works; `make test` or equivalent passes cleanly.
+
+**Step 3 — `atdd`**
+
+**Hand it:** User story + acceptance criteria; relevant source files; test command.
+
+**Success:** Acceptance test passes; new behaviour works end-to-end; committed.
+
+**Step 4 (optional) — `refactor`**
+
+**Hand it:** Files changed in step 3; passing test suite; complexity baseline.
+
+**Success:** No method over CC 10; no new SRP violations; metrics stable or improved.
+
+**Step 5 (optional) — `technical-author`**
+
+**Hand it:** Changed source files; updated `--help` output or behaviour description; relevant existing docs.
+
+**Success:** Docs updated to reflect new or changed user-facing behaviour; committed.
 
 **Notes:**
 
@@ -81,10 +115,17 @@ ______________________________________________________________________
 [legacy-code?] → [refactor]
 ```
 
-| Step         | Agent         | Hand it                                                                     | Success                                                   |
-| ------------ | ------------- | --------------------------------------------------------------------------- | --------------------------------------------------------- |
-| 0 (optional) | `legacy-code` | Files to be refactored; change intent                                       | Characterisation tests passing; seams identified          |
-| 1            | `refactor`    | Files to improve; passing test suite; complexity baseline; any smell report | Metrics improved; no behaviour change; committed per step |
+**Step 0 (optional) — `legacy-code`**
+
+**Hand it:** Files to be refactored; change intent.
+
+**Success:** Characterisation tests passing; seams identified.
+
+**Step 1 — `refactor`**
+
+**Hand it:** Files to improve; passing test suite; complexity baseline; any smell report.
+
+**Success:** Metrics improved; no behaviour change; committed per step.
 
 **Notes:**
 
@@ -106,12 +147,29 @@ ______________________________________________________________________
 [legacy-code] → [atdd] → [refactor] → [technical-author?]
 ```
 
-| Step         | Agent              | Hand it                                                                                  | Success                                                                       |
-| ------------ | ------------------ | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 1            | `legacy-code`      | Files to be changed; what the change needs to achieve; language/framework                | Seams identified; characterisation tests passing; dependency-breaking applied |
-| 2            | `atdd`             | User story or bug description; seams from step 1; characterisation tests as the baseline | New behaviour tested and passing; legacy code modified safely                 |
-| 3            | `refactor`         | Changed files; full test suite passing                                                   | Structure improved; no regressions; metrics stable or better                  |
-| 4 (optional) | `technical-author` | Changed source files; updated behaviour description; relevant existing docs              | Docs updated to reflect any user-facing changes introduced; committed         |
+**Step 1 — `legacy-code`**
+
+**Hand it:** Files to be changed; what the change needs to achieve; language/framework.
+
+**Success:** Seams identified; characterisation tests passing; dependency-breaking applied.
+
+**Step 2 — `atdd`**
+
+**Hand it:** User story or bug description; seams from step 1; characterisation tests as the baseline.
+
+**Success:** New behaviour tested and passing; legacy code modified safely.
+
+**Step 3 — `refactor`**
+
+**Hand it:** Changed files; full test suite passing.
+
+**Success:** Structure improved; no regressions; metrics stable or better.
+
+**Step 4 (optional) — `technical-author`**
+
+**Hand it:** Changed source files; updated behaviour description; relevant existing docs.
+
+**Success:** Docs updated to reflect any user-facing changes introduced; committed.
 
 **Notes:**
 
@@ -133,9 +191,11 @@ ______________________________________________________________________
 [devex]
 ```
 
-| Step | Agent   | Hand it                                                                            | Success                                                                                  |
-| ---- | ------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| 1    | `devex` | Language/framework; what needs to be installed or configured; any existing tooling | Tools installed and working; configuration committed; `make test` (or equivalent) passes |
+**Step 1 — `devex`**
+
+**Hand it:** Language/framework; what needs to be installed or configured; any existing tooling.
+
+**Success:** Tools installed and working; configuration committed; `make test` (or equivalent) passes.
 
 **Notes:**
 
@@ -156,9 +216,11 @@ ______________________________________________________________________
 [technical-author]
 ```
 
-| Step | Agent              | Hand it                                                                                  | Success                                             |
-| ---- | ------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| 1    | `technical-author` | The brief (what to document), relevant source files or diff, any existing docs to update | Documentation written, examples verified, committed |
+**Step 1 — `technical-author`**
+
+**Hand it:** The brief (what to document), relevant source files or diff, any existing docs to update.
+
+**Success:** Documentation written, examples verified, committed.
 
 **Notes:**
 
