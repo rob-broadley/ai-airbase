@@ -138,3 +138,29 @@ func TestEnsureConfigFile_CalledTwiceIsIdempotent(t *testing.T) {
 		t.Errorf("content changed after second call: got %q, want %q", got, content)
 	}
 }
+
+func TestSanitizeGitValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{name: "plain name unchanged", input: "Alice", expected: "Alice"},
+		{name: "NUL stripped", input: "Alice\x00Bob", expected: "AliceBob"},
+		{name: "all control chars stripped", input: "\x01\x1f", expected: ""},
+		{name: "DEL stripped", input: "\x7f", expected: ""},
+		{name: "DEL in middle stripped", input: "Alice\x7fBob", expected: "AliceBob"},
+		{name: "space preserved and tab stripped", input: " spaces and\ttabs", expected: " spaces andtabs"},
+		{name: "newline stripped", input: "Alice\nBob", expected: "AliceBob"},
+		{name: "empty string", input: "", expected: ""},
+		{name: "non-ASCII printable preserved", input: "café", expected: "café"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := sanitizeGitValue(tt.input); got != tt.expected {
+				t.Errorf("sanitizeGitValue(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
