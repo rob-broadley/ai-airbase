@@ -14,7 +14,7 @@ func TestDefaultCmd_MountsCWD(t *testing.T) {
 	// Given no mounts configured and empty config
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -47,7 +47,7 @@ func TestDefaultCmd_ReusesSavedMounts(t *testing.T) {
 		t.Fatalf("saving config: %v", err)
 	}
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -80,7 +80,7 @@ func TestDefaultCmd_CustomImage(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("MARSHAL_IMAGE", "myregistry/revetment:v2")
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,

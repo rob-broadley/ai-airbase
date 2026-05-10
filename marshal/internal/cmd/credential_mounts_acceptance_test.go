@@ -23,7 +23,7 @@ func TestDefaultCmd_ConfigFilesFromXDGConfig(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:                runner,
 		ExecFn:                (&fakeExec{}).exec,
@@ -73,7 +73,7 @@ func TestDefaultCmd_GitConfigMounted(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:                runner,
 		ExecFn:                (&fakeExec{}).exec,
@@ -107,7 +107,7 @@ func TestDefaultCmd_GitConfigPopulatedFromHost(t *testing.T) {
 
 	cf := newCredFakes(t)
 	deps := cmd.Deps{
-		Runner:                &fakeRunner{exists: false},
+		Runner:                &fakeRunner{exists: false, imageExistsResult: true},
 		ExecFn:                (&fakeExec{}).exec,
 		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
 		Getuid:                func() int { return 1001 },
@@ -155,7 +155,7 @@ func TestDefaultCmd_GitConfigNotOverwrittenIfExists(t *testing.T) {
 	}
 
 	deps := cmd.Deps{
-		Runner:                &fakeRunner{exists: false},
+		Runner:                &fakeRunner{exists: false, imageExistsResult: true},
 		ExecFn:                (&fakeExec{}).exec,
 		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
 		Getuid:                func() int { return 1001 },
@@ -189,7 +189,7 @@ func TestDefaultCmd_SessionStoreMounted(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:                runner,
 		ExecFn:                (&fakeExec{}).exec,
@@ -222,7 +222,7 @@ func TestDefaultCmd_SessionStateMountedPerProject(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:                runner,
 		ExecFn:                (&fakeExec{}).exec,
@@ -257,7 +257,7 @@ func TestCredentialMounts_SessionStateIsolatedByProject(t *testing.T) {
 	cf := newCredFakes(t)
 
 	argsFor := func(project string) []string {
-		runner := &fakeRunner{exists: false}
+		runner := &fakeRunner{exists: false, imageExistsResult: true}
 		deps := cmd.Deps{
 			Runner:                runner,
 			ExecFn:                (&fakeExec{}).exec,
@@ -315,7 +315,7 @@ func TestCredentialMounts_ConfigSharedAcrossProjects(t *testing.T) {
 	cf := newCredFakes(t)
 
 	argsFor := func(project string) []string {
-		runner := &fakeRunner{exists: false}
+		runner := &fakeRunner{exists: false, imageExistsResult: true}
 		deps := cmd.Deps{
 			Runner:                runner,
 			ExecFn:                (&fakeExec{}).exec,
@@ -369,7 +369,7 @@ func TestRecreate_CredentialMountsIncluded(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:                runner,
 		ExecFn:                (&fakeExec{}).exec,

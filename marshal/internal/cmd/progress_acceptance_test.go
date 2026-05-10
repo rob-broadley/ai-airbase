@@ -18,7 +18,7 @@ func TestCreate_LogsCreatingContainer(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	var logBuf bytes.Buffer
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -47,7 +47,7 @@ func TestDefaultCmd_LogsCreatingContainer(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	var logBuf bytes.Buffer
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -78,7 +78,7 @@ func TestRecreate_LogsRemovingAndCreating(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	var logBuf bytes.Buffer
-	runner := &fakeRunner{exists: true}
+	runner := &fakeRunner{exists: true, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -112,6 +112,7 @@ func TestCreate_LogsProvisioningVolume(t *testing.T) {
 	var logBuf bytes.Buffer
 	runner := &fakeRunner{
 		exists:                 false,
+		imageExistsResult:      true,
 		imageInspectVolumeJSON: `{"/work/npm":{}}`,
 		imageInspectLabelJSON:  `{"io.ai-airbase.volume.npm":"/work/npm"}`,
 	}

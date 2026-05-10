@@ -18,7 +18,7 @@ func TestBuildUserConfig_RefusesRootUID(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:                runner,
 		ExecFn:                (&fakeExec{}).exec,
@@ -57,7 +57,7 @@ func TestBuildUserConfig_AllowsGIDZero(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:                runner,
 		ExecFn:                (&fakeExec{}).exec,
@@ -91,7 +91,7 @@ func TestBuildUserConfig_RefusesRootUID_Recreate(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:                runner,
 		ExecFn:                (&fakeExec{}).exec,

@@ -19,7 +19,7 @@ func TestCreate_CreatesContainerWithCWD(t *testing.T) {
 	// Given no container exists and no mounts configured
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -63,7 +63,7 @@ func TestCreate_MountFlagAbsolute(t *testing.T) {
 	// Given --mount /abs/shared-lib
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -96,7 +96,7 @@ func TestCreate_MultipleMountFlags(t *testing.T) {
 	// Given two --mount flags
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -130,7 +130,7 @@ func TestCreate_PersistsMountsToConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmpDir)
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -164,7 +164,7 @@ func TestCreate_RelativeMountResolved(t *testing.T) {
 	// Given --mount reldir with CWD set
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -224,7 +224,7 @@ func TestCreate_MountSaveFails(t *testing.T) {
 	// Given a SaveConfig function that returns an error
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -253,7 +253,7 @@ func TestCreate_PrintsSuccessMessage(t *testing.T) {
 	// Given no container exists
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,

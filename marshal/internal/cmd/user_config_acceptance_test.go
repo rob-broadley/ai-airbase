@@ -15,7 +15,7 @@ func TestDefaultCmd_UserConfigSet(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -51,7 +51,7 @@ func TestDefaultCmd_PasswdEntrySet(t *testing.T) {
 	// Given a runner with no existing container and UID 1001 / GID 1002
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -82,7 +82,7 @@ func TestDefaultCmd_TtyAllocated(t *testing.T) {
 	// Given a runner with no existing container and credential fakes
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -112,7 +112,7 @@ func TestDefaultCmd_StdinOpen(t *testing.T) {
 	// Given a runner with no existing container and credential fakes
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -140,7 +140,7 @@ func TestRecreate_UserConfigSet(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,

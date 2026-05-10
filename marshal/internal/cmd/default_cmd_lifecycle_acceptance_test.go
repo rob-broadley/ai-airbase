@@ -19,7 +19,7 @@ func TestDefaultCmd_CreateAndStart(t *testing.T) {
 	// Given no container exists
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: false, running: false}
+	runner := &fakeRunner{exists: false, running: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -59,7 +59,7 @@ func TestDefaultCmd_ReuseRunning(t *testing.T) {
 	// Given the container is already running
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: true, running: true}
+	runner := &fakeRunner{exists: true, running: true, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -102,7 +102,7 @@ func TestDefaultCmd_RestartStopped(t *testing.T) {
 	// Given the container exists but is stopped
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: true, running: false}
+	runner := &fakeRunner{exists: true, running: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -142,7 +142,7 @@ func TestDefaultCmd_ExecArgv(t *testing.T) {
 	// Given no container exists
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -184,7 +184,7 @@ func TestDefaultCmd_AttachArgvWhenRunning(t *testing.T) {
 	// Given the container is already running
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: true, running: true}
+	runner := &fakeRunner{exists: true, running: true, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -219,7 +219,7 @@ func TestDefaultCmd_ContainerNameConvention(t *testing.T) {
 	// Given no container exists for project my-app
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -258,7 +258,7 @@ func TestDefaultCmd_ExistsCheckFails(t *testing.T) {
 	// Given a runner that fails on the "ps-all" subcommand used by the Exists check
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{runErrors: map[string]error{"ps-all": fmt.Errorf("ps failed")}}
+	runner := &fakeRunner{runErrors: map[string]error{"ps-all": fmt.Errorf("ps failed")}, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -400,7 +400,7 @@ func TestDefaultCmd_GetwdFails(t *testing.T) {
 	// Given a Getwd function that returns an error
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: true, running: true}
+	runner := &fakeRunner{exists: true, running: true, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -435,7 +435,7 @@ func TestDefaultCmd_ConfigLoadFails(t *testing.T) {
 	}
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 
-	runner := &fakeRunner{exists: true, running: true}
+	runner := &fakeRunner{exists: true, running: true, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -462,7 +462,7 @@ func TestDefaultCmd_CredentialMountsFail(t *testing.T) {
 	// Given an EnsureSharedDataDir function that returns an error
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: true, running: true}
+	runner := &fakeRunner{exists: true, running: true, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner: runner,
 		ExecFn: (&fakeExec{}).exec,

@@ -29,6 +29,7 @@ func TestAutoPull_ImageAbsent_PullsThenCreatesContainer(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -68,6 +69,7 @@ func TestAutoPull_ImagePresent_PullNotCalled(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -107,6 +109,7 @@ func TestAutoPull_PullFails_NoLocalImage_ReturnsError(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -154,6 +157,7 @@ func TestAutoPull_PullFails_ImageExistsLocally_WarnsAndContinues(t *testing.T) {
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
 		Logger:              cmd.NewCLILogger(&logBuf),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -189,6 +193,7 @@ func TestDefaultCmd_ImageExistsCheckFails(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	root := cmd.NewRootCmd(deps)

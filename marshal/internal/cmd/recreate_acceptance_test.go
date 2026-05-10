@@ -19,7 +19,7 @@ func TestRecreate_ExistingRunning(t *testing.T) {
 	// Given a running container
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: true, running: true}
+	runner := &fakeRunner{exists: true, running: true, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -57,7 +57,7 @@ func TestRecreate_ExistingStopped(t *testing.T) {
 	// Given a stopped container
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: true, running: false}
+	runner := &fakeRunner{exists: true, running: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -95,7 +95,7 @@ func TestRecreate_NoContainer(t *testing.T) {
 	// Given no container exists
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: false, running: false}
+	runner := &fakeRunner{exists: false, running: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -134,7 +134,7 @@ func TestRecreate_UsesSavedMounts(t *testing.T) {
 		t.Fatalf("saving config: %v", err)
 	}
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -171,6 +171,7 @@ func TestRecreate_PullsBeforeRemovingContainer(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -210,6 +211,7 @@ func TestRecreate_PullFails_NoLocalImage_ErrorReturned(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -249,6 +251,7 @@ func TestRecreate_PullFails_LocalImageExists_WarnAndProceed(t *testing.T) {
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
 		Logger:              cmd.NewCLILogger(&logBuf),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -285,6 +288,7 @@ func TestRecreate_PullSuccess_ProceedsWithRemoveAndCreate(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	root := cmd.NewRootCmd(deps)

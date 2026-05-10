@@ -24,6 +24,7 @@ func TestPull_CallsPullImageWithCorrectImage(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -56,6 +57,7 @@ func TestPull_PrintsSuccessMessage(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -90,6 +92,7 @@ func TestPull_ReturnsErrorOnPullFailure(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -127,6 +130,7 @@ func TestPullFallback_ForwardsPodmanStderrToUser(t *testing.T) {
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
 		Logger:              cmd.NewCLILogger(&logBuf),
+		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
 	// When the root command is executed

@@ -57,7 +57,7 @@ func TestShell_CreatesAndStartsWhenAbsent(t *testing.T) {
 	// Given the container does not exist
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: false}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	fe := &fakeExec{}
 	deps := cmd.Deps{
 		Runner:              runner,
