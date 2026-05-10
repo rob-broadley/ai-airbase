@@ -164,3 +164,64 @@ func TestSanitizeGitValue(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Unit tests for Deps.ensureSharedDataDir accessor
+// ---------------------------------------------------------------------------
+
+// TestDeps_EnsureSharedDataDir_NilFieldDefaultsToConfigFunc verifies that
+// when EnsureSharedDataDir is not injected (nil), the accessor returns a
+// non-nil function (defaulting to config.EnsureSharedDataDir).
+//
+// Acceptance criterion: calling deps.ensureSharedDataDir() on a zero-value
+// Deps must never panic and must return a usable function.
+func TestDeps_EnsureSharedDataDir_NilFieldDefaultsToConfigFunc(t *testing.T) {
+	// Given a Deps with EnsureSharedDataDir left nil (zero-value)
+	deps := Deps{}
+
+	// When the nil-safe accessor is called
+	fn := deps.ensureSharedDataDir()
+
+	// Then a non-nil function is returned (the default is config.EnsureSharedDataDir)
+	if fn == nil {
+		t.Fatal("ensureSharedDataDir() returned nil; expected config.EnsureSharedDataDir as default")
+	}
+
+	// And the returned function behaves like config.EnsureSharedDataDir —
+	// call it with a temp-dir-rooted subdir and expect no error.
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	dir, err := fn("projects/test-project")
+	if err != nil {
+		t.Fatalf("default ensureSharedDataDir returned unexpected error: %v", err)
+	}
+	if dir == "" {
+		t.Fatal("default ensureSharedDataDir returned empty directory path")
+	}
+}
+
+// TestDeps_EnsureSharedDataDir_InjectedFunctionIsUsed verifies that when
+// EnsureSharedDataDir is set, the accessor returns that exact function.
+func TestDeps_EnsureSharedDataDir_InjectedFunctionIsUsed(t *testing.T) {
+	// Given a Deps with a custom EnsureSharedDataDir injected
+	called := false
+	stub := func(subdir string) (string, error) {
+		called = true
+		return "/stub/" + subdir, nil
+	}
+	deps := Deps{EnsureSharedDataDir: stub}
+
+	// When the accessor is invoked and called
+	fn := deps.ensureSharedDataDir()
+	got, err := fn("projects/myproject")
+
+	// Then the injected function is called, not config.EnsureSharedDataDir
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !called {
+		t.Fatal("injected EnsureSharedDataDir was not called")
+	}
+	if got != "/stub/projects/myproject" {
+		t.Errorf("got %q, want %q", got, "/stub/projects/myproject")
+	}
+}

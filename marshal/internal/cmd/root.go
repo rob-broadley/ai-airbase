@@ -92,6 +92,16 @@ func (d Deps) logger() *slog.Logger {
 	return slog.New(slog.DiscardHandler)
 }
 
+// ensureSharedDataDir returns the injected EnsureSharedDataDir or the
+// real config.EnsureSharedDataDir. Tests that set XDG_DATA_HOME to a temp
+// directory get safe isolation without needing to inject this function.
+func (d Deps) ensureSharedDataDir() func(string) (string, error) {
+	if d.EnsureSharedDataDir != nil {
+		return d.EnsureSharedDataDir
+	}
+	return config.EnsureSharedDataDir
+}
+
 // package-level defaultImage free function (which reads MARSHAL_IMAGE).
 func (d Deps) resolveImage() string {
 	if d.ResolveImage != nil {

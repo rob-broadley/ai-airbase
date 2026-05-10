@@ -96,7 +96,7 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 	}
 
 	// Per-project session store and session state — both isolated by project.
-	projectDataDir, err := deps.EnsureSharedDataDir("projects/" + project)
+	projectDataDir, err := deps.ensureSharedDataDir()("projects/" + project)
 	if err != nil {
 		return nil, fmt.Errorf("ensuring project data dir for %s: %w", project, err)
 	}
@@ -109,7 +109,7 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 		ContainerPath: container.ContainerCopilotDir + "/session-store.db",
 	})
 
-	sessionStateDir, err := deps.EnsureSharedDataDir("projects/" + project + "/session-state")
+	sessionStateDir, err := deps.ensureSharedDataDir()("projects/" + project + "/session-state")
 	if err != nil {
 		return nil, fmt.Errorf("ensuring session-state dir for project %s: %w", project, err)
 	}
