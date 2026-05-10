@@ -187,7 +187,7 @@ The replacement uses a double-rename sequence (pending → canonical) to minimis
 
 **What is preserved across recreate**
 
-- The per-project Nix store volume — tools fetched by agents do not need to be re-downloaded.
+- Three per-project tool volumes: the Nix store (`/nix/store`), the Nix user profile (`~/.local/state/nix`), and the uv tool cache (`~/.local/share/uv`). Tools installed by agents persist across recreates.
 - Conversation history and agent checkpoints (`session-store.db` and `session-state/`) stored under `$XDG_DATA_HOME/marshal/projects/<project>/` on the host.
 
 **What is not preserved**
@@ -218,9 +218,9 @@ ______________________________________________________________________
 
 ### marshal remove
 
-Stop and permanently remove the container and its tool cache for this project.
+Stop and permanently remove the container and all per-project state.
 
-marshal stops the container if running, removes it, removes the associated Nix store volume, and deletes the saved project config file. The revetment image is left untouched.
+marshal stops the container if running, removes it, removes all three per-project tool volumes (Nix store, Nix profile, and uv tool cache), and deletes the saved project config file. The revetment image is left untouched.
 
 After `remove`, the project has no container and no config. Use `marshal create` to start fresh.
 
