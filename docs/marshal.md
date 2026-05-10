@@ -21,7 +21,7 @@ These flags apply to every command.
 
 `MARSHAL_PROJECT` sets the project name when `--project` is not given. The flag takes precedence over the environment variable.
 
-Project names must start with an alphanumeric character and contain only alphanumerics, hyphens, underscores, and dots (1–128 characters). Names ending with `-pending-<pid>-<nano>` or `-retiring-<pid>-<nano>` are reserved for internal use.
+Project names must start and end with an alphanumeric character and contain only alphanumerics, hyphens, underscores, and dots (1–128 characters). Names ending with `-pending-<pid>-<nano>` or `-retiring-<pid>-<nano>` are reserved for internal use.
 
 ______________________________________________________________________
 
@@ -73,9 +73,12 @@ marshal create [flags]
 
 **Flags**
 
-| Flag             | Short | Default                                                  | Description                                                                                                                                                                               |
-| ---------------- | ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--mount <path>` | `-m`  | None (defaults to current directory when no flags given) | Directory to bind mount into `/workspace/<basename>`. Repeatable. When any `--mount` flag is given, only the listed paths are mounted — the current directory is not added automatically. |
+#### `--mount <path>` / `-m`
+
+Directory to bind mount into `/workspace/<basename>`. Repeatable.
+When any `--mount` flag is given, only the listed paths are mounted —
+the current directory is not added automatically.
+Default: current directory (only when no `--mount` flags are given).
 
 **Examples**
 
