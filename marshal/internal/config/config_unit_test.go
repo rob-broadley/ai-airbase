@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-package config_test
+package config
 
 import (
 	"errors"
@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -43,7 +41,7 @@ func unsetenv(t *testing.T, key string) {
 }
 
 // assertMounts verifies that cfg.Mounts exactly matches want, element by element.
-func assertMounts(t *testing.T, cfg *config.Config, want []string) {
+func assertMounts(t *testing.T, cfg *Config, want []string) {
 	t.Helper()
 	if len(cfg.Mounts) != len(want) {
 		t.Fatalf("expected %d mounts, got %d: %v", len(want), len(cfg.Mounts), cfg.Mounts)
@@ -66,7 +64,7 @@ func TestResolveProject_FlagTakesPrecedence(t *testing.T) {
 	setenv(t, "MARSHAL_PROJECT", "env-project")
 
 	// When ResolveProject is called with the flag value
-	got, err := config.ResolveProject("flag-project", os.Getwd)
+	got, err := ResolveProject("flag-project", os.Getwd)
 
 	// Then no error occurs and the flag value is returned
 	if err != nil {
@@ -84,7 +82,7 @@ func TestResolveProject_EnvFallback(t *testing.T) {
 	setenv(t, "MARSHAL_PROJECT", "env-project")
 
 	// When ResolveProject is called with an empty flag
-	got, err := config.ResolveProject("", os.Getwd)
+	got, err := ResolveProject("", os.Getwd)
 
 	// Then no error occurs and the environment variable value is returned
 	if err != nil {
@@ -120,7 +118,7 @@ func TestResolveProject_CWDFallback(t *testing.T) {
 	}
 
 	// When ResolveProject is called with an empty flag
-	got, err := config.ResolveProject("", os.Getwd)
+	got, err := ResolveProject("", os.Getwd)
 
 	// Then no error occurs and the basename of the current working directory is returned
 	if err != nil {
@@ -143,7 +141,7 @@ func TestConfigPath_XDGOverride(t *testing.T) {
 	setenv(t, "XDG_CONFIG_HOME", tmp)
 
 	// When ConfigPath is called
-	got := config.ConfigPath("myproject")
+	got := configPath("myproject")
 	want := filepath.Join(tmp, "marshal", "projects", "myproject.toml")
 
 	// Then the path is under the XDG_CONFIG_HOME directory
@@ -164,7 +162,7 @@ func TestConfigPath_DefaultXDG(t *testing.T) {
 	}
 
 	// When ConfigPath is called
-	got := config.ConfigPath("myproject")
+	got := configPath("myproject")
 	want := filepath.Join(home, ".config", "marshal", "projects", "myproject.toml")
 
 	// Then the path falls back to ~/.config/marshal/projects/myproject.toml
@@ -185,7 +183,7 @@ func TestLoad_FileMissing_ReturnsEmptyConfig(t *testing.T) {
 	setenv(t, "XDG_CONFIG_HOME", tmp)
 
 	// When Load is called for a nonexistent project
-	cfg, err := config.Load("nonexistent-project")
+	cfg, err := Load("nonexistent-project")
 
 	// Then an empty config is returned without error
 	if err != nil {
@@ -221,7 +219,7 @@ func TestLoad_FileExists_ReturnsMounts(t *testing.T) {
 	}
 
 	// When Load is called for the project
-	cfg, err := config.Load("myproject")
+	cfg, err := Load("myproject")
 
 	// Then the mounts from the file are returned
 	if err != nil {
@@ -246,7 +244,7 @@ func TestLoad_MalformedTOML_ReturnsError(t *testing.T) {
 	}
 
 	// When Load is called for that project
-	_, err := config.Load("bad-project")
+	_, err := Load("bad-project")
 
 	// Then an error is returned
 	if err == nil {
@@ -265,16 +263,16 @@ func TestSave_RoundTrip(t *testing.T) {
 	tmp := t.TempDir()
 	setenv(t, "XDG_CONFIG_HOME", tmp)
 
-	original := &config.Config{
+	original := &Config{
 		Mounts: []string{"/workspace", "/home/user"},
 	}
 
 	// When Save is called followed by Load
-	if err := config.Save("roundtrip", original); err != nil {
+	if err := Save("roundtrip", original); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	loaded, err := config.Load("roundtrip")
+	loaded, err := Load("roundtrip")
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -291,16 +289,16 @@ func TestSave_CreatesDirectories(t *testing.T) {
 	// Point XDG at a sub-directory that doesn't exist yet.
 	setenv(t, "XDG_CONFIG_HOME", filepath.Join(tmp, "nested", "xdg"))
 
-	cfg := &config.Config{Mounts: []string{"/foo"}}
+	cfg := &Config{Mounts: []string{"/foo"}}
 
 	// When Save is called
-	if err := config.Save("newproject", cfg); err != nil {
+	if err := Save("newproject", cfg); err != nil {
 		t.Fatalf("expected Save to create dirs, got error: %v", err)
 	}
 
 	// Then the file exists at the expected path
 	// Verify the file was actually created.
-	path := config.ConfigPath("newproject")
+	path := configPath("newproject")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		t.Errorf("expected file at %q to exist after Save", path)
 	}
@@ -317,18 +315,18 @@ func TestSave_Overwrite(t *testing.T) {
 	tmp := t.TempDir()
 	setenv(t, "XDG_CONFIG_HOME", tmp)
 
-	first := &config.Config{Mounts: []string{"/old"}}
-	if err := config.Save("overwrite-project", first); err != nil {
+	first := &Config{Mounts: []string{"/old"}}
+	if err := Save("overwrite-project", first); err != nil {
 		t.Fatalf("first Save failed: %v", err)
 	}
 
 	// When Save is called again with different mount data
-	second := &config.Config{Mounts: []string{"/new1", "/new2"}}
-	if err := config.Save("overwrite-project", second); err != nil {
+	second := &Config{Mounts: []string{"/new1", "/new2"}}
+	if err := Save("overwrite-project", second); err != nil {
 		t.Fatalf("second Save failed: %v", err)
 	}
 
-	loaded, err := config.Load("overwrite-project")
+	loaded, err := Load("overwrite-project")
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -348,16 +346,16 @@ func TestDelete_RemovesConfigFile(t *testing.T) {
 	tmp := t.TempDir()
 	setenv(t, "XDG_CONFIG_HOME", tmp)
 
-	if err := config.Save("deleteproject", &config.Config{Mounts: []string{"/data"}}); err != nil {
+	if err := Save("deleteproject", &Config{Mounts: []string{"/data"}}); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
-	path := config.ConfigPath("deleteproject")
+	path := configPath("deleteproject")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		t.Fatalf("expected config file to exist before Delete")
 	}
 
 	// When Delete is called
-	if err := config.Delete("deleteproject"); err != nil {
+	if err := Delete("deleteproject"); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
@@ -375,7 +373,7 @@ func TestDelete_NoopWhenFileAbsent(t *testing.T) {
 	setenv(t, "XDG_CONFIG_HOME", tmp)
 
 	// When Delete is called for a project that has no config file
-	err := config.Delete("nonexistent")
+	err := Delete("nonexistent")
 
 	// Then no error is returned
 	if err != nil {
@@ -395,7 +393,7 @@ func TestEnsureSharedConfigDir_XDGOverride_ReturnsExpectedPath(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 
 	// When EnsureSharedConfigDir is called
-	got, err := config.EnsureSharedConfigDir("copilot")
+	got, err := EnsureSharedConfigDir("copilot")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -420,7 +418,7 @@ func TestEnsureSharedConfigDir_DefaultXDG_UsesHomeConfig(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	// When EnsureSharedConfigDir is called
-	got, err := config.EnsureSharedConfigDir("copilot")
+	got, err := EnsureSharedConfigDir("copilot")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -445,7 +443,7 @@ func TestEnsureSharedConfigDir_CreatesDirWhenAbsent(t *testing.T) {
 	}
 
 	// When EnsureSharedConfigDir is called
-	got, err := config.EnsureSharedConfigDir("credentials")
+	got, err := EnsureSharedConfigDir("credentials")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -475,7 +473,7 @@ func TestEnsureSharedConfigDir_SucceedsWhenDirAlreadyExists(t *testing.T) {
 	}
 
 	// When EnsureSharedConfigDir is called
-	got, err := config.EnsureSharedConfigDir("copilot")
+	got, err := EnsureSharedConfigDir("copilot")
 
 	// Then no error is returned and the existing directory path is returned
 	if err != nil {
@@ -501,7 +499,7 @@ func TestEnsureSharedConfigDir_FileAtTargetPath_ReturnsCreateError(t *testing.T)
 	}
 
 	// When EnsureSharedConfigDir is called
-	_, err := config.EnsureSharedConfigDir("copilot")
+	_, err := EnsureSharedConfigDir("copilot")
 
 	// Then an error is returned
 	if err == nil {
@@ -524,7 +522,7 @@ func TestSharedDataPath_XDGOverride(t *testing.T) {
 	setenv(t, "XDG_DATA_HOME", tmp)
 
 	// When SharedDataPath is called
-	got := config.SharedDataPath("copilot")
+	got := sharedDataPath("copilot")
 	want := filepath.Join(tmp, "marshal", "copilot")
 
 	// Then the path is under the XDG_DATA_HOME directory
@@ -541,7 +539,7 @@ func TestSharedDataPath_XDGOverride_MultiSegment(t *testing.T) {
 	setenv(t, "XDG_DATA_HOME", tmp)
 
 	// When SharedDataPath is called with a multi-segment subdir
-	got := config.SharedDataPath("config/github-copilot")
+	got := sharedDataPath("config/github-copilot")
 	want := filepath.Join(tmp, "marshal", "config", "github-copilot")
 
 	// Then all path segments are correctly joined
@@ -562,7 +560,7 @@ func TestSharedDataPath_DefaultXDG(t *testing.T) {
 	}
 
 	// When SharedDataPath is called
-	got := config.SharedDataPath("copilot")
+	got := sharedDataPath("copilot")
 	want := filepath.Join(home, ".local", "share", "marshal", "copilot")
 
 	// Then the path falls back to ~/.local/share/marshal/copilot
@@ -583,7 +581,7 @@ func TestEnsureSharedDataDir_CreatesDir(t *testing.T) {
 	setenv(t, "XDG_DATA_HOME", tmp)
 
 	// When EnsureSharedDataDir is called
-	got, err := config.EnsureSharedDataDir("copilot")
+	got, err := EnsureSharedDataDir("copilot")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -614,13 +612,13 @@ func TestEnsureSharedDataDir_Idempotent(t *testing.T) {
 	tmp := t.TempDir()
 	setenv(t, "XDG_DATA_HOME", tmp)
 
-	if _, err := config.EnsureSharedDataDir("copilot"); err != nil {
+	if _, err := EnsureSharedDataDir("copilot"); err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
 
 	// When EnsureSharedDataDir is called a second time
 	// Then no error is returned
-	if _, err := config.EnsureSharedDataDir("copilot"); err != nil {
+	if _, err := EnsureSharedDataDir("copilot"); err != nil {
 		t.Fatalf("second call failed (not idempotent): %v", err)
 	}
 }
@@ -633,7 +631,7 @@ func TestEnsureSharedDataDir_CreatesNestedDirs(t *testing.T) {
 	setenv(t, "XDG_DATA_HOME", tmp)
 
 	// When EnsureSharedDataDir is called with a nested subdir path
-	got, err := config.EnsureSharedDataDir("config/github-copilot")
+	got, err := EnsureSharedDataDir("config/github-copilot")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -662,7 +660,7 @@ func TestSave_DirectoryCreationFails(t *testing.T) {
 	}
 
 	// When Save is called
-	err := config.Save("myproject", &config.Config{})
+	err := Save("myproject", &Config{})
 
 	// Then an error containing "creating config directory" is returned
 	if err == nil {
@@ -690,7 +688,7 @@ func TestSave_FileCreationFails(t *testing.T) {
 	}
 
 	// When Save is called
-	err := config.Save("myproject", &config.Config{})
+	err := Save("myproject", &Config{})
 
 	// Then an error is returned (the atomic rename fails)
 	if err == nil {
@@ -720,7 +718,7 @@ func TestEnsureSharedDataDir_DirectoryCreationFails(t *testing.T) {
 	}
 
 	// When EnsureSharedDataDir is called
-	_, err := config.EnsureSharedDataDir("credentials")
+	_, err := EnsureSharedDataDir("credentials")
 
 	// Then an error containing "creating shared data directory" is returned
 	if err == nil {
@@ -746,7 +744,7 @@ func TestResolveProject_GetwdFails_PropagatesError(t *testing.T) {
 	failingGetwd := func() (string, error) { return "", getwdErr }
 
 	// When ResolveProject is called with an empty flag and failing getwd
-	_, err := config.ResolveProject("", failingGetwd)
+	_, err := ResolveProject("", failingGetwd)
 
 	// Then the getwd error is propagated (not swallowed as an empty string)
 	if err == nil {
@@ -764,7 +762,7 @@ func TestLoad_RejectsPathTraversalName(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	// When Load is called with the traversal name
-	_, err := config.Load("../../evil")
+	_, err := Load("../../evil")
 
 	// Then an error is returned
 	if err == nil {
@@ -779,7 +777,7 @@ func TestSave_RejectsPathTraversalName(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	// When Save is called with the traversal name
-	err := config.Save("../../evil", &config.Config{})
+	err := Save("../../evil", &Config{})
 
 	// Then an error is returned
 	if err == nil {
@@ -797,7 +795,7 @@ func TestLoad_AcceptsValidProjectNames(t *testing.T) {
 	// Then no error is returned (missing config file returns empty config, not error)
 	for _, name := range []string{"myapp", "my-app", "my_app", "my.app", "a", "MyApp2"} {
 		// Load of a non-existent config should return empty config, not an error.
-		_, err := config.Load(name)
+		_, err := Load(name)
 		if err != nil {
 			t.Errorf("Load(%q) unexpected error: %v", name, err)
 		}
@@ -813,7 +811,7 @@ func TestLoad_RejectsInvalidProjectNames(t *testing.T) {
 	// When Load is called with each invalid name
 	// Then an error is returned for each
 	for _, name := range []string{"../../evil", "/etc/passwd", "bad/name", ".hidden", "", "has space"} {
-		_, err := config.Load(name)
+		_, err := Load(name)
 		if err == nil {
 			t.Errorf("Load(%q) expected error, got nil", name)
 		}
@@ -839,7 +837,7 @@ func TestLoad_NonAbsoluteConfigPath_ReturnsUnavailableError(t *testing.T) {
 	t.Setenv("HOME", "")
 
 	// When Load is called
-	_, err := config.Load("someproject")
+	_, err := Load("someproject")
 
 	// Then an error containing "unavailable" is returned
 	if err == nil {
@@ -858,7 +856,7 @@ func TestSave_NonAbsoluteConfigPath_ReturnsUnavailableError(t *testing.T) {
 	t.Setenv("HOME", "")
 
 	// When Save is called
-	err := config.Save("someproject", &config.Config{})
+	err := Save("someproject", &Config{})
 
 	// Then an error containing "unavailable" is returned
 	if err == nil {
@@ -878,7 +876,7 @@ func TestEnsureSharedDataDir_NonAbsoluteDataPath_ReturnsUnavailableError(t *test
 	t.Setenv("HOME", "")
 
 	// When EnsureSharedDataDir is called
-	_, err := config.EnsureSharedDataDir("somedir")
+	_, err := EnsureSharedDataDir("somedir")
 
 	// Then an error containing "unavailable" is returned
 	if err == nil {
@@ -901,15 +899,15 @@ func TestSave_AtomicRoundTrip(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 
-	cfg := &config.Config{Mounts: []string{"/workspace", "/data"}}
+	cfg := &Config{Mounts: []string{"/workspace", "/data"}}
 
 	// When Save is called
-	if err := config.Save("atomic-project", cfg); err != nil {
+	if err := Save("atomic-project", cfg); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
 
 	// Then the file can immediately be decoded back by Load with the same data
-	loaded, err := config.Load("atomic-project")
+	loaded, err := Load("atomic-project")
 	if err != nil {
 		t.Fatalf("Load after Save failed: %v", err)
 	}
@@ -943,7 +941,7 @@ func TestLoad_RejectsOldTableSyntax(t *testing.T) {
 	}
 
 	// When Load is called for that project
-	_, err := config.Load("oldschema")
+	_, err := Load("oldschema")
 
 	// Then an error is returned (the TOML library catches the type mismatch
 	// between a table and []string — the user is not silently given zero mounts)
@@ -972,7 +970,7 @@ func TestLoad_RejectsUnknownTopLevelKey(t *testing.T) {
 	}
 
 	// When Load is called for that project
-	_, err := config.Load("badkeys")
+	_, err := Load("badkeys")
 
 	// Then an error is returned containing "unrecognised"
 	if err == nil {
@@ -1004,7 +1002,7 @@ func TestLoad_ValidConfig_StillWorks(t *testing.T) {
 	}
 
 	// When Load is called for that project
-	cfg, err := config.Load("validproject")
+	cfg, err := Load("validproject")
 
 	// Then no error is returned and the mounts are correctly parsed
 	if err != nil {
@@ -1039,7 +1037,7 @@ func TestValidateProjectName_RejectsPendingNames(t *testing.T) {
 	for _, name := range rejectCases {
 		name := name
 		t.Run("reject/"+name, func(t *testing.T) {
-			err := config.ValidateProjectName(name)
+			err := ValidateProjectName(name)
 			if err == nil {
 				t.Errorf("ValidateProjectName(%q) returned nil; want error for reserved suffix", name)
 			}
@@ -1061,7 +1059,7 @@ func TestValidateProjectName_RejectsPendingNames(t *testing.T) {
 	for _, name := range allowCases {
 		name := name
 		t.Run("allow/"+name, func(t *testing.T) {
-			err := config.ValidateProjectName(name)
+			err := ValidateProjectName(name)
 			if err != nil {
 				t.Errorf("ValidateProjectName(%q) returned %v; want nil for non-reserved name", name, err)
 			}

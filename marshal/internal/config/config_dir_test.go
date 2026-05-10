@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-package config_test
+package config
 
 import (
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -26,7 +24,7 @@ func TestEnsureSharedConfigDir_UsesXDGConfigHome(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 
 	// When EnsureSharedConfigDir is called with a subdir name
-	got, err := config.EnsureSharedConfigDir("git")
+	got, err := EnsureSharedConfigDir("git")
 
 	// Then no error occurs and the path is rooted under XDG_CONFIG_HOME/marshal
 	if err != nil {
@@ -63,7 +61,7 @@ func TestEnsureSharedConfigDir_FallsBackToHomeConfig(t *testing.T) {
 	t.Setenv("HOME", tmp)
 
 	// When EnsureSharedConfigDir is called
-	got, err := config.EnsureSharedConfigDir("copilot")
+	got, err := EnsureSharedConfigDir("copilot")
 
 	// Then no error occurs and the path is rooted under $HOME/.config/marshal
 	if err != nil {
@@ -94,7 +92,7 @@ func TestEnsureSharedConfigDir_CreatesDirectoryWhenAbsent(t *testing.T) {
 	}
 
 	// When EnsureSharedConfigDir is called
-	got, err := config.EnsureSharedConfigDir("newdir")
+	got, err := EnsureSharedConfigDir("newdir")
 
 	// Then no error occurs and the directory is created
 	if err != nil {
@@ -118,13 +116,13 @@ func TestEnsureSharedConfigDir_Idempotent(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 
-	if _, err := config.EnsureSharedConfigDir("copilot"); err != nil {
+	if _, err := EnsureSharedConfigDir("copilot"); err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
 
 	// When EnsureSharedConfigDir is called a second time on the same subdir
 	// Then no error is returned
-	if _, err := config.EnsureSharedConfigDir("copilot"); err != nil {
+	if _, err := EnsureSharedConfigDir("copilot"); err != nil {
 		t.Fatalf("second call failed (not idempotent): %v", err)
 	}
 }
@@ -147,7 +145,7 @@ func TestEnsureSharedConfigDir_DirectoryCreationFails(t *testing.T) {
 	}
 
 	// When EnsureSharedConfigDir is called
-	_, err := config.EnsureSharedConfigDir("credentials")
+	_, err := EnsureSharedConfigDir("credentials")
 
 	// Then an error containing "creating shared config directory" is returned
 	if err == nil {
@@ -170,7 +168,7 @@ func TestEnsureSharedConfigDir_NonAbsolutePath_ReturnsUnavailableError(t *testin
 	t.Setenv("HOME", "")
 
 	// When EnsureSharedConfigDir is called
-	_, err := config.EnsureSharedConfigDir("somedir")
+	_, err := EnsureSharedConfigDir("somedir")
 
 	// Then an error containing "unavailable" is returned
 	if err == nil {

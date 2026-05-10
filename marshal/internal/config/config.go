@@ -78,8 +78,8 @@ func ValidateProjectName(name string) error {
 	return nil
 }
 
-// ConfigPath returns the filesystem path for a given project's config file.
-func ConfigPath(projectName string) string {
+// configPath returns the filesystem path for a given project's config file.
+func configPath(projectName string) string {
 	return filepath.Join(xdgConfigHome(), "marshal", "projects", projectName+".toml")
 }
 
@@ -89,7 +89,7 @@ func Load(projectName string) (*Config, error) {
 	if err := ValidateProjectName(projectName); err != nil {
 		return nil, err
 	}
-	path := ConfigPath(projectName)
+	path := configPath(projectName)
 	if !filepath.IsAbs(path) {
 		return nil, fmt.Errorf("config directory unavailable: set HOME or XDG_CONFIG_HOME")
 	}
@@ -117,7 +117,7 @@ func Delete(projectName string) error {
 	if err := ValidateProjectName(projectName); err != nil {
 		return err
 	}
-	path := ConfigPath(projectName)
+	path := configPath(projectName)
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("removing project config: %w", err)
 	}
@@ -131,7 +131,7 @@ func Save(projectName string, cfg *Config) error {
 	if err := ValidateProjectName(projectName); err != nil {
 		return err
 	}
-	path := ConfigPath(projectName)
+	path := configPath(projectName)
 	if !filepath.IsAbs(path) {
 		return fmt.Errorf("config directory unavailable: set HOME or XDG_CONFIG_HOME")
 	}
@@ -171,10 +171,10 @@ func Save(projectName string, cfg *Config) error {
 	return nil
 }
 
-// ensureSharedDir creates $base()/marshal/<subdir> and returns the path.
+// ensureSharedDir creates the shared directory returned by pathFn(subdir).
 // kind and envVar are used only in error messages ("config", "XDG_CONFIG_HOME").
-func ensureSharedDir(baseFn func() string, kind, envVar, subdir string) (string, error) {
-	path := filepath.Join(baseFn(), "marshal", subdir)
+func ensureSharedDir(pathFn func(string) string, kind, envVar, subdir string) (string, error) {
+	path := pathFn(subdir)
 	if !filepath.IsAbs(path) {
 		return "", fmt.Errorf("%s directory unavailable: set HOME or %s", kind, envVar)
 	}
@@ -188,32 +188,32 @@ func ensureSharedDir(baseFn func() string, kind, envVar, subdir string) (string,
 // Shared config
 // ---------------------------------------------------------------------------
 
-// SharedConfigPath returns the filesystem path $XDG_CONFIG_HOME/marshal/<subdir>.
+// sharedConfigPath returns the filesystem path $XDG_CONFIG_HOME/marshal/<subdir>.
 // subdir may contain path separators (e.g. "copilot/settings.json").
-func SharedConfigPath(subdir string) string {
+func sharedConfigPath(subdir string) string {
 	return filepath.Join(xdgConfigHome(), "marshal", subdir)
 }
 
-// EnsureSharedConfigDir resolves SharedConfigPath(subdir), creates the directory
+// EnsureSharedConfigDir resolves sharedConfigPath(subdir), creates the directory
 // with permissions 0o700 (owner-only, suitable for credentials), and returns
 // the path.
 func EnsureSharedConfigDir(subdir string) (string, error) {
-	return ensureSharedDir(xdgConfigHome, "config", "XDG_CONFIG_HOME", subdir)
+	return ensureSharedDir(sharedConfigPath, "config", "XDG_CONFIG_HOME", subdir)
 }
 
 // ---------------------------------------------------------------------------
 // Shared data
 // ---------------------------------------------------------------------------
 
-// SharedDataPath returns the filesystem path $XDG_DATA_HOME/marshal/<subdir>.
+// sharedDataPath returns the filesystem path $XDG_DATA_HOME/marshal/<subdir>.
 // subdir may contain path separators (e.g. "projects/myapp/session-state").
-func SharedDataPath(subdir string) string {
+func sharedDataPath(subdir string) string {
 	return filepath.Join(xdgDataHome(), "marshal", subdir)
 }
 
-// EnsureSharedDataDir resolves SharedDataPath(subdir), creates the directory
+// EnsureSharedDataDir resolves sharedDataPath(subdir), creates the directory
 // with permissions 0o700 (owner-only, suitable for credentials), and returns
 // the path.
 func EnsureSharedDataDir(subdir string) (string, error) {
-	return ensureSharedDir(xdgDataHome, "data", "XDG_DATA_HOME", subdir)
+	return ensureSharedDir(sharedDataPath, "data", "XDG_DATA_HOME", subdir)
 }
