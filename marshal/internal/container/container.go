@@ -120,7 +120,7 @@ type UserConfig struct {
 // inject a fake without needing a real Podman daemon.
 type Runner interface {
 	Run(name string, args ...string) ([]byte, error)
-	PullImage(image string, stdout, stderr io.Writer) error
+	RunStreaming(name string, stdout, stderr io.Writer, args ...string) error
 }
 
 // PodmanRunner is the real Runner implementation that calls exec.Command.
@@ -137,12 +137,11 @@ func (p PodmanRunner) Run(name string, args ...string) ([]byte, error) {
 	return out, err
 }
 
-// PullImage pulls image from a registry, streaming progress to stdout and
-// stderr. It runs `podman pull --retry=1 <image>` and returns nil on success.
-// --retry=1 limits to one retry so transient failures respond quickly without
-// the default three-retry wait.
-func (p PodmanRunner) PullImage(image string, stdout, stderr io.Writer) error {
-	cmd := exec.Command(podmanBin, "pull", "--retry=1", image)
+// RunStreaming executes name with the given args, streaming stdout and stderr
+// to the provided writers. Unlike Run, output is not captured — it flows
+// directly to stdout and stderr for real-time progress display.
+func (p PodmanRunner) RunStreaming(name string, stdout, stderr io.Writer, args ...string) error {
+	cmd := exec.Command(name, args...)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	return cmd.Run()
@@ -424,10 +423,10 @@ func ImageExists(r Runner, image string) (bool, error) {
 }
 
 // PullImage pulls image from a registry, streaming progress to stdout and stderr.
-// It delegates to r.PullImage, providing the same container.Op(r, …) calling
-// convention used by all other operations in this package.
+// It runs `podman pull --retry=1 <image>` via r.RunStreaming so the same
+// Runner intercept point used by all other operations handles this call.
 func PullImage(r Runner, image string, stdout, stderr io.Writer) error {
-	return r.PullImage(image, stdout, stderr)
+	return r.RunStreaming(podmanBin, stdout, stderr, "pull", "--retry=1", image)
 }
 
 // Exec replaces the current process with an interactive `podman exec -it` session

@@ -198,12 +198,20 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 	}
 }
 
-// PullImage is a spy: records that it was called and which image was requested,
-// writes pullOutput to stdout and pullStderrOutput to stderr when non-empty,
-// and returns pullImageErr (or runErrors["pull"] if set).
-func (f *fakeRunner) PullImage(image string, stdout io.Writer, stderr io.Writer) error {
+// RunStreaming is a spy: records the streamed command via the same call log as
+// Run, tracks pull invocations, writes configured output to the provided
+// writers, and returns pullImageErr (or runErrors["pull"] if set).
+func (f *fakeRunner) RunStreaming(name string, stdout io.Writer, stderr io.Writer, args ...string) error {
+	call := make([]string, 0, 1+len(args))
+	call = append(call, name)
+	call = append(call, args...)
+	f.calls = append(f.calls, call)
+
 	f.pullImageCalled = true
-	f.pullImageImage = image
+	f.pullImageImage = ""
+	if len(args) > 0 {
+		f.pullImageImage = args[len(args)-1]
+	}
 	if f.pullOutput != "" {
 		_, _ = io.WriteString(stdout, f.pullOutput)
 	}

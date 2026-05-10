@@ -33,6 +33,7 @@ type fakeRunner struct {
 	pullImageErr      error
 	pullImageImage    string
 	pullOutput        string
+	pullStderrOutput  string
 	calls             []fakeCall
 	responses         []fakeResponse
 	imageExistsResult bool
@@ -57,11 +58,18 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 	return nil, nil
 }
 
-func (f *fakeRunner) PullImage(image string, stdout, stderr io.Writer) error {
+func (f *fakeRunner) RunStreaming(name string, stdout, stderr io.Writer, args ...string) error {
+	f.calls = append(f.calls, fakeCall{name: name, args: args})
 	f.pullImageCalled = true
-	f.pullImageImage = image
+	f.pullImageImage = ""
+	if len(args) > 0 {
+		f.pullImageImage = args[len(args)-1]
+	}
 	if f.pullOutput != "" {
 		fmt.Fprint(stdout, f.pullOutput)
+	}
+	if f.pullStderrOutput != "" {
+		fmt.Fprint(stderr, f.pullStderrOutput)
 	}
 	return f.pullImageErr
 }
