@@ -157,6 +157,10 @@ func Save(projectName string, cfg *Config) error {
 		tmp.Close()
 		return fmt.Errorf("encoding config: %w", err)
 	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return fmt.Errorf("syncing temp config file: %w", err)
+	}
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("closing temp config file: %w", err)
 	}
