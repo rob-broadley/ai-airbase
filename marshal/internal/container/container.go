@@ -277,21 +277,7 @@ func RemoveProjectVolumes(r Runner, containerName string) error {
 // prefix-match false positives: without anchoring, a container named
 // "marshal-foo" would falsely match when "marshal-foobar" exists.
 func Exists(r Runner, containerName string) (bool, error) {
-	args := []string{
-		"ps", "--all",
-		"--filter", "name=^" + regexp.QuoteMeta(containerName) + "$",
-		"--format", formatNames,
-	}
-	out, err := r.Run(podmanBin, args...)
-	if err != nil {
-		return false, err
-	}
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if strings.TrimSpace(line) == containerName {
-			return true, nil
-		}
-	}
-	return false, nil
+	return queryContainerState(r, containerName, true)
 }
 
 // IsRunning returns true when containerName is currently running.
@@ -299,21 +285,7 @@ func Exists(r Runner, containerName string) (bool, error) {
 // positives: without anchoring, a container named "marshal-foo" would
 // falsely match when "marshal-foobar" exists.
 func IsRunning(r Runner, containerName string) (bool, error) {
-	args := []string{
-		"ps",
-		"--filter", "name=^" + regexp.QuoteMeta(containerName) + "$",
-		"--format", formatNames,
-	}
-	out, err := r.Run(podmanBin, args...)
-	if err != nil {
-		return false, err
-	}
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if strings.TrimSpace(line) == containerName {
-			return true, nil
-		}
-	}
-	return false, nil
+	return queryContainerState(r, containerName, false)
 }
 
 // Create creates a container from image but does NOT start it.
@@ -510,6 +482,29 @@ func lastNonEmptyLine(s string) string {
 		}
 	}
 	return strings.TrimSpace(last)
+}
+
+// queryContainerState runs podman ps filtered to an exact container name match.
+// When allContainers is true, --all is included so stopped containers are found.
+func queryContainerState(r Runner, containerName string, allContainers bool) (bool, error) {
+	args := []string{"ps"}
+	if allContainers {
+		args = append(args, "--all")
+	}
+	args = append(args,
+		"--filter", "name=^"+regexp.QuoteMeta(containerName)+"$",
+		"--format", formatNames,
+	)
+	out, err := r.Run(podmanBin, args...)
+	if err != nil {
+		return false, err
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if strings.TrimSpace(line) == containerName {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // splitLines splits s by newlines and returns non-empty, trimmed lines.
