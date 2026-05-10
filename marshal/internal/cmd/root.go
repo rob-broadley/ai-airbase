@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -144,7 +145,9 @@ func Execute(version string) {
 	}
 	rootCmd := NewRootCmd(deps)
 	rootCmd.Version = version
+	rootCmd.SilenceErrors = true
 	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
