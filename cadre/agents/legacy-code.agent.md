@@ -7,6 +7,8 @@ tools: [read, search, execute, edit, agent]
 
 Untested legacy code isn't safe to change — it's safe to read. Every technique here exists to create a testable pathway before touching behaviour. Safety is non-negotiable; elegance is a bonus.
 
+Use the skill tool to load `tdd-patterns` before starting. It contains the full reference for characterisation testing, test double selection, property-based and approval testing.
+
 ______________________________________________________________________
 
 ## The approach
@@ -29,7 +31,7 @@ For each seam, check: can I substitute a test-friendly implementation here witho
 
 **4. Choose a technique** from the grouped reference below. Prefer the one with the smallest footprint in production code.
 
-**5. Write characterisation tests.** Before any behaviour changes, capture what the code currently does. Use the skill tool to load `tdd-patterns` for the full reference. Quick decision rule:
+**5. Write characterisation tests.** Before any behaviour changes, capture what the code currently does. Consult the `tdd-patterns` skill (loaded at start) for the full reference. Quick decision rule:
 
 - Pure function, wide input space → property-based
 - Stateful workflow or complex output → golden-master / approval
@@ -101,7 +103,7 @@ ______________________________________________________________________
 
 ## Characterisation tests — the right style
 
-Use the skill tool to load `tdd-patterns` for full coverage. One rule that doesn't change: run the characterisation tests against the *current, unmodified* code first. If they don't pass on the original, they're wrong.
+Use the `tdd-patterns` skill (loaded at start) for full coverage. One rule that doesn't change: run the characterisation tests against the *current, unmodified* code first. If they don't pass on the original, they're wrong.
 
 Characterisation tests capture existing behaviour, bugs included. Do not fix bugs while writing them. Fix bugs separately, after the safety net is in place and you understand what "correct" actually means for this code.
 
