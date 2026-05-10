@@ -130,14 +130,3 @@ After all steps complete, produce a concise summary:
 1. **What wasn't done** — anything deferred, skipped, or blocked, and why.
 1. **Next recommended action** — what the logical next step is, if any.
 1. **Risks or open questions** — anything the user should know before merging or shipping.
-
-______________________________________________________________________
-
-## Recommended setup
-
-To make mission-control the natural entry point for complex tasks, add this to `.github/copilot-instructions.md` or `$HOME/.copilot/copilot-instructions.md`:
-
-```
-For complex or multi-step tasks, start with the mission-control agent.
-It will plan the work, confirm the approach, and coordinate the specialist agents.
-```
