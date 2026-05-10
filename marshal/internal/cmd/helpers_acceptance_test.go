@@ -221,17 +221,6 @@ func fakeExitError(code int) error {
 	return cmd.Run()
 }
 
-// Rename records a "podman rename <from> <to>" call and returns any injected
-// "rename" error from runErrors.
-func (f *fakeRunner) Rename(from, to string) error {
-	call := []string{"podman", "rename", from, to}
-	f.calls = append(f.calls, call)
-	if err, ok := f.runErrors["rename"]; ok {
-		return err
-	}
-	return nil
-}
-
 // calledSubcommand returns true if "podman <sub>" appears in the recorded calls.
 func (f *fakeRunner) calledSubcommand(sub string) bool {
 	for _, call := range f.calls {

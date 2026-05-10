@@ -28,9 +28,8 @@ func TestImageExists_UnexpectedFailureIncludesOutput(t *testing.T) {
 		t.Fatalf("writing fake podman script: %v", err)
 	}
 
-	orig := podmanBin
 	podmanBin = fakePodman
-	t.Cleanup(func() { podmanBin = orig })
+	t.Cleanup(func() { podmanBin = "podman" })
 
 	// When: ImageExists is called.
 	_, err := ImageExists(PodmanRunner{}, "any-image")
