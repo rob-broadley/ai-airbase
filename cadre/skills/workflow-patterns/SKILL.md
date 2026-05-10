@@ -42,26 +42,28 @@ ______________________________________________________________________
 
 **When:** The user wants to add new behaviour — a feature, user story, or acceptance criterion.
 
-**Precondition check:** Before starting, confirm the development environment is ready. If the test runner is not configured or baseline tests are not passing, run the `devex` step first. If requirements are vague, run the `analyst` step first.
+**Precondition check:** Before starting, confirm the development environment is ready. If the test runner is not configured or baseline tests are not passing, run the `devex` step first. If requirements are vague, run the `problem-analyser` step first.
 
 **Chain:**
 
 ```
-[problem-analyser?] → [user-story-writer?] → [devex?] → [atdd] → [refactor?]
+[problem-analyser?] → [user-story-writer?] → [devex?] → [atdd] → [refactor?] → [technical-author?]
 ```
 
-| Step         | Agent               | Hand it                                                               | Success                                                                 |
-| ------------ | ------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| 0 (optional) | `problem-analyser`  | The raw request; project README                                       | Approved problem analysis: goal, subproblems, contradictions, NFRs      |
-| 1 (optional) | `user-story-writer` | Approved problem analysis                                             | Approved stories with AC, INVEST scores, risk/value/size                |
-| 2 (optional) | `devex`             | Project language/framework; what tooling is needed                    | Test runner works; `make test` or equivalent passes cleanly             |
-| 3            | `atdd`              | User story + acceptance criteria; relevant source files; test command | Acceptance test passes; new behaviour works end-to-end; committed       |
-| 4 (optional) | `refactor`          | Files changed in step 3; passing test suite; complexity baseline      | No method over CC 10; no new SRP violations; metrics stable or improved |
+| Step         | Agent               | Hand it                                                                                        | Success                                                                 |
+| ------------ | ------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 0 (optional) | `problem-analyser`  | The raw request; project README                                                                | Approved problem analysis: goal, subproblems, contradictions, NFRs      |
+| 1 (optional) | `user-story-writer` | Approved problem analysis                                                                      | Approved stories with AC, INVEST scores, risk/value/size                |
+| 2 (optional) | `devex`             | Project language/framework; what tooling is needed                                             | Test runner works; `make test` or equivalent passes cleanly             |
+| 3            | `atdd`              | User story + acceptance criteria; relevant source files; test command                          | Acceptance test passes; new behaviour works end-to-end; committed       |
+| 4 (optional) | `refactor`          | Files changed in step 3; passing test suite; complexity baseline                               | No method over CC 10; no new SRP violations; metrics stable or improved |
+| 5 (optional) | `technical-author`  | Changed source files; updated `--help` output or behaviour description; relevant existing docs | Docs updated to reflect new or changed user-facing behaviour; committed |
 
 **Notes:**
 
-- The `atdd` agent's internal Refactor phase covers local cleanup of the code written in the Green phase — making the new code readable and principle-compliant. The optional post-feature `refactor` step (step 3) is for broader structural review: god classes introduced, coupling increased, metrics degraded. Only run step 3 if cyclomatic complexity or coupling metrics degraded measurably during step 2.
+- The `atdd` agent's internal Refactor phase covers local cleanup of the code written in the Green phase — making the new code readable and principle-compliant. The optional post-feature `refactor` step (step 4) is for broader structural review: god classes introduced, coupling increased, metrics degraded. Only run step 3 if cyclomatic complexity or coupling metrics degraded measurably during step 2.
 - If the story touches untested legacy code, insert a `legacy-code` step before `atdd`.
+- Run the optional `technical-author` step only when the change introduces, modifies, or removes user-facing behaviour — new CLI commands or flags, changed output format, new config options, new env vars, new or renamed agents or skills. Skip it for internal refactors, test additions, and bug fixes to undocumented behaviour.
 
 **Failure handling:** If `atdd` cannot make the acceptance test pass, STOP. Do not run the optional refactor step. Report the failing test and the implementation state to the user.
 
@@ -88,6 +90,7 @@ ______________________________________________________________________
 
 - If the code under improvement has reasonable test coverage, skip step 0 entirely.
 - The `refactor` agent applies Kent Beck's Tidy First: structure commits separate from any behaviour commits.
+- No documentation step is included: structural improvement must not change behaviour, so there is nothing user-facing to document. If a refactor does surface a needed docs update, treat it as a separate task.
 
 **Failure handling:** If `refactor` finds no passing tests and `legacy-code` is not in the chain, STOP and add `legacy-code` as step 0 before proceeding.
 
@@ -100,19 +103,21 @@ ______________________________________________________________________
 **Chain:**
 
 ```
-[legacy-code] → [atdd] → [refactor]
+[legacy-code] → [atdd] → [refactor] → [technical-author?]
 ```
 
-| Step | Agent         | Hand it                                                                                  | Success                                                                       |
-| ---- | ------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 1    | `legacy-code` | Files to be changed; what the change needs to achieve; language/framework                | Seams identified; characterisation tests passing; dependency-breaking applied |
-| 2    | `atdd`        | User story or bug description; seams from step 1; characterisation tests as the baseline | New behaviour tested and passing; legacy code modified safely                 |
-| 3    | `refactor`    | Changed files; full test suite passing                                                   | Structure improved; no regressions; metrics stable or better                  |
+| Step         | Agent              | Hand it                                                                                  | Success                                                                       |
+| ------------ | ------------------ | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 1            | `legacy-code`      | Files to be changed; what the change needs to achieve; language/framework                | Seams identified; characterisation tests passing; dependency-breaking applied |
+| 2            | `atdd`             | User story or bug description; seams from step 1; characterisation tests as the baseline | New behaviour tested and passing; legacy code modified safely                 |
+| 3            | `refactor`         | Changed files; full test suite passing                                                   | Structure improved; no regressions; metrics stable or better                  |
+| 4 (optional) | `technical-author` | Changed source files; updated behaviour description; relevant existing docs              | Docs updated to reflect any user-facing changes introduced; committed         |
 
 **Notes:**
 
 - This is the most conservative chain. Use it whenever test coverage is absent or thin and the change is non-trivial.
 - Do not compress steps 1 and 2 — the seam work must precede the behavioural change.
+- Add the optional `technical-author` step when the rescue work changes user-facing behaviour. Legacy rescue often involves no user-visible changes — in that case, skip it.
 
 **Failure handling:** If `legacy-code` cannot identify seams, STOP. Do not proceed to `atdd`. Report which dependencies are blocking and ask the user whether a larger rewrite is appropriate.
 
