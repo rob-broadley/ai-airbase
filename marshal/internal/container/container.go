@@ -402,6 +402,16 @@ func Remove(r Runner, containerName string) error {
 	return nil
 }
 
+// ForceRemove forcibly removes containerName without checking running state.
+// Unlike Remove, it does not call IsRunning first; --force instructs the
+// runtime to stop and remove the container in a single step, making it safe
+// to call regardless of running state. Use for best-effort cleanup of staging
+// containers where a separate IsRunning check would be redundant or unreliable.
+func ForceRemove(r Runner, name string) error {
+	_, err := r.Run(podmanBin, "rm", "--force", name)
+	return err
+}
+
 // Rename renames the container identified by from to the name given by to.
 // It runs `podman rename <from> <to>`, following the same calling convention
 // as all other operations in this package.

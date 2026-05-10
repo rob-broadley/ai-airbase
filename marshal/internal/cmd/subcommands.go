@@ -183,7 +183,7 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 func newRecreateCmd(deps Deps, projectFlag *string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "recreate",
-		Short: "Remove the existing container and create a fresh one",
+		Short: "Atomically replace the project container with a fresh one",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRecreate(cmd, deps, *projectFlag)
 		},

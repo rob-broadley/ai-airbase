@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -110,12 +111,26 @@ func createContainerWithVolumes(runner container.Runner, log *slog.Logger, conta
 	return nil
 }
 
+// tryForceRemove force-removes name and logs a warning when it fails.
+// It is intentionally best-effort: callers must not rely on the removal
+// having succeeded when this function returns.
+func tryForceRemove(runner container.Runner, log *slog.Logger, name, warnMsg string) {
+	if err := container.ForceRemove(runner, name); err != nil {
+		log.Warn(warnMsg, "container", name, "error", err)
+	}
+}
+
 // removeAndRecreateContainer atomically replaces an existing container with a
-// freshly created one. To avoid leaving the user with no container when creation
-// fails, the new container is first created under a temporary "-pending" name.
-// Only once creation succeeds is the old container removed and the temporary
-// container renamed to the canonical name. If creation fails the pending
-// container is cleaned up (best-effort) and the original is left untouched.
+// freshly created one using a double-rename sequence that closes the
+// availability gap in the old create→remove→rename approach.
+//
+// The sequence is:
+//  1. Create pending container under a staging name (PID+nano suffix).
+//  2. Rename old → retiring (reversible aside; if this fails pending is cleaned).
+//  3. Rename pending → canonical (if this fails, retiring is restored and
+//     pending is cleaned up before returning the error).
+//  4. Force-remove retiring container (best-effort; failure is only a warning).
+//
 // Per-project volumes are provisioned using the real container name so cached
 // packages survive the rebuild.
 func removeAndRecreateContainer(runner container.Runner, log *slog.Logger, containerName, image string, mountSpecs []container.MountSpec, uc container.UserConfig, workdir string, cmd []string) error {
@@ -131,34 +146,52 @@ func removeAndRecreateContainer(runner container.Runner, log *slog.Logger, conta
 		return err
 	}
 
-	// Create the replacement under a temporary name first.
-	pendingName := fmt.Sprintf("%s-pending-%d", containerName, os.Getpid())
+	// Build the PID+nanosecond suffix shared by both staging names so they
+	// sort together and a single listing can identify both.
+	suffix := fmt.Sprintf("%d-%d", os.Getpid(), time.Now().UnixNano())
+	pendingName := fmt.Sprintf("%s-pending-%s", containerName, suffix)
+	retiringName := fmt.Sprintf("%s-retiring-%s", containerName, suffix)
+
+	// Step 1 — create the replacement under the staging name.
 	log.Info("creating container", "container", pendingName)
 	if err := container.Create(runner, pendingName, image, mountSpecs, namedVolumes, uc, workdir, cmd); err != nil {
 		// Creation failed — clean up any partial pending container (best-effort)
-		// and leave the original container untouched.
-		if cleanupErr := container.Remove(runner, pendingName); cleanupErr != nil {
-			log.Warn("failed to clean up pending container after creation failure",
-				"container", pendingName, "err", cleanupErr)
-		}
+		// and leave the original container completely untouched.
+		tryForceRemove(runner, log, pendingName, "failed to clean up pending container after creation failure")
 		return fmt.Errorf("creating container: %w", err)
 	}
 
-	// Creation succeeded — now it is safe to remove the old container.
+	// Step 2 — rename old → retiring so we can reverse if promotion fails.
 	if exists {
-		log.Info("removing container", "container", containerName)
-		if err := container.Remove(runner, containerName); err != nil {
-			return fmt.Errorf("removing container: %w", err)
+		if err := container.Rename(runner, containerName, retiringName); err != nil {
+			// Aside failed — pending container was created but the old container
+			// is still at the canonical name, so just clean up the pending one.
+			tryForceRemove(runner, log, pendingName, "failed to clean up pending container after rename-aside failure")
+			return fmt.Errorf("renaming existing container aside: %w", err)
 		}
 	}
 
-	// Promote the pending container to the canonical name.
+	// Step 3 — promote pending → canonical.
 	if err := container.Rename(runner, pendingName, containerName); err != nil {
-		if cleanupErr := container.Remove(runner, pendingName); cleanupErr != nil {
-			log.Warn("failed to remove stranded pending container", "container", pendingName, "error", cleanupErr)
+		// Promotion failed — restore the retiring container to the canonical
+		// name so the user is never left without a container.
+		if exists {
+			if restoreErr := container.Rename(runner, retiringName, containerName); restoreErr != nil {
+				log.Warn("failed to restore retiring container after promotion failure",
+					"container", retiringName, "error", restoreErr)
+			}
 		}
-		return fmt.Errorf("renaming container %s to %s: %w; recover with: podman rename %s %s", pendingName, containerName, err, pendingName, containerName)
+		tryForceRemove(runner, log, pendingName, "failed to clean up pending container after promotion failure")
+		return fmt.Errorf("renaming container %s to %s: %w; recover with: podman rename %s %s",
+			pendingName, containerName, err, pendingName, containerName)
 	}
+
+	// Step 4 — force-remove the retiring container (best-effort cleanup).
+	if exists {
+		log.Info("removing retired container", "container", retiringName)
+		tryForceRemove(runner, log, retiringName, "failed to remove retired container")
+	}
+
 	return nil
 }
 

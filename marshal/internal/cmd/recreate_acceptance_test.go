@@ -11,8 +11,10 @@ import (
 	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 )
 
-// TestRecreate_ExistingRunning verifies that recreate stops, removes, creates
-// and starts the container when it is currently running.
+// TestRecreate_ExistingRunning verifies that recreate replaces the container
+// when it is currently running. With the two-step rename approach, the running
+// container is renamed aside and then force-removed rather than being explicitly
+// stopped first — podman rm --force handles shutdown internally.
 func TestRecreate_ExistingRunning(t *testing.T) {
 	// Given a running container
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -35,16 +37,15 @@ func TestRecreate_ExistingRunning(t *testing.T) {
 	root.SetArgs([]string{"--project", "myapp", "recreate"})
 	assertNoError(t, root.Execute())
 
-	// Then stop, rm, create are all called but NOT start (container left in stopped state)
-	if !runner.calledSubcommand("stop") {
-		t.Error("expected 'podman stop' to be called (remove stops running container)")
-	}
-	if !runner.calledSubcommand("rm") {
-		t.Error("expected 'podman rm' to be called")
-	}
+	// Then create is called to build the replacement container
 	if !runner.calledSubcommand("create") {
 		t.Error("expected 'podman create' to be called")
 	}
+	// And the old container is eventually removed (via force-rm on the retiring name)
+	if !runner.calledSubcommand("rm") {
+		t.Error("expected 'podman rm' to be called (retiring container force-removed)")
+	}
+	// And start is NOT called (container left in stopped state for next invocation)
 	if runner.calledSubcommand("start") {
 		t.Error("expected 'podman start' NOT to be called (container left stopped for next invocation)")
 	}
@@ -363,8 +364,12 @@ func TestRecreate_ExistsCheckFails(t *testing.T) {
 	assertError(t, root.Execute())
 }
 
-// TestRecreate_RemoveFails verifies that an error from podman rm is propagated
-// back to the caller.
+// TestRecreate_RemoveFails verifies that when the retiring container cannot be
+// force-removed, recreate still succeeds — the cleanup is best-effort. With the
+// two-step rename approach, the old container is renamed aside to a retiring
+// name and then force-removed as a cleanup step. A failure there is logged as a
+// warning, not returned as an error, so the user's container is correctly
+// placed at the canonical name.
 func TestRecreate_RemoveFails(t *testing.T) {
 	// Given an existing stopped container and a runner that fails on "rm"
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -386,11 +391,17 @@ func TestRecreate_RemoveFails(t *testing.T) {
 
 	// When the recreate subcommand is executed
 	root := cmd.NewRootCmd(deps)
-	root.SetErr(&bytes.Buffer{})
+	root.SetOut(&bytes.Buffer{})
 	root.SetArgs([]string{"--project", "myapp", "recreate"})
 
-	// Then an error is returned
-	assertError(t, root.Execute())
+	// Then the operation succeeds despite the rm failure — the retiring
+	// container cleanup is best-effort (logged as a warning, not an error).
+	assertNoError(t, root.Execute())
+
+	// And the canonical container name was never explicitly removed
+	if runner.rmCalledFor("marshal-myapp") {
+		t.Error("expected canonical container NOT to be explicitly rm'd")
+	}
 }
 
 // TestRecreate_CreateFails verifies that an error from podman create is

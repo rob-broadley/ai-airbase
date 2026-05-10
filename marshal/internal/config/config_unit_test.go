@@ -1015,25 +1015,26 @@ func TestLoad_ValidConfig_StillWorks(t *testing.T) {
 
 // TestValidateProjectName_RejectsPendingNames verifies that ValidateProjectName
 // rejects project names ending with the staging-container suffix pattern
-// "-pending" or "-pending-<digits>". These suffixes are reserved for the
-// atomic recreate operation's staging containers.
+// "-pending-<pid>-<nano>" or "-retiring-<pid>-<nano>". These suffixes are
+// reserved for the atomic recreate operation's staging and retiring containers.
 //
-// Names that merely contain "-pending" as an infix (e.g. "my-pending-tasks")
-// are valid — only the suffix form poses a collision risk.
+// Names that end with just "-pending" or "-pending-<digits>" (without a second
+// digit group) are now valid project names — the reservation only covers the
+// full PID+nanosecond format used by the current implementation.
 //
-// Acceptance criterion: ValidateProjectName returns an error for
+// Names that merely contain "-pending" or "-retiring" as an infix are valid.
 
 // ---------------------------------------------------------------------------
 // Project names ending with the staging-container suffix must be rejected
 // ---------------------------------------------------------------------------
 
-// names ending with "-pending" or "-pending-<digits>".
+// names ending with "-pending-<pid>-<nano>" or "-retiring-<pid>-<nano>".
 func TestValidateProjectName_RejectsPendingNames(t *testing.T) {
 	rejectCases := []string{
-		"myapp-pending",
-		"myapp-pending-123",
-		"a-pending",
-		"foo-pending-99999",
+		"myapp-pending-123-456789",
+		"myapp-retiring-123-456789",
+		"a-pending-1-2",
+		"foo-retiring-99999-1234567890",
 	}
 	for _, name := range rejectCases {
 		name := name
@@ -1045,18 +1046,24 @@ func TestValidateProjectName_RejectsPendingNames(t *testing.T) {
 		})
 	}
 
-	// Names containing "-pending" as an infix (not a suffix) are valid.
+	// Names containing "-pending" or "-retiring" as an infix (not the full
+	// reserved suffix) are valid.
 	allowCases := []string{
 		"my-pending-tasks",
 		"pending-review",
 		"foo-pending-bar",
+		"myapp-pending",
+		"myapp-pending-123",
+		"a-pending",
+		"foo-pending-99999",
+		"my-retiring-project",
 	}
 	for _, name := range allowCases {
 		name := name
 		t.Run("allow/"+name, func(t *testing.T) {
 			err := config.ValidateProjectName(name)
 			if err != nil {
-				t.Errorf("ValidateProjectName(%q) returned %v; want nil for non-suffix use of \"-pending\"", name, err)
+				t.Errorf("ValidateProjectName(%q) returned %v; want nil for non-reserved name", name, err)
 			}
 		})
 	}

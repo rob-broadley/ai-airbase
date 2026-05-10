@@ -65,6 +65,11 @@ type fakeRunner struct {
 	imageExistsResult    bool
 	imageExistsAfterPull bool
 	pullImageCalled      bool
+	// renameErrorFn, when set, is called for every "podman rename <from> <to>"
+	// invocation. Return a non-nil error to simulate a failure for specific
+	// rename operations (e.g. only fail the promotion rename, not the aside).
+	// This complements runErrors["rename"], which fails ALL renames uniformly.
+	renameErrorFn func(from, to string) error
 }
 
 func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
@@ -89,6 +94,15 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 			}
 		}
 		if err, ok := f.runErrors[key]; ok {
+			return nil, err
+		}
+	}
+
+	// Selective rename error injection: allows tests to fail only specific
+	// renames (e.g. only the promotion rename, not the aside) without using
+	// the blunt runErrors["rename"] which would fail every rename.
+	if name == "podman" && len(args) >= 3 && args[0] == "rename" && f.renameErrorFn != nil {
+		if err := f.renameErrorFn(args[1], args[2]); err != nil {
 			return nil, err
 		}
 	}
@@ -228,14 +242,40 @@ func (f *fakeRunner) createArgs() []string {
 	return nil
 }
 
-// rmCalledFor reports whether "podman rm <name>" appears in the recorded calls.
-// Unlike calledSubcommand("rm"), this checks the specific container argument so
-// tests can distinguish cleanup of a pending container from removal of the
-// original one.
+// rmCalledFor reports whether "podman rm <name>" (or "podman rm --force <name>")
+// appears in the recorded calls. Unlike calledSubcommand("rm"), this checks the
+// specific container argument so tests can distinguish cleanup of a pending
+// container from removal of the original one. Handles both the regular remove
+// ("podman rm <name>") and force-remove ("podman rm --force <name>") variants.
 func (f *fakeRunner) rmCalledFor(name string) bool {
 	for _, call := range f.calls {
-		if len(call) >= 3 && call[0] == "podman" && call[1] == "rm" && call[2] == name {
-			return true
+		if len(call) < 3 || call[0] != "podman" || call[1] != "rm" {
+			continue
+		}
+		// Scan args after "rm" so both "podman rm <name>" and
+		// "podman rm --force <name>" are matched.
+		for _, arg := range call[2:] {
+			if arg == name {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// rmCalledForPrefix reports whether "podman rm" (or "podman rm --force") was
+// called for any container whose name starts with prefix. Use this when the
+// exact staging-container name is not known in advance because it includes a
+// non-deterministic nanosecond timestamp.
+func (f *fakeRunner) rmCalledForPrefix(prefix string) bool {
+	for _, call := range f.calls {
+		if len(call) < 3 || call[0] != "podman" || call[1] != "rm" {
+			continue
+		}
+		for _, arg := range call[2:] {
+			if strings.HasPrefix(arg, prefix) {
+				return true
+			}
 		}
 	}
 	return false
@@ -251,10 +291,26 @@ func (f *fakeRunner) createArgsContain(s string) bool {
 	return false
 }
 
-// renameCalledWith reports whether "podman rename <from> <to>" was recorded.
-func (f *fakeRunner) renameCalledWith(from, to string) bool {
+// renameCalledFromPrefix reports whether a "podman rename <from> <to>" was
+// recorded where <from> starts with fromPrefix and <to> is exactly to.
+// Use this when the staging-container name is not predictable (PID+nano suffix).
+func (f *fakeRunner) renameCalledFromPrefix(fromPrefix, to string) bool {
 	for _, call := range f.calls {
-		if len(call) >= 4 && call[0] == "podman" && call[1] == "rename" && call[2] == from && call[3] == to {
+		if len(call) >= 4 && call[0] == "podman" && call[1] == "rename" &&
+			strings.HasPrefix(call[2], fromPrefix) && call[3] == to {
+			return true
+		}
+	}
+	return false
+}
+
+// renameCalledWithToPrefix reports whether a "podman rename <from> <to>" was
+// recorded where <from> is exactly from and <to> starts with toPrefix.
+// Use this to verify a container was renamed aside to a retiring/staging name.
+func (f *fakeRunner) renameCalledWithToPrefix(from, toPrefix string) bool {
+	for _, call := range f.calls {
+		if len(call) >= 4 && call[0] == "podman" && call[1] == "rename" &&
+			call[2] == from && strings.HasPrefix(call[3], toPrefix) {
 			return true
 		}
 	}

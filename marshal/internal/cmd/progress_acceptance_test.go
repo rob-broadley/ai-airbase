@@ -70,6 +70,9 @@ func TestDefaultCmd_LogsCreatingContainer(t *testing.T) {
 
 // TestRecreate_LogsRemovingAndCreating verifies that recreate logs both the
 // removal and creation steps so the user sees activity throughout the operation.
+// With the two-step rename approach, the removal is logged as "removing retired
+// container" when the retiring container is force-removed after successful
+// promotion.
 func TestRecreate_LogsRemovingAndCreating(t *testing.T) {
 	// Given an existing container and an injected progress logger
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -93,9 +96,9 @@ func TestRecreate_LogsRemovingAndCreating(t *testing.T) {
 	// When recreate is executed
 	assertNoError(t, root.Execute())
 
-	// Then both removal and creation progress messages appear
+	// Then creation and removal progress messages appear
 	got := logBuf.String()
-	assertContains(t, got, "removing container")
+	assertContains(t, got, "removing retired container")
 	assertContains(t, got, "creating container")
 }
 
