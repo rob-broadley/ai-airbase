@@ -141,6 +141,31 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## Documentation
+
+**When:** The user wants to write or update user-facing documentation — README, CLI reference, tutorial, how-to guide, or explanation.
+
+**Chain:**
+
+```
+[technical-author]
+```
+
+| Step | Agent              | Hand it                                                                                  | Success                                             |
+| ---- | ------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| 1    | `technical-author` | The brief (what to document), relevant source files or diff, any existing docs to update | Documentation written, examples verified, committed |
+
+**Notes:**
+
+- `technical-author` writes documentation. `docs-reviewer` finds gaps in existing documentation. Do not conflate them.
+- If the brief is vague ("write docs for the project"), ask the user which document type is needed (tutorial, how-to, reference, explanation) before delegating.
+- If a code change is in flight and documentation must accompany it, sequence `atdd` first, then `technical-author` with the changed source files as context.
+- `technical-author` does not modify source code. If it discovers that `--help` output or source behaviour needs to change, it surfaces that as a separate task.
+
+**Failure handling:** If `technical-author` cannot verify an example because the tool is not installed or the environment is not set up, delegate to `devex` first, then retry.
+
+______________________________________________________________________
+
 ## Review and audit
 
 **When:** The user wants to review code, assess quality, check a PR, or audit for a specific concern — no changes required immediately.

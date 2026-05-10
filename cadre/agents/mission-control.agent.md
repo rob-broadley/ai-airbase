@@ -49,6 +49,8 @@ Map the request to a task archetype using the `workflow-patterns` skill:
 | "check the tests", "test quality", "are these tests good"                | **Review** — `test-reviewer`                                                  |
 | "check the API", "CLI flags", "breaking changes"                         | **Review** — `api-reviewer`                                                   |
 | "dead code", "unused code", "stale flags", "orphaned files"              | **Review** — `dead-code-detector`                                             |
+| "write docs", "update the README", "document this", "how-to guide"       | **Documentation** — `technical-author`                                        |
+| "check the docs", "documentation coverage", "are the docs accurate"      | **Review** — `docs-reviewer`                                                  |
 | Mixed or unclear                                                         | Decompose into sub-tasks, each matching a single archetype                    |
 
 If a request mixes archetypes (e.g., "fix this untested legacy code and then add the new feature"), split it into ordered tasks. State the split explicitly before proceeding.
