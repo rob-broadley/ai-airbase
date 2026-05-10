@@ -29,6 +29,7 @@ type Deps struct {
 	EnsureSharedDataDir   func(subdir string) (string, error)
 	EnsureSharedConfigDir func(subdir string) (string, error)
 	SaveConfig            func(project string, cfg *config.Config) error // defaults to config.Save
+	DeleteConfig          func(project string) error                     // defaults to config.Delete
 	// LookupGitConfig reads a git configuration key (e.g. "user.name") from the
 	// host and returns its trimmed value, or an empty string if unset or on error.
 	// Defaults to lookupHostGitConfig.
@@ -42,6 +43,14 @@ type Deps struct {
 	// container creation, volume provisioning). When nil, a discard logger is
 	// used so callers that do not inject a logger are not affected.
 	Logger *slog.Logger
+}
+
+// deleteConfig returns the effective config-delete function: the injected one or config.Delete.
+func (d Deps) deleteConfig() func(string) error {
+	if d.DeleteConfig != nil {
+		return d.DeleteConfig
+	}
+	return config.Delete
 }
 
 // saveConfig returns the effective config-save function: the injected one or config.Save.

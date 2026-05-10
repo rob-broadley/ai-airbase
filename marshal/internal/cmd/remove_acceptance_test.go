@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/cmd"
@@ -362,13 +360,13 @@ func TestRemove_ContainerRemoveFails_VolumesAndConfigUntouched(t *testing.T) {
 	}
 }
 
-// TestRemove_VolumeRemoveFails_PrintsSuccessMessage verifies that when container
-// remove succeeds but volume remove fails, the "container removed" success message
-// is still printed to stdout (the container IS gone; the error covers partial cleanup).
+// TestRemove_VolumeRemoveFails_PrintsQualifiedMessage verifies that when container
+// remove succeeds but volume remove fails, stdout reports that the container was
+// removed and cleanup only partially succeeded.
 //
-// Acceptance criterion 2: container remove succeeds, volume remove fails → success
-// message printed, config.Delete still attempted, error returned.
-func TestRemove_VolumeRemoveFails_PrintsSuccessMessage(t *testing.T) {
+// Acceptance criterion 2: container remove succeeds, volume remove fails →
+// qualified success message printed, config.Delete still attempted, error returned.
+func TestRemove_VolumeRemoveFails_PrintsQualifiedMessage(t *testing.T) {
 	// Given a stopped container and a runner that fails on the "volume" subcommand
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
@@ -398,33 +396,19 @@ func TestRemove_VolumeRemoveFails_PrintsSuccessMessage(t *testing.T) {
 	// Then an error is returned (volume cleanup failed)
 	assertError(t, err)
 
-	// And the "container removed" message was still printed to stdout
-	// (the container is gone; the error covers the partial cleanup failure)
-	assertContains(t, buf.String(), "removed")
+	// And stdout qualifies the success to reflect the partial cleanup failure.
+	assertContains(t, buf.String(), "removed (cleanup partially failed:")
 }
 
-// TestRemove_ConfigDeleteFails_PrintsSuccessMessage verifies that when container
-// remove and volume remove both succeed but config.Delete fails, the "container
-// removed" success message is still printed to stdout and an error is returned.
+// TestRemove_ConfigDeleteFails_PrintsQualifiedMessage verifies that when container
+// remove and volume remove both succeed but config.Delete fails, stdout reports
+// partial cleanup failure and an error is returned.
 //
-// Acceptance criterion 3: container remove succeeds, config delete fails → success
-// message printed, error returned.
-func TestRemove_ConfigDeleteFails_PrintsSuccessMessage(t *testing.T) {
-	// Given a saved config where the projects directory is made read-only so
-	// os.Remove inside config.Delete will fail.
-	configDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", configDir)
-
-	if err := config.Save("myapp", &config.Config{Mounts: []string{"/data"}}); err != nil {
-		t.Fatalf("Save failed: %v", err)
-	}
-
-	// Lock down the directory so config.Delete cannot remove the file.
-	projectsDir := filepath.Join(configDir, "marshal", "projects")
-	if err := os.Chmod(projectsDir, 0o500); err != nil {
-		t.Fatalf("Chmod failed: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(projectsDir, 0o700) })
+// Acceptance criterion 3: container remove succeeds, config delete fails →
+// qualified success message printed, error returned.
+func TestRemove_ConfigDeleteFails_PrintsQualifiedMessage(t *testing.T) {
+	// Given a runner that succeeds and a DeleteConfig stub that returns an error.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	runner := &fakeRunner{exists: true, running: false}
 	deps := cmd.Deps{
@@ -434,6 +418,7 @@ func TestRemove_ConfigDeleteFails_PrintsSuccessMessage(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		DeleteConfig:        func(string) error { return errors.New("permission denied") },
 	}
 
 	buf := &bytes.Buffer{}
@@ -448,9 +433,8 @@ func TestRemove_ConfigDeleteFails_PrintsSuccessMessage(t *testing.T) {
 	// Then an error is returned (config cleanup failed)
 	assertError(t, err)
 
-	// And the "container removed" message was still printed to stdout
-	// (the container is gone; the error covers the partial cleanup failure)
-	assertContains(t, buf.String(), "removed")
+	// And stdout qualifies the success to reflect the partial cleanup failure.
+	assertContains(t, buf.String(), "removed (cleanup partially failed:")
 }
 
 // --project flag contains an invalid project name (e.g. path traversal).
