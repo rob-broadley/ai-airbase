@@ -173,8 +173,11 @@ func sanitizeGitValue(v string) string {
 // partial file; if the removal itself fails the partial file may persist and
 // will be treated as a valid (though possibly corrupt) file on the next run.
 func ensureConfigFile(path string, defaultContent []byte) error {
-	fi, err := os.Stat(path)
+	fi, err := os.Lstat(path)
 	if err == nil {
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("config path is a symlink, refusing to follow: %s", path)
+		}
 		if fi.IsDir() {
 			return fmt.Errorf("config path exists but is a directory: %s", path)
 		}
