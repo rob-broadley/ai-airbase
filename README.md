@@ -104,6 +104,23 @@ The project name can also be set via the `MARSHAL_PROJECT` environment variable.
 
 `marshal create` has its own `--mount` flag for specifying extra bind mounts — see the [`marshal create`](#marshal-create) section below.
 
+## Shell completion
+
+marshal provides shell completion via the built-in `completion` subcommand:
+
+```sh
+# bash
+marshal completion bash > ~/.bash_completion.d/marshal
+
+# zsh
+marshal completion zsh > "${fpath[1]}/_marshal"
+
+# fish
+marshal completion fish > ~/.config/fish/completions/marshal.fish
+```
+
+Run `marshal completion --help` for all supported shells.
+
 ______________________________________________________________________
 
 ### `marshal create`
@@ -149,11 +166,11 @@ marshal status --project my-app
 Example output:
 
 ```
-Project:    my-app
-Container:  marshal-my-app
-Status:     running
-Image:      revetment:latest
-Created:    2026-05-01 09:14:32
+Project:   my-app
+Container: marshal-my-app
+Status:    running
+Image:     revetment:latest
+Created:   2026-05-01 09:14:32
 ```
 
 ______________________________________________________________________
