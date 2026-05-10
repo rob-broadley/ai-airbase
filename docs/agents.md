@@ -64,25 +64,39 @@ The cadre is the group of AI agents bundled inside every revetment container. Ea
 
 Agents load skills on demand — domain-knowledge reference cards that ground every decision in documented patterns. You do not invoke skills directly; agents load them as needed using the `skill` tool.
 
-| Skill                   | Description                                                                                                                          |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `api-review`            | REST and CLI interface review reference — naming, HTTP semantics, error consistency, breaking changes, and three-tier severity model |
-| `code-review`           | Code review reference — smell categories, complexity thresholds, dead code signals, and three-tier severity model                    |
-| `concurrency-review`    | Concurrency review reference — race conditions, deadlocks, resource leaks, synchronisation, and cancellation propagation             |
-| `dead-code-review`      | Patterns for detecting unreachable code, unused exports, orphaned files, stale feature flags, and zombie dependencies                |
-| `dependency-review`     | Dependency review reference — vulnerability signals, licence compatibility, transitive risk, version hygiene, and audit commands     |
-| `design-principles`     | SOLID, GRASP, DRY, KISS, YAGNI, and Law of Demeter principles with a principle-to-refactoring map                                    |
-| `docs-review`           | Documentation review reference — coverage thresholds, accuracy signals, doc comment format, and three-tier severity model            |
-| `error-handling-review` | Error handling review reference — swallowed errors, error specificity, resilience, partial failure, and user-facing errors           |
-| `observability-review`  | Observability review reference — log levels, structured logging, trace context propagation, metric naming, and alert quality         |
-| `problem-analysis`      | Requirements elicitation reference — Impact Mapping, contradiction taxonomy, NFR catalogue, premortem, and confidence scoring        |
-| `security-review`       | Security review reference — OWASP Top 10 (2021), secrets hygiene, input validation, auth patterns, and four-tier severity model      |
-| `story-craft`           | User story reference — INVEST scoring, SPIDR splitting, Elephant Carpaccio, Story Mapping, and acceptance criteria patterns          |
-| `tdd-patterns`          | ATDD/TDD reference — walking skeleton, London vs Chicago school, test doubles, contract testing, and characterisation testing        |
-| `technical-writing`     | Technical authoring reference — Diataxis framework, writing principles, README structure, and coverage standards                     |
-| `test-review`           | Test quality reference — Dave Farley's 8 properties of good tests, test double misuse, fragility signals, and coverage gaps          |
-| `tool-install`          | Installation recipes for language runtimes and analysis tools using uv and Nix                                                       |
-| `workflow-patterns`     | Agent-chain templates and routing logic for `mission-control` — maps task archetypes to ordered sequences of specialist agents       |
+**`api-review`** — REST and CLI interface review reference — naming, HTTP semantics, error consistency, breaking changes, and three-tier severity model.
+
+**`code-review`** — Code review reference — smell categories, complexity thresholds, dead code signals, and three-tier severity model.
+
+**`concurrency-review`** — Concurrency review reference — race conditions, deadlocks, resource leaks, synchronisation, and cancellation propagation.
+
+**`dead-code-review`** — Patterns for detecting unreachable code, unused exports, orphaned files, stale feature flags, and zombie dependencies.
+
+**`dependency-review`** — Dependency review reference — vulnerability signals, licence compatibility, transitive risk, version hygiene, and audit commands.
+
+**`design-principles`** — SOLID, GRASP, DRY, KISS, YAGNI, and Law of Demeter principles with a principle-to-refactoring map.
+
+**`docs-review`** — Documentation review reference — coverage thresholds, accuracy signals, doc comment format, and three-tier severity model.
+
+**`error-handling-review`** — Error handling review reference — swallowed errors, error specificity, resilience, partial failure, and user-facing errors.
+
+**`observability-review`** — Observability review reference — log levels, structured logging, trace context propagation, metric naming, and alert quality.
+
+**`problem-analysis`** — Requirements elicitation reference — Impact Mapping, contradiction taxonomy, NFR catalogue, premortem, and confidence scoring.
+
+**`security-review`** — Security review reference — OWASP Top 10 (2021), secrets hygiene, input validation, auth patterns, and four-tier severity model.
+
+**`story-craft`** — User story reference — INVEST scoring, SPIDR splitting, Elephant Carpaccio, Story Mapping, and acceptance criteria patterns.
+
+**`tdd-patterns`** — ATDD/TDD reference — walking skeleton, London vs Chicago school, test doubles, contract testing, and characterisation testing.
+
+**`technical-writing`** — Technical authoring reference — Diataxis framework, writing principles, README structure, and coverage standards.
+
+**`test-review`** — Test quality reference — Dave Farley's 8 properties of good tests, test double misuse, fragility signals, and coverage gaps.
+
+**`tool-install`** — Installation recipes for language runtimes and analysis tools using uv and Nix.
+
+**`workflow-patterns`** — Agent-chain templates and routing logic for `mission-control` — maps task archetypes to ordered sequences of specialist agents.
 
 ## Extending the cadre
 
