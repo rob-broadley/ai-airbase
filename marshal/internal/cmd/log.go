@@ -35,7 +35,7 @@ func NewCLILogger(w io.Writer) *slog.Logger {
 // lock and serialise writes to the underlying writer correctly.
 type cliHandler struct {
 	w     io.Writer
-	mu    *sync.Mutex // shared with sibling handlers created by WithAttrs
+	mu    *sync.Mutex // shared with WithAttrs siblings; do not copy cliHandler by value
 	attrs []slog.Attr // pre-attached attributes from WithAttrs
 	level slog.Level
 }
