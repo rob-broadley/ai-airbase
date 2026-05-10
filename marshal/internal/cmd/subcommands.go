@@ -19,7 +19,7 @@ func newCreateCmd(deps Deps, projectFlag *string) *cobra.Command {
 	var mountFlags []string
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a new container for the project",
+		Short: "Create a new container for the project, pulling the image if not present",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreate(cmd, deps, *projectFlag, mountFlags)
 		},
@@ -100,7 +100,7 @@ func newStopCmd(deps Deps, projectFlag *string) *cobra.Command {
 // runStop implements the "stop" subcommand: it resolves the project, verifies
 // the container exists and is running, stops it, and reports the outcome.
 func runStop(cmd *cobra.Command, deps Deps, projectFlag string) error {
-	_, containerName, err := resolveContainer(deps, projectFlag)
+	project, containerName, err := resolveContainer(deps, projectFlag)
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func runStop(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		return fmt.Errorf("checking container: %w", err)
 	}
 	if !exists {
-		return fmt.Errorf("container %s does not exist", containerName)
+		return fmt.Errorf("project %s has no container", project)
 	}
 
 	running, err := container.IsRunning(deps.Runner, containerName)
@@ -118,7 +118,7 @@ func runStop(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		return fmt.Errorf("checking running state: %w", err)
 	}
 	if !running {
-		fmt.Fprintf(cmd.OutOrStdout(), "container %s is already stopped\n", containerName)
+		fmt.Fprintf(cmd.OutOrStdout(), "project %s container is already stopped\n", project)
 		return nil
 	}
 
@@ -241,7 +241,7 @@ func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		return fmt.Errorf("checking container: %w", err)
 	}
 	if !exists {
-		return fmt.Errorf("container %s does not exist", containerName)
+		return fmt.Errorf("project %s has no container", project)
 	}
 
 	deps.logger().Info("removing container", "container", containerName)

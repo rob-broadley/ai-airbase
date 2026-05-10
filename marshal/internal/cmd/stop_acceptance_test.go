@@ -66,11 +66,11 @@ func TestStop_AlreadyStopped(t *testing.T) {
 	root.SetArgs([]string{"--project", "myapp", "stop"})
 	assertNoError(t, root.Execute())
 
-	// Then podman stop is NOT called and the output mentions already stopped
+	// Then podman stop is NOT called and the output uses the project-facing message.
 	if runner.calledSubcommand("stop") {
 		t.Error("expected 'podman stop' NOT to be called for already-stopped container")
 	}
-	assertContains(t, buf.String(), "already stopped")
+	assertContains(t, buf.String(), "project myapp container is already stopped")
 }
 
 // TestStop_AbsentContainer verifies that stop returns an error when the
@@ -95,8 +95,11 @@ func TestStop_AbsentContainer(t *testing.T) {
 	root.SetErr(&bytes.Buffer{})
 
 	// When the stop subcommand is executed
-	// Then an error is returned
-	assertError(t, root.Execute())
+	err := root.Execute()
+
+	// Then an error is returned with the project-facing message.
+	assertError(t, err)
+	assertContains(t, err.Error(), "project myapp has no container")
 }
 
 // TestStop_IsRunningCheckFails verifies that an error from the IsRunning check

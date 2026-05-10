@@ -99,9 +99,11 @@ func TestRemove_AbsentContainer(t *testing.T) {
 
 	// When the remove subcommand is executed
 	root.SetArgs([]string{"--project", "myapp", "remove"})
+	err := root.Execute()
 
-	// Then an error is returned
-	assertError(t, root.Execute())
+	// Then an error is returned with the project-facing message.
+	assertError(t, err)
+	assertContains(t, err.Error(), "project myapp has no container")
 }
 
 // TestRemove_RemoveFails verifies that an error from podman rm is propagated
