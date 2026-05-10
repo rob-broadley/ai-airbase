@@ -192,7 +192,9 @@ ai-airbase/
 │       ├── cmd/                  # cobra commands and dependency injection
 │       ├── config/               # XDG config dirs, TOML loading, project resolution
 │       └── container/            # Runner interface, PodmanRunner, container lifecycle
-├── cadre/                        # agents and skills
+├── cadre/
+│   ├── agents/                   # agent definition files (.agent.md)
+│   └── skills/                   # skill definition files (SKILL.md per skill)
 ├── dev/Containerfile             # sapper image (build toolchain)
 ├── revetment/Containerfile       # revetment container image (agent sandbox)
 └── Makefile
@@ -201,6 +203,69 @@ ai-airbase/
 `marshal/internal/container` defines a `Runner` interface — `PodmanRunner` is the real implementation, tests use a fake. Business logic never spawns real containers.
 
 `marshal/internal/config` handles all persistence: per-project TOML files under `$XDG_CONFIG_HOME/marshal/`.
+
+`cadre/` files are bundled into the revetment image at build time via `COPY cadre/ $HOME/.copilot/` in `revetment/Containerfile`.
+
+## Extending the cadre
+
+The `cadre/` directory holds the agent and skill definition files that ship inside the revetment image. Every file is plain Markdown with a YAML frontmatter block.
+
+### Adding an agent
+
+Create `cadre/agents/<name>.agent.md`:
+
+```markdown
+---
+name: my-agent
+description: Use when … Handles … Do not use for …
+tools: [read, search, execute, edit]
+---
+
+Full instruction set for the agent — role, hard boundaries, working style,
+and any skill loads via the skill tool.
+```
+
+- **`name`** — must match the filename stem (`my-agent` → `my-agent.agent.md`).
+- **`description`** — used by `mission-control` to route tasks; write it as a decision rule: _"Use when…"_ or _"Handles…"_, including a negative case where relevant.
+- **`tools`** — the set of Copilot CLI tools the agent may call.
+- **body** — the agent's complete role and instructions, including any `Use the skill tool to load \`my-skill\`\` directives.
+
+### Adding a skill
+
+Create `cadre/skills/<name>/SKILL.md`:
+
+```markdown
+---
+name: my-skill
+description: One sentence describing the knowledge this skill contains.
+license: AGPL-3.0-or-later
+allowed-tools: read
+---
+
+The skill's full content — reference material, patterns, checklists, etc.
+```
+
+Skills are loaded on demand by agents via the `skill` tool. They are not invoked directly by users.
+
+### Bundling
+
+The Containerfile copies the entire `cadre/` directory into the image:
+
+```dockerfile
+COPY cadre/ $HOME/.copilot/
+```
+
+Changes to agents or skills take effect on the next `make image` build. To test a locally built image without pushing:
+
+```sh
+make image
+export MARSHAL_IMAGE=revetment
+marshal
+```
+
+### Design principle
+
+Agents and skills must be project-agnostic — they should work on any codebase, not just this one. Do not hardcode repository names, organisation names, or project-specific paths. Use placeholder names such as `myapp` or `mytool` in examples within skill bodies.
 
 ## Development workflow
 
@@ -247,4 +312,4 @@ A race detector report is a genuine data race, not a fluke. Read the goroutine t
 
 ## Contributing
 
-PRs welcome. Check `README.md` for planned work, or open an issue before building something new.
+PRs welcome. Open an issue before building something new to discuss approach.
