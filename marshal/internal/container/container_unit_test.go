@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -40,15 +41,20 @@ type fakeRunner struct {
 
 func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 	f.calls = append(f.calls, fakeCall{name: name, args: args})
+	if name == "podman" && len(args) > 1 && args[0] == "image" && args[1] == "exists" {
+		if f.imageExistsErr != nil {
+			return nil, f.imageExistsErr
+		}
+		if f.imageExistsResult {
+			return nil, nil
+		}
+		return nil, fakeExitError(1)
+	}
 	idx := len(f.calls) - 1
 	if idx < len(f.responses) {
 		return f.responses[idx].output, f.responses[idx].err
 	}
 	return nil, nil
-}
-
-func (f *fakeRunner) ImageExists(image string) (bool, error) {
-	return f.imageExistsResult, f.imageExistsErr
 }
 
 func (f *fakeRunner) PullImage(image string, stdout, stderr io.Writer) error {
@@ -58,6 +64,11 @@ func (f *fakeRunner) PullImage(image string, stdout, stderr io.Writer) error {
 		fmt.Fprint(stdout, f.pullOutput)
 	}
 	return f.pullImageErr
+}
+
+func fakeExitError(code int) error {
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("exit %d", code))
+	return cmd.Run()
 }
 
 // Rename records the rename call and returns the next queued response error,

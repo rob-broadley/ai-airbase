@@ -120,7 +120,6 @@ type UserConfig struct {
 // inject a fake without needing a real Podman daemon.
 type Runner interface {
 	Run(name string, args ...string) ([]byte, error)
-	ImageExists(image string) (bool, error)
 	PullImage(image string, stdout, stderr io.Writer) error
 }
 
@@ -136,24 +135,6 @@ func (p PodmanRunner) Run(name string, args ...string) ([]byte, error) {
 		return out, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return out, err
-}
-
-// ImageExists reports whether image is present in the local Podman image store.
-// It runs `podman image exists <image>`: exit 0 → present, exit 1 → absent.
-// Any other failure is returned as an error.
-func (p PodmanRunner) ImageExists(image string) (bool, error) {
-	out, err := exec.Command(podmanBin, "image", "exists", image).CombinedOutput()
-	if err == nil {
-		return true, nil
-	}
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) && exitErr.ExitCode() == imageAbsentExitCode {
-		return false, nil
-	}
-	if len(out) > 0 {
-		return false, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
-	}
-	return false, err
 }
 
 // PullImage pulls image from a registry, streaming progress to stdout and
@@ -453,10 +434,21 @@ func GetStatus(r Runner, containerName string) (Status, error) {
 }
 
 // ImageExists reports whether image is present in the local Podman image store.
-// It delegates to r.ImageExists, providing the same container.Op(r, …) calling
-// convention used by all other operations in this package.
+// It runs `podman image exists <image>` through r.Run: exit 0 → present,
+// exit 1 → absent. Any other failure is returned as an error.
 func ImageExists(r Runner, image string) (bool, error) {
-	return r.ImageExists(image)
+	out, err := r.Run(podmanBin, "image", "exists", image)
+	if err == nil {
+		return true, nil
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == imageAbsentExitCode {
+		return false, nil
+	}
+	if len(out) > 0 {
+		return false, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return false, err
 }
 
 // PullImage pulls image from a registry, streaming progress to stdout and stderr.

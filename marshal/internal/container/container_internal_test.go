@@ -11,14 +11,14 @@ import (
 	"testing"
 )
 
-// TestPodmanRunner_ImageExists_UnexpectedFailureIncludesOutput verifies that
-// when `podman image exists` fails with an unexpected (non-exit-1) error AND
+// TestImageExists_UnexpectedFailureIncludesOutput verifies that when
+// `podman image exists` fails with an unexpected (non-exit-1) error AND
 // produces output (e.g. "Error: cannot connect to Podman socket"), that output
 // is included in the error returned to the caller.
 //
 // Acceptance criterion: error messages from unexpected ImageExists failures
 // include Podman output.
-func TestPodmanRunner_ImageExists_UnexpectedFailureIncludesOutput(t *testing.T) {
+func TestImageExists_UnexpectedFailureIncludesOutput(t *testing.T) {
 	// Given: a fake podman binary that exits with an unexpected error code (2)
 	// and writes a diagnostic message to stderr.
 	dir := t.TempDir()
@@ -33,7 +33,7 @@ func TestPodmanRunner_ImageExists_UnexpectedFailureIncludesOutput(t *testing.T) 
 	t.Cleanup(func() { podmanBin = orig })
 
 	// When: ImageExists is called.
-	_, err := PodmanRunner{}.ImageExists("any-image")
+	_, err := ImageExists(PodmanRunner{}, "any-image")
 
 	// Then: an error is returned AND it includes the Podman diagnostic output.
 	if err == nil {

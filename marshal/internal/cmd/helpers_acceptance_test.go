@@ -2,8 +2,10 @@
 package cmd_test
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -137,6 +139,20 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 		return []byte(""), nil
 
 	case "image":
+		if len(args) > 1 && args[1] == "exists" {
+			f.imageExistsCalls++
+			if f.imageExistsErr != nil {
+				return nil, f.imageExistsErr
+			}
+			exists := f.imageExistsResult
+			if f.imageExistsCalls > 1 {
+				exists = f.imageExistsAfterPull
+			}
+			if exists {
+				return []byte(""), nil
+			}
+			return nil, fakeExitError(1)
+		}
 		// Differentiate between the two image inspect format calls so tests
 		// can inject custom volume and label JSON for volume provisioning.
 		for i, a := range args {
@@ -182,17 +198,6 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 	}
 }
 
-// ImageExists satisfies the container.Runner interface. The first call returns
-// imageExistsResult; subsequent calls return imageExistsAfterPull (to simulate
-// the "image appeared locally after a failed pull" scenario).
-func (f *fakeRunner) ImageExists(_ string) (bool, error) {
-	f.imageExistsCalls++
-	if f.imageExistsCalls > 1 {
-		return f.imageExistsAfterPull, f.imageExistsErr
-	}
-	return f.imageExistsResult, f.imageExistsErr
-}
-
 // PullImage is a spy: records that it was called and which image was requested,
 // writes pullOutput to stdout and pullStderrOutput to stderr when non-empty,
 // and returns pullImageErr (or runErrors["pull"] if set).
@@ -209,6 +214,11 @@ func (f *fakeRunner) PullImage(image string, stdout io.Writer, stderr io.Writer)
 		return err
 	}
 	return f.pullImageErr
+}
+
+func fakeExitError(code int) error {
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("exit %d", code))
+	return cmd.Run()
 }
 
 // Rename records a "podman rename <from> <to>" call and returns any injected
