@@ -253,22 +253,22 @@ func EnsureProjectVolume(r Runner, name, containerName string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("checking volume: %w", err)
 	}
+	alreadyExists := false
 	for _, line := range splitLines(string(out)) {
 		if line == name {
-			return false, nil // volume already exists
+			alreadyExists = true
+			break
 		}
 	}
 	_, err = r.Run(podmanBin, "volume", "create",
+		"--ignore",
 		"--label", labelProject+"="+containerName,
 		name,
 	)
-	if err != nil && strings.Contains(err.Error(), "already exists") {
-		return false, nil
-	}
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("creating volume: %w", err)
 	}
-	return true, nil
+	return !alreadyExists, nil
 }
 
 // RemoveProjectVolumes removes all named Podman volumes that carry the project
