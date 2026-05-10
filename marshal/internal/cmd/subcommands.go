@@ -279,7 +279,7 @@ func newShellCmd(deps Deps, projectFlag *string) *cobra.Command {
 func newPullCmd(deps Deps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "pull",
-		Short: "Pull the latest revetment container image for the project",
+		Short: "Pull the latest revetment container image",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runPull(cmd, deps)
 		},

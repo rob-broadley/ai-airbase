@@ -199,9 +199,10 @@ ______________________________________________________________________
 
 Pull or refresh the revetment container image without touching the container. Useful for updating the image ahead of an `marshal recreate`.
 
+Note: `pull` is image-global — it is not project-scoped.
+
 ```sh
 marshal pull
-marshal pull --project my-app
 ```
 
 ______________________________________________________________________
