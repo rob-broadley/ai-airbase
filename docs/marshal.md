@@ -63,7 +63,7 @@ Save the mount configuration and create the container. Run this once per project
 
 If no `--mount` flags are given, the current directory is used as the sole mount. Each `--mount` path is bind-mounted inside the container at `/workspace/<basename>`. Paths are saved to the project config file and used by all subsequent commands automatically.
 
-Errors if a container for the project already exists. To rebuild an existing project, use `marshal recreate`. To change mounts, run `marshal remove` then `marshal create` with the new `--mount` flags.
+Errors if a container for the project already exists. To rebuild an existing project, use `marshal recreate`. To change mounts or masks, run `marshal remove` then `marshal create` with the new `--mount` and `--mask` flags.
 
 **Usage**
 
@@ -80,6 +80,33 @@ When any `--mount` flag is given, only the listed paths are mounted —
 the current directory is not added automatically.
 Default: current directory (only when no `--mount` flags are given).
 
+Each mount path must not contain `:`. No two paths may share the same
+basename (each mount lands at `/workspace/<basename>`, so duplicate
+basenames would collide). Nested mounts — where one path is a strict
+subdirectory of another — are also rejected, as nesting would allow the
+outer mount to expose files that a `--mask` on the inner tree is intended
+to hide.
+
+#### `--mask <path>`
+
+Subdirectory to hide from the agent by shadowing it with a named Podman volume. Repeatable. The named volume starts empty on first use; any data written by the agent into the masked directory persists in the volume and survives `marshal recreate`.
+
+Paths are resolved like shell paths — relative to your current working directory, not relative to any mount root. marshal looks up which configured mount contains the resolved path and mounts the named volume at the corresponding container path, making the host contents at that path invisible to the agent. Absolute paths are accepted if they fall under a configured mount.
+
+Each mask is resolved independently, so `--mask` works with any number of `--mount` flags.
+
+Named volumes follow the scheme `marshal-<project>-mask-<mount-basename>-<encoded-rel-path>` where `<mount-basename>` is the last path component of the containing mount and `<encoded-rel-path>` is the mask path relative to that mount, with hyphens doubled and slashes converted to hyphens (for example, with mount `/projects/myapp`, masking `.venv` produces `marshal-myapp-mask-myapp-.venv`, masking `src/vendor` produces `marshal-myapp-mask-myapp-src-vendor`, and masking `src-vendor` produces `marshal-myapp-mask-myapp-src--vendor`). The mount basename component prevents volume name collisions when multiple mounts share the same relative subpath. Volume names are visible in `podman volume ls` output, which means masked path names are visible to anyone who can list Podman volumes — accept this as a trade-off when path names are sensitive.
+
+The path must not contain `:`, must not resolve to a mount root itself or escape the mount (for example, via `..`), and must fall under a configured mount. Absolute paths are accepted when they resolve to a path inside a configured mount. Duplicate paths, paths that point to a regular file on the host, and paths where one mask is a subdirectory of another are also rejected.
+
+Mask volumes are preserved across `marshal recreate` (like the Nix store and uv tool cache), so any data written by the agent into the masked directory survives a container rebuild. `marshal remove` deletes mask volumes automatically along with all other per-project volumes.
+
+> [!NOTE]
+> Masks are set at create time. The `--mask` flag is not available on `marshal recreate` — to change a project's masks, remove the project with `marshal remove` and recreate it with the new `--mask` flags.
+
+> [!NOTE]
+> If `marshal create` fails after some mask volumes were already created (for example, a second `podman volume create` call fails), the project config was saved before container creation began and any partial volumes are left in place. Running `marshal create` again is safe — volume creation uses `--ignore`, so re-running is idempotent and will not duplicate or corrupt existing volumes. If you want to abandon the project entirely, run `marshal remove`, which cleans up all label-tagged volumes including any that were partially provisioned.
+
 **Examples**
 
 ```bash
@@ -91,6 +118,15 @@ marshal create --mount . --mount ../shared-lib --mount ~/configs
 
 # Create a named project with an absolute path mount
 marshal create --project my-app --mount /abs/path/to/project
+
+# Mask the virtual environment and node_modules from the agent (single mount, default)
+marshal create --mask .venv --mask node_modules
+
+# Multi-mount project: mask paths resolve against CWD — here CWD is inside my-app
+marshal create --mount ~/work/my-app --mount ~/shared-lib --mask .venv
+
+# Absolute mask path — useful when CWD is not under any project mount
+marshal create --mount ~/work/my-app --mask ~/work/my-app/.venv
 ```
 
 ______________________________________________________________________
@@ -189,6 +225,7 @@ The replacement uses a double-rename sequence (pending → canonical) to minimis
 
 - Three per-project tool volumes: the Nix store (`/nix/store`), the Nix user profile (`~/.local/state/nix`), and the uv tool cache (`~/.local/share/uv`). Tools installed by agents persist across recreates.
 - Conversation history and agent checkpoints (`session-store.db` and `session-state/`) stored under `$XDG_DATA_HOME/marshal/projects/<project>/` on the host.
+- Mask volumes — any data written by the agent into each masked directory is preserved across recreates.
 
 **What is not preserved**
 
@@ -354,16 +391,23 @@ marshal stores per-project configuration as TOML files under `$XDG_CONFIG_HOME/m
     └── other-project.toml
 ```
 
-Each file records the directories to bind-mount into the container:
+Each file records the directories to bind-mount into the container and any masked subdirectories:
 
 ```toml
 mounts = [
     "/home/user/work/my-app",
     "/home/user/work/shared-lib",
 ]
+
+masks = [
+    "/home/user/work/my-app/.venv",
+    "/home/user/work/my-app/node_modules",
+]
 ```
 
-marshal writes this file when you run `marshal create`. You do not normally need to edit it by hand. To change the mounts for a project, run `marshal remove` then `marshal create` with the new `--mount` flags.
+`mounts` lists the host directories bind-mounted into `/workspace/`. `masks` lists the absolute host paths of subdirectories shadowed by empty named volumes — these paths correspond to the `--mask` values passed to `marshal create`, resolved to absolute form.
+
+marshal writes this file when you run `marshal create`. You do not normally need to edit it by hand. To change the mounts or masks for a project, run `marshal remove` then `marshal create` with the new `--mount` and `--mask` flags.
 
 ______________________________________________________________________
 
