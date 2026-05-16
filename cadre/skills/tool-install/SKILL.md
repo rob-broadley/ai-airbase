@@ -1,105 +1,47 @@
 ---
 name: tool-install
-description: Load when any tool is missing or needs installing. Required by devex, full-reviewer, concurrency-reviewer, dead-code-detector, dependency-reviewer, and security-reviewer before installing analysis or audit tools.
+description: Load when any tool is missing or needs installing. Required by bootstrap, full-reviewer, concurrency-reviewer, dead-code-detector, dependency-reviewer, and security-reviewer before installing analysis or audit tools.
 license: AGPL-3.0-or-later
 allowed-tools: execute
 ---
 
-> **No root access.** `sudo`, `apt`, `dnf`, and all system package managers are unavailable. Never attempt them. All installs must go through `uv`, `nix`, or `npm`.
+> **Copilot environment only.** These instructions apply to the Copilot container environment. They are not guidance for configuring developer machines or CI pipelines — use the `devex` agent for toolchain design and configuration, or the `bootstrap` agent for tool installation.
+>
+> **No root access.** `sudo`, `apt`, `dnf`, and all system package managers are unavailable. Use `nix` and `uv` to install language runtimes, compilers, and core development tools. Once a runtime is available, use its own toolchain for ecosystem-specific packages (e.g. `go install`, `cargo install`, `npm install -g`).
 
-Two package managers are available as the bootstrap layer: **uv** and **Nix**. Once a language runtime is installed, its own toolchain should be used for the rest of that ecosystem.
+Use **Nix** to bootstrap ecosystems — language runtimes, compilers, and tools not available on PyPI. Use **uv** for tools distributed via PyPI — Python or otherwise (e.g. `pre-commit`). Once a language runtime is installed, use its own toolchain for the rest of that ecosystem.
 
-| Use when                                                                         | Tool                                  |
-| -------------------------------------------------------------------------------- | ------------------------------------- |
-| Tool is a Python package or Python-based CLI (check PyPI first)                  | `uv`                                  |
-| Tool is a language runtime (Go, Node.js, Java, Rust, …) or not available on PyPI | `nix`                                 |
-| JavaScript and TypeScript runtime is installed — installing a package globally   | `npm install -g`                      |
-| Python runtime is installed — installing a tool                                  | `uv tool install`                     |
-| Java runtime is installed — installing project tools                             | `mvn`, `gradle`, or `nix profile add` |
-| C# runtime is installed — installing a tool                                      | `dotnet tool install --global`        |
-| C++ toolchain is installed — installing or resolving packages                    | `cmake`, `conan`, or `vcpkg`          |
-| Go runtime is installed — installing a Go tool                                   | `go install`                          |
-| Rust and Cargo are installed — installing a Rust tool                            | `cargo install`                       |
-
-Use **uv** for Python-based tools and **Nix** for language runtimes and non-Python tools. Once a native toolchain is available, prefer it for that ecosystem.
+| Use when                                                               | Tool                                  |
+| ---------------------------------------------------------------------- | ------------------------------------- |
+| Installing a language runtime, compiler, or tool not available on PyPI | `nix`                                 |
+| Installing a tool distributed via PyPI (Python or otherwise)           | `uv`                                  |
+| Node.js is installed (via nix) — installing a JS/TS package globally   | `npm install -g`                      |
+| Python runtime is installed — installing a tool                        | `uv tool install`                     |
+| Java runtime is installed — installing project tools                   | `mvn`, `gradle`, or `nix profile add` |
+| C# runtime is installed — installing a tool                            | `dotnet tool install --global`        |
+| C++ toolchain is installed — installing or resolving packages          | `cmake`, `conan`, or `vcpkg`          |
+| Go runtime is installed — installing a Go tool                         | `go install`                          |
+| Rust and Cargo are installed — installing a Rust tool                  | `cargo install`                       |
 
 ## Language runtime quick reference
 
-| Language                      | Runtime and package guidance                                                                                |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **JavaScript and TypeScript** | Install Node.js with Nix when needed, then use `npm` for ecosystem tools.                                   |
-| **Python**                    | Use `uv python install` for interpreters and `uv tool install` for Python-based tools.                      |
-| **Java**                      | Install a JDK with Nix, then use Maven or Gradle according to the project.                                  |
-| **C#**                        | Install the matching `dotnet-sdk`, then use `dotnet` CLI tooling and global tools where appropriate.        |
-| **C++**                       | Install a compiler and CMake with Nix, then follow the project's `conan`, `vcpkg`, or plain CMake workflow. |
-| **Go**                        | Install the Go toolchain with Nix and then use `go install` for Go-native tools.                            |
-| **Rust**                      | Install `rustup` with Nix, select the required toolchain, then use `cargo install` for Cargo-native tools.  |
+**JavaScript and TypeScript** — Install Node.js with Nix (`nixpkgs#nodejs_22` or the pinned version). `npm` is included with Node.js and used for ecosystem tools.
 
-## uv
+**Python** — A Python version is pre-installed in the container image. Use `nix profile add nixpkgs#python312` (or similar versioned attribute) to add specific or additional versions the project requires. Use `uv tool install` for tools distributed via PyPI.
 
-Installed tools are placed in `$XDG_DATA_HOME/uv/bin` and are available on `PATH` immediately.
+**Java** — Install a JDK with Nix, then use Maven or Gradle according to the project.
 
-### Installing a tool
+**C#** — Install the matching `dotnet-sdk` with Nix, then use `dotnet` CLI tooling and global tools.
 
-```sh
-uv tool install <package>
-```
+**C++** — Install a compiler and CMake with Nix, then follow the project's `conan`, `vcpkg`, or plain CMake workflow.
 
-### Installing a specific version
+**Go** — Install the Go toolchain with Nix, then use `go install` for Go-native tools.
 
-```sh
-uv tool install <package>==<version>
-```
-
-### Installing with extras
-
-```sh
-uv tool install <package>[extra]
-```
-
-### Upgrading a tool
-
-```sh
-uv tool upgrade <package>
-```
-
-### Checking what is installed
-
-```sh
-uv tool list
-```
-
-### Uninstalling a tool
-
-```sh
-uv tool uninstall <package>
-```
-
-### Running a tool once (no permanent install)
-
-`uvx` downloads and runs the tool in a temporary environment without permanently
-installing it.
-
-```sh
-uvx <package> [args]
-```
-
-### Installing Python versions
-
-`uv` can manage Python interpreter installations side-by-side:
-
-```sh
-uv python install 3.12 3.13 3.14   # install multiple versions at once
-uv python list                      # show available and installed versions
-```
-
-Installed Pythons are used automatically by `uv run`, `uv venv`, and similar commands.
+**Rust** — Install `rustup` with Nix, select the required toolchain, then use `cargo install` for Cargo-native tools.
 
 ## Nix
 
-[Nix](https://nixos.org/) is available for on-demand tool installation. `nixpkgs` is
-pinned to a known-good revision so installs are reproducible and served from the binary
-cache without compiling from source.
+[Nix](https://nixos.org/) is the primary bootstrap tool. Use it for language runtimes, compilers, and any tool not available on PyPI. The `nixpkgs` flake is pinned to a fixed revision, so package versions are reproducible and served from the binary cache without compiling from source.
 
 ### Finding a package
 
@@ -166,15 +108,76 @@ nix profile add nixpkgs#python313      # Python 3.13
 
 Use `nix search nixpkgs <name>` to discover available versioned attributes.
 
+## uv
+
+Use `uv` for tools distributed via PyPI — Python or otherwise (e.g. `pre-commit`, `ruff`, `mypy`). Installed tools are placed in `$XDG_DATA_HOME/uv/bin` and are available on `PATH` immediately.
+
+### Installing a tool
+
+```sh
+uv tool install <package>
+```
+
+### Installing a specific version
+
+```sh
+uv tool install <package>==<version>
+```
+
+### Installing with extras
+
+```sh
+uv tool install <package>[extra]
+```
+
+### Upgrading a tool
+
+```sh
+uv tool upgrade <package>
+```
+
+### Checking what is installed
+
+```sh
+uv tool list
+```
+
+### Uninstalling a tool
+
+```sh
+uv tool uninstall <package>
+```
+
+### Running a tool once (no permanent install)
+
+`uvx` downloads and runs the tool in a temporary environment without permanently
+installing it.
+
+```sh
+uvx <package> [args]
+```
+
+### Installing Python versions
+
+A Python version is pre-installed in the container image. Use nix to add specific or additional versions the project requires:
+
+```sh
+nix profile add nixpkgs#python312   # Python 3.12
+nix profile add nixpkgs#python313   # Python 3.13
+nix search nixpkgs python3          # find available versions
+```
+
+Installed Pythons are used automatically by `uv run`, `uv venv`, and similar commands.
+
 ## JavaScript and TypeScript tools
 
-If the required Node.js version is not already present, install it with Nix first:
+`npm` is not pre-installed in the container. Install Node.js with Nix first — `npm` is bundled with it:
 
 ```sh
 nix profile add nixpkgs#nodejs_22
 ```
 
-The npm global prefix is configured to `$XDG_DATA_HOME/npm`, so `npm install -g` works without root.
+The npm global prefix is configured to `$XDG_DATA_HOME/npm`, so `npm install -g` works without root once Node.js is installed.
 
 ```sh
 npm install -g <package>          # install latest
@@ -185,12 +188,12 @@ npm update -g <package>           # upgrade
 
 ## Python tools
 
-Use `uv` for Python-native tools and interpreters:
+Use nix for Python interpreters and `uv` for Python-based tools:
 
 ```sh
-uv python install 3.12
-uv tool install <package>
-uv tool upgrade <package>
+nix profile add nixpkgs#python312   # install a specific Python version
+uv tool install <package>           # install a Python-based tool
+uv tool upgrade <package>           # upgrade a tool
 ```
 
 ## Java tools

@@ -58,7 +58,9 @@ The cadre is the group of AI agents bundled inside every revetment container. Ea
 
 ### Environment
 
-**`devex`** — Use when setting up, auditing, or improving the development environment inside the container — installing runtimes, linters, formatters, test runners, and build tools. Also use for greenfield projects to choose and install a toolset. Does not modify application source code.
+**`bootstrap`** — Installs development tools inside the container environment. Reads the project to determine what tools are needed, checks what is already installed, and installs any missing tools. Does not modify project files or create tooling configuration — use `devex` for that.
+
+**`devex`** — Designs and configures the development toolchain inside the container — choosing tools, writing Makefile targets, linter configs, formatter configs, and CI workflows. Also scaffolds toolchains for new projects. Delegates tool installation to `bootstrap`.
 
 ## Skills
 

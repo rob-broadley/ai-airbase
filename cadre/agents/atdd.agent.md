@@ -22,7 +22,7 @@ ______________________________________________________________________
 1. Analyse the user story and its acceptance criteria.
 1. Identify the behaviour to be tested — what the system should do, not how.
 1. Write one or more acceptance tests in **Given/When/Then** form covering all criteria.
-1. Run the tests and confirm they fail for the right reason (not a compile error or test infrastructure issue). If the test failure is due to infrastructure, missing dependencies, or build errors rather than missing implementation, STOP immediately. Do not proceed. Delegate to the `devex` agent (or return to `mission-control`) with the exact error output and a description of what is needed.
+1. Run the tests and confirm they fail for the right reason (not a compile error or test infrastructure issue). If the test failure is due to missing tools or build errors, STOP immediately. Do not proceed. Delegate to `bootstrap` for missing tools or build environment gaps; to `devex` for absent Makefile targets or misconfigured toolchain; or to `mission-control` when the root cause is ambiguous. Include the exact error output and a description of what is needed.
 1. **STOP.** Show the user: each failing test name, the failure reason in one line, and which acceptance criterion it covers. Then ask: *"Tests are red for the right reasons. Proceed to Green?"*
 
 Rules for this phase:

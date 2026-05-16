@@ -49,12 +49,12 @@ ______________________________________________________________________
 
 **When:** The user wants to add new behaviour — a feature, user story, or acceptance criterion.
 
-**Precondition check:** Before starting, confirm the development environment is ready. If the test runner is not configured or baseline tests are not passing, run the `devex` step first. If requirements are vague, run the `problem-analyser` step first.
+**Precondition check:** Before starting, confirm the development environment is ready. If the test runner is not configured or baseline tests are not passing, run the `bootstrap` step first. If tooling configuration files are absent, run the `devex` step first. If requirements are vague, run the `problem-analyser` step first.
 
 **Chain:**
 
 ```
-[problem-analyser?] → [user-story-writer?] → [devex?] → [atdd] → [refactor?] → [technical-author?]
+[problem-analyser?] → [user-story-writer?] → [bootstrap?] → [atdd] → [refactor?] → [technical-author?]
 ```
 
 **Step 0 (optional) — `problem-analyser`**
@@ -69,7 +69,7 @@ ______________________________________________________________________
 
 **Success:** Approved stories with AC, INVEST scores, risk/value/size.
 
-**Step 2 (optional) — `devex`**
+**Step 2 (optional) — `bootstrap`**
 
 **Hand it:** Project language/framework; what tooling is needed.
 
@@ -183,26 +183,35 @@ ______________________________________________________________________
 
 ## Environment setup
 
-**When:** The user needs to install tools, configure the development environment, set up linters, formatters, test runners, or CI.
+**When:** The user needs to install tools or get the development environment working. Use `bootstrap` when tools are missing or broken. Use `devex` when the user wants to design a new toolchain, choose tools, or write tooling configuration (Makefile, linter configs, CI workflows).
 
-**Chain:**
+**Chains:**
 
 ```
-[devex]
+[bootstrap]   — tools missing or broken; environment not ready
+[devex]       — design toolchain, write configs, greenfield project setup, or audit/improve existing tooling
 ```
 
-**Step 1 — `devex`**
+**`bootstrap` path**
 
-**Hand it:** Language/framework; what needs to be installed or configured; any existing tooling.
+**Hand it:** Language/framework; what needs to be installed; any existing tooling detected.
 
-**Success:** Tools installed and working; configuration committed; `make test` (or equivalent) passes.
+**Success:** All required tools installed and on PATH; `make test` (or equivalent) passes.
+
+**`devex` path**
+
+**Hand it:** Language/framework; what tooling should be designed or improved; any existing configs.
+
+**Success:** Tooling configuration written or updated; tools installed (delegated to `bootstrap`); committed.
 
 **Notes:**
 
-- `devex` operates entirely within the development environment — it does not modify application source code.
+- `bootstrap` installs. It does not write configuration files or modify the project. Use it when tools are simply missing.
+- `devex` designs and configures. It delegates installation to `bootstrap` via the `agent` tool. Use it when the goal is to choose tools, scaffold configs, or improve the toolchain.
+- `devex` also handles audit and improvement of existing tooling — reviewing what is installed, identifying gaps, recommending upgrades, and applying config changes.
 - If environment setup is a prerequisite for feature delivery, run this chain first and then proceed with the feature delivery chain.
 
-**Failure handling:** If `devex` cannot install a required tool, STOP and report the exact error. Do not attempt workarounds that would change application code.
+**Failure handling:** If `bootstrap` cannot install a required tool, STOP and report the exact error. Do not attempt workarounds that would change application code. If `devex` identifies a tool that cannot be installed via uv or nix, report it as a manual step.
 
 ______________________________________________________________________
 
@@ -229,7 +238,7 @@ ______________________________________________________________________
 - If a code change is in flight and documentation must accompany it, sequence `atdd` first, then `technical-author` with the changed source files as context.
 - `technical-author` does not modify source code. If it discovers that `--help` output or source behaviour needs to change, it surfaces that as a separate task.
 
-**Failure handling:** If `technical-author` cannot verify an example because the tool is not installed or the environment is not set up, delegate to `devex` first, then retry.
+**Failure handling:** If `technical-author` cannot verify an example because the tool is not installed or the environment is not set up, delegate to `bootstrap` first, then retry.
 
 ______________________________________________________________________
 
@@ -273,7 +282,7 @@ ______________________________________________________________________
 - Each agent defaults to `git diff HEAD~1` as the review scope when no scope is specified.
 - Pass the git ref, file path, or diff explicitly when reviewing something other than the most recent commit.
 - `full-reviewer` launches all specialists simultaneously and synthesises findings into one report. It runs a pre-flight step to install missing analysis tools before launch.
-- If the development environment is not yet set up (language runtime missing, core tools absent), run `devex` first — then re-run the review with all tooling available.
+- If the development environment is not yet set up (language runtime missing, core tools absent), run `bootstrap` first — then re-run the review with all tooling available.
 
 **Failure handling:** If a review agent reports Blocking findings, surface them immediately and ask the user whether they want to address the findings before proceeding with any planned work.
 
@@ -297,7 +306,7 @@ ______________________________________________________________________
 
 - If the failure is in tested code → fix inline and verify with `execute`.
 - If the failure is in untested code → `legacy-code` → fix → verify.
-- If the failure is environmental → `devex`.
+- If the failure is environmental → `bootstrap`.
 
 ______________________________________________________________________
 
