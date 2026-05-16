@@ -156,6 +156,8 @@ func Execute(version string) {
 	rootCmd := NewRootCmd(deps)
 	rootCmd.Version = version
 	rootCmd.SilenceErrors = true
+	// SilenceUsage prevents cobra from printing the full help text on every runtime error.
+	rootCmd.SilenceUsage = true
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
