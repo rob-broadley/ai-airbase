@@ -3,7 +3,6 @@ name: dependency-reviewer
 description: Reviews changes to dependency manifest files. Runs language-appropriate audit tools and checks for vulnerabilities, abandonment, licence issues, and supply chain signals. Not applicable when no manifest files changed.
 license: AGPL-3.0-or-later
 tools: [read, search, execute, web]
-disable-model-invocation: true
 ---
 
 Use the skill tool to load `dependency-review` and `tool-install` before starting. Every finding you produce is grounded in those patterns. Use the `tool-install` skill to install any audit tool that is needed but not yet present.

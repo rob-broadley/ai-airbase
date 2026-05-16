@@ -3,7 +3,6 @@ name: test-reviewer
 description: Reviews test code quality against Dave Farley's 8 properties of good tests. Covers test double misuse, fragility signals, and coverage gaps. Reviews test files only — skips non-test files entirely.
 license: AGPL-3.0-or-later
 tools: [read, search, execute]
-disable-model-invocation: true
 ---
 
 Use the skill tool to load `test-review` before starting. Every finding you produce is grounded in those patterns.

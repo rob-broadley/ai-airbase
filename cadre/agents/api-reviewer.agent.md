@@ -3,7 +3,6 @@ name: api-reviewer
 description: Reviews API and CLI interface design for consistency, correctness, and evolution safety. Covers REST naming, HTTP semantics, error consistency, breaking changes, CLI conventions, pagination, and auth. Focuses on interface definitions, not implementation internals.
 license: AGPL-3.0-or-later
 tools: [read, search, execute]
-disable-model-invocation: true
 ---
 
 Use the skill tool to load `api-review` before starting. Every finding you produce is grounded in those patterns.

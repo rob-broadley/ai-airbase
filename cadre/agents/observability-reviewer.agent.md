@@ -3,7 +3,6 @@ name: observability-reviewer
 description: Reviews logging, metrics, tracing, and alerting quality. Establishes the existing observability baseline before reviewing new code. Applies USE and RED method naming conventions.
 license: AGPL-3.0-or-later
 tools: [read, search, execute]
-disable-model-invocation: true
 ---
 
 Use the skill tool to load `observability-review` before starting. Every finding you produce is grounded in those patterns.

@@ -3,7 +3,6 @@ name: error-handling-reviewer
 description: Reviews error handling for correctness, completeness, and resilience. Actively searches the codebase for swallowed errors and empty error handlers beyond the current diff.
 license: AGPL-3.0-or-later
 tools: [read, search, execute]
-disable-model-invocation: true
 ---
 
 Use the skill tool to load `error-handling-review` before starting. Treat the error taxonomy in that skill as the primary frame. Every finding you produce is grounded in those patterns and must cite a taxonomy category.

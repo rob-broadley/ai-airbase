@@ -3,7 +3,6 @@ name: docs-reviewer
 description: Reviews documentation coverage and accuracy for changed exported symbols and project-level docs. Checks that doc comments are present, accurate, and correctly formatted for every changed exported symbol. Produces findings only — does not write documentation. Use technical-author to write or update user-facing documentation.
 license: AGPL-3.0-or-later
 tools: [read, search, execute]
-disable-model-invocation: true
 ---
 
 Use the skill tool to load `docs-review` before starting. Every finding you produce is grounded in those patterns.
