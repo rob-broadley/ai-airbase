@@ -396,6 +396,39 @@ func TestNonCreateCmds_DoNotAcceptMountFlag(t *testing.T) {
 	}
 }
 
+// TestCreate_NestedMountErrors verifies that create returns an error when one
+// mount path is nested inside another, which would defeat the --mask security
+// guarantee by exposing the inner subtree unmasked at a second container path.
+func TestCreate_NestedMountErrors(t *testing.T) {
+	// Given two --mount paths where the inner is strictly nested inside the outer
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: false}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{
+		"--project", "myapp", "create",
+		"--mount", "/home/user/project",
+		"--mount", "/home/user/project/secrets",
+	})
+
+	// When create is executed
+	err := root.Execute()
+
+	// Then an error containing "nested" is returned
+	assertError(t, err)
+	assertContains(t, err.Error(), "nested")
+}
+
 // TestCreate_ImagePullFails verifies that create propagates an error when the
 // image is absent and cannot be pulled (registry unreachable).
 func TestCreate_ImagePullFails(t *testing.T) {

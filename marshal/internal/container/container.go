@@ -102,6 +102,7 @@ type ImageVolumeSpec struct {
 type NamedVolumeMount struct {
 	Name          string // e.g. "marshal-myapp-nix-store"
 	ContainerPath string // e.g. "/nix/store"
+	HostPath      string // host path shadowed by this volume (mask volumes only; empty for image volumes)
 }
 
 // UserConfig carries the identity that the container process should run as.
@@ -222,6 +223,61 @@ func ImageVolumeSpecs(r Runner, image string) ([]ImageVolumeSpec, error) {
 	}
 	sort.Slice(specs, func(i, j int) bool { return specs[i].ContainerPath < specs[j].ContainerPath })
 	return specs, nil
+}
+
+// maskVolumeSpec computes the NamedVolumeMount for a single mask path.
+// maskAbsPath is the absolute host path of the mask (from cfg.Masks).
+// mountRoot is the absolute host path of the mount that contains this mask.
+// containerMountRoot is the container-side path where the mount lands (e.g. /workspace/myapp).
+//
+// Volume names use the scheme: <containerName>-mask-<encodedMountBase>-<encodedRelPath>
+// Both components use the same two-step injective encoding (hyphens doubled,
+// then slashes converted to hyphens). Including the mount basename ensures
+// that masking the same relative subpath under two different mounts produces
+// distinct volume names. Mount basenames are guaranteed unique by
+// checkBasenameConflicts, so this scheme is collision-free.
+func maskVolumeSpec(containerName, maskAbsPath, mountRoot, containerMountRoot string) NamedVolumeMount {
+	relPath := strings.TrimPrefix(maskAbsPath, mountRoot+"/")
+	// Encode mount basename: only hyphen-doubling is needed (no slashes in a basename).
+	mountBase := strings.ReplaceAll(filepath.Base(mountRoot), "-", "--")
+	// Encode relative path using the same two-step injective mapping.
+	// Order matters: double existing hyphens before converting slashes,
+	// so "src/vendor" and "src-vendor" remain distinct.
+	suffix := strings.ReplaceAll(relPath, "-", "--")
+	suffix = strings.ReplaceAll(suffix, "/", "-")
+	return NamedVolumeMount{
+		Name:          containerName + "-mask-" + mountBase + "-" + suffix,
+		ContainerPath: filepath.Join(containerMountRoot, relPath),
+		HostPath:      maskAbsPath,
+	}
+}
+
+// findContainingMountIndex returns the index into mountPaths of the mount that
+// contains abs as a strict subdirectory, or -1 if no mount contains abs.
+func findContainingMountIndex(abs string, mountPaths []string) int {
+	for i, mp := range mountPaths {
+		if strings.HasPrefix(abs, mp+string(filepath.Separator)) {
+			return i
+		}
+	}
+	return -1
+}
+
+// BuildMaskVolumes returns the NamedVolumeMount specs for all configured mask
+// paths. Each mask is matched to its containing project mount so that the
+// correct container-side mount root can be passed to maskVolumeSpec. If any
+// saved mask no longer falls inside a configured project mount, the function
+// fails closed with an error instead of silently skipping it.
+func BuildMaskVolumes(containerName string, masks, mountPaths []string, mountSpecs []MountSpec) ([]NamedVolumeMount, error) {
+	var volumes []NamedVolumeMount
+	for _, m := range masks {
+		i := findContainingMountIndex(m, mountPaths)
+		if i < 0 {
+			return nil, fmt.Errorf("mask %q is no longer inside any configured mount — remove or update the mask in the project config", m)
+		}
+		volumes = append(volumes, maskVolumeSpec(containerName, m, mountPaths[i], mountSpecs[i].ContainerPath))
+	}
+	return volumes, nil
 }
 
 // EnsureProjectVolume creates a named Podman volume called name if it does not

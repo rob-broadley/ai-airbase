@@ -83,6 +83,7 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 	// Error injection: if a runError is set for this subcommand, return it.
 	if len(f.runErrors) > 0 && name == "podman" && len(args) > 0 {
 		key := args[0]
+		specificKey := ""
 		if args[0] == "ps" {
 			hasAll := false
 			for _, a := range args {
@@ -93,6 +94,14 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 			}
 			if hasAll {
 				key = "ps-all"
+			}
+		}
+		if args[0] == "volume" && len(args) > 1 {
+			specificKey = "volume-" + args[1]
+		}
+		if specificKey != "" {
+			if err, ok := f.runErrors[specificKey]; ok {
+				return nil, err
 			}
 		}
 		if err, ok := f.runErrors[key]; ok {
@@ -288,10 +297,10 @@ func (f *fakeRunner) rmCalledForPrefix(prefix string) bool {
 	return false
 }
 
-// createArgsContain reports whether any single arg in the create call equals s.
+// createArgsContain reports whether any single arg in the create call contains s.
 func (f *fakeRunner) createArgsContain(s string) bool {
 	for _, a := range f.createArgs() {
-		if a == s {
+		if strings.Contains(a, s) {
 			return true
 		}
 	}

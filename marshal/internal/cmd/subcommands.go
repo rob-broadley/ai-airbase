@@ -17,21 +17,23 @@ import (
 // read the saved mounts from config rather than accepting them as flags.
 func newCreateCmd(deps Deps, projectFlag *string) *cobra.Command {
 	var mountFlags []string
+	var maskFlags []string
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new container for the project, pulling the image if not present",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCreate(cmd, deps, *projectFlag, mountFlags)
+			return runCreate(cmd, deps, *projectFlag, mountFlags, maskFlags)
 		},
 	}
 	cmd.Flags().StringArrayVarP(&mountFlags, "mount", "m", nil, "Directory to bind mount into /workspace/<basename> (repeatable)")
+	cmd.Flags().StringArrayVar(&maskFlags, "mask", nil, "Hide a host subdirectory from the agent by overlaying it with a named volume (repeatable). Path resolves from CWD; must fall inside a configured mount.")
 	return cmd
 }
 
 // runCreate implements the "create" subcommand: it validates the project, errors
 // if the container already exists, saves the mount configuration, pulls the
 // image if needed, and creates the container.
-func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues []string) error {
+func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues, maskFlagValues []string) error {
 	project, containerName, err := resolveContainer(deps, projectFlag)
 	if err != nil {
 		return err
@@ -42,7 +44,7 @@ func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValue
 		return fmt.Errorf("checking container: %w", err)
 	}
 	if exists {
-		return fmt.Errorf("project %s already has a container; use 'marshal recreate' to rebuild with existing configuration, or 'marshal remove' then 'marshal create' to reconfigure mounts", project)
+		return fmt.Errorf("project %s already has a container; use 'marshal recreate' to rebuild with existing configuration, or 'marshal remove' then 'marshal create' to reconfigure mounts or masks", project)
 	}
 
 	cwd, err := deps.Getwd()
@@ -57,12 +59,15 @@ func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValue
 
 	// resolveMountPaths updates cfg.Mounts when flags are provided; otherwise
 	// cfg.Mounts stays as loaded (empty for a fresh project).
-	if _, _, err = resolveMountPaths(cwd, mountFlagValues, cfg); err != nil {
+	if _, err = resolveMountPaths(cwd, mountFlagValues, cfg); err != nil {
 		return err
 	}
 	// If no explicit mounts were configured, fall back to CWD and persist it.
 	if len(cfg.Mounts) == 0 {
 		cfg.Mounts = []string{cwd}
+	}
+	if _, err = resolveMaskPaths(cwd, cfg.Mounts, maskFlagValues, cfg); err != nil {
+		return err
 	}
 	if err := deps.saveConfig()(project, cfg); err != nil {
 		return fmt.Errorf("saving config: %w", err)
@@ -77,7 +82,7 @@ func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValue
 		return err
 	}
 
-	if err := createContainerWithVolumes(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir, p.cmd); err != nil {
+	if err := createContainerWithVolumes(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.maskVolumes, p.userConfig, p.workdir, p.cmd); err != nil {
 		return err
 	}
 
@@ -184,6 +189,11 @@ func newRecreateCmd(deps Deps, projectFlag *string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "recreate",
 		Short: "Atomically replace the project container with a fresh one",
+		Long: `Pulls the latest agent image, removes the existing container, and creates a fresh replacement.
+
+Mount and mask configuration is read from the saved project config — re-specifying --mount or --mask is not supported on recreate. To change mounts or masks, run 'marshal remove' then 'marshal create' with the new flags.
+
+Named volumes (Nix store, uv cache, and any mask volumes) are preserved across recreate. Container filesystem state that is not in a named volume or bind mount is lost.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRecreate(cmd, deps, *projectFlag)
 		},
@@ -206,7 +216,7 @@ func runRecreate(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		return err
 	}
 
-	if err := removeAndRecreateContainer(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.userConfig, p.workdir, p.cmd); err != nil {
+	if err := removeAndRecreateContainer(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.maskVolumes, p.userConfig, p.workdir, p.cmd); err != nil {
 		return err
 	}
 
