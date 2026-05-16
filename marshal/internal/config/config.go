@@ -17,6 +17,7 @@ import (
 // Config holds per-project marshal configuration.
 type Config struct {
 	Mounts []string `toml:"mounts"`
+	Masks  []string `toml:"masks"`
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +96,7 @@ func Load(projectName string) (*Config, error) {
 	}
 	cfg := &Config{}
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		cfg.Masks = []string{}
 		return cfg, nil
 	}
 	meta, err := toml.DecodeFile(path, cfg)
@@ -107,6 +109,9 @@ func Load(projectName string) (*Config, error) {
 			keys[i] = k.String()
 		}
 		return nil, fmt.Errorf("config %s contains unrecognised fields: %s", path, strings.Join(keys, ", "))
+	}
+	if cfg.Masks == nil {
+		cfg.Masks = []string{}
 	}
 	return cfg, nil
 }

@@ -1066,3 +1066,170 @@ func TestValidateProjectName_RejectsPendingNames(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Helpers for masks assertions
+// ---------------------------------------------------------------------------
+
+// assertMasks verifies that cfg.Masks exactly matches want, element by element,
+// and that the slice is non-nil even when want is empty.
+func assertMasks(t *testing.T, cfg *Config, want []string) {
+	t.Helper()
+	if cfg.Masks == nil {
+		t.Fatal("expected non-nil Masks slice, got nil")
+	}
+	if len(cfg.Masks) != len(want) {
+		t.Fatalf("expected %d masks, got %d: %v", len(want), len(cfg.Masks), cfg.Masks)
+	}
+	for i, m := range want {
+		if cfg.Masks[i] != m {
+			t.Errorf("mask[%d]: expected %q, got %q", i, m, cfg.Masks[i])
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Masks — config persistence
+// ---------------------------------------------------------------------------
+
+// TestLoad_BackwardCompatible_NoMasksKey verifies that a TOML config without a
+// masks key loads cleanly, returning an empty (non-nil) Masks slice.
+func TestLoad_BackwardCompatible_NoMasksKey(t *testing.T) {
+	// Given a TOML config file that contains mounts but no masks key
+	tmp := t.TempDir()
+	setenv(t, "XDG_CONFIG_HOME", tmp)
+
+	projectsDir := filepath.Join(tmp, "marshal", "projects")
+	if err := os.MkdirAll(projectsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tomlContent := `mounts = ["/home/user/myapp"]` + "\n"
+	if err := os.WriteFile(filepath.Join(projectsDir, "myapp.toml"), []byte(tomlContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// When the config is loaded
+	cfg, err := Load("myapp")
+
+	// Then Mounts equals ["/home/user/myapp"], Masks is an empty non-nil slice, and no error is returned
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	assertMounts(t, cfg, []string{"/home/user/myapp"})
+	assertMasks(t, cfg, []string{})
+}
+
+// TestLoad_MasksPresent verifies that masks listed in the TOML config are loaded
+// in order into the Masks field.
+func TestLoad_MasksPresent(t *testing.T) {
+	// Given a TOML config file containing a masks key
+	tmp := t.TempDir()
+	setenv(t, "XDG_CONFIG_HOME", tmp)
+
+	projectsDir := filepath.Join(tmp, "marshal", "projects")
+	if err := os.MkdirAll(projectsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tomlContent := "masks = [\".venv\", \"node_modules\"]\n"
+	if err := os.WriteFile(filepath.Join(projectsDir, "masked-project.toml"), []byte(tomlContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// When the config is loaded
+	cfg, err := Load("masked-project")
+
+	// Then Masks equals [".venv", "node_modules"] in that order
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	assertMasks(t, cfg, []string{".venv", "node_modules"})
+}
+
+// TestLoad_MasksRoundTrip verifies that masks saved via Save are returned
+// unchanged by a subsequent Load.
+func TestLoad_MasksRoundTrip(t *testing.T) {
+	// Given Config{Masks: [".venv", "node_modules"]} is saved for project "myapp"
+	tmp := t.TempDir()
+	setenv(t, "XDG_CONFIG_HOME", tmp)
+
+	original := &Config{Masks: []string{".venv", "node_modules"}}
+	if err := Save("myapp", original); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// When the config is loaded back for project "myapp"
+	loaded, err := Load("myapp")
+
+	// Then Masks equals [".venv", "node_modules"]
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	assertMasks(t, loaded, []string{".venv", "node_modules"})
+}
+
+// TestLoad_AbsentFile_MasksEmptySlice verifies that a completely absent config
+// file returns an empty (non-nil) Masks slice and no error.
+func TestLoad_AbsentFile_MasksEmptySlice(t *testing.T) {
+	// Given a project that has no config file on disk
+	tmp := t.TempDir()
+	setenv(t, "XDG_CONFIG_HOME", tmp)
+
+	// When the config is loaded
+	cfg, err := Load("no-such-project")
+
+	// Then Masks is an empty slice and no error is returned
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	assertMasks(t, cfg, []string{})
+}
+
+// TestLoad_UnrecognisedKey_ReturnsError verifies that a TOML config containing
+// an unrecognised key causes Load to return an error naming the bad field.
+func TestLoad_UnrecognisedKey_ReturnsError(t *testing.T) {
+	// Given a TOML config file containing the unrecognised key "masqs"
+	tmp := t.TempDir()
+	setenv(t, "XDG_CONFIG_HOME", tmp)
+
+	projectsDir := filepath.Join(tmp, "marshal", "projects")
+	if err := os.MkdirAll(projectsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tomlContent := "masqs = [\".venv\"]\n"
+	if err := os.WriteFile(filepath.Join(projectsDir, "typo-project.toml"), []byte(tomlContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// When the config is loaded
+	_, err := Load("typo-project")
+
+	// Then an error is returned identifying the unrecognised field name
+	if err == nil {
+		t.Fatal("expected an error for unrecognised key, got nil")
+	}
+	if !strings.Contains(err.Error(), "masqs") {
+		t.Errorf("expected error to mention %q, got: %v", "masqs", err)
+	}
+}
+
+// TestLoad_ZeroMaskRoundTrip verifies that saving a Config with nil Masks and
+// loading it back yields an empty (non-nil) Masks slice.
+func TestLoad_ZeroMaskRoundTrip(t *testing.T) {
+	// Given Config{Mounts: ["/home/user/myapp"], Masks: nil} is saved
+	tmp := t.TempDir()
+	setenv(t, "XDG_CONFIG_HOME", tmp)
+
+	original := &Config{Mounts: []string{"/home/user/myapp"}, Masks: nil}
+	if err := Save("zero-mask-project", original); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// When the saved file is loaded back
+	loaded, err := Load("zero-mask-project")
+
+	// Then Masks is an empty slice and no error is returned
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	assertMasks(t, loaded, []string{})
+}
