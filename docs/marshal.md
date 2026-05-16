@@ -389,6 +389,12 @@ podman logs marshal-my-app
 
 ______________________________________________________________________
 
+## Container networking
+
+The revetment container has unrestricted outbound network access. This is intentional: agents need network access to install packages, pull dependencies, and perform research tasks.
+
+______________________________________________________________________
+
 ## Exit codes
 
 | Code | Meaning                                      |

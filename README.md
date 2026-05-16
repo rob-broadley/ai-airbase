@@ -79,6 +79,40 @@ To mount additional directories alongside your project, pass `--mount` flags to 
 marshal create --mount . --mount ../shared-lib --mount ~/configs
 ```
 
+To hide a subdirectory from the agent — for example a large generated directory that should not be read or modified — pass `--mask` with a path. Relative paths resolve against your current directory, so for a single-mount project `--mask .venv` works as-is. Absolute paths are also accepted when they fall under a configured mount:
+
+```bash
+marshal create --mask .venv --mask node_modules
+
+# When CWD is outside the project mount, use an absolute path for --mask
+marshal create --mount ~/work/my-app --mask ~/work/my-app/.venv
+```
+
+The agent sees an empty, writable directory at each masked path; the host contents are untouched. See the [marshal CLI reference](docs/marshal.md) for the full list of constraints and behaviour.
+
+> [!NOTE]
+> `--mask` is only accepted on `marshal create`. To change masks, run `marshal remove` then `marshal create` with the new flags. The masked path must be a directory that falls under a configured mount. Mask volumes persist across `marshal recreate` and are deleted by `marshal remove`.
+
+## Security and trust
+
+### Sandbox model
+
+The revetment is a rootless Podman container. Copilot CLI runs as your host user's UID with `--security-opt no-new-privileges`, so the process cannot escalate privileges or access the host filesystem beyond the directories explicitly mounted via `--mount`. There is no root access to the host, and the container boundary provides meaningful containment for agent activity.
+
+### Network access
+
+The container has full outbound network access by design. Agents need this to install packages (via Nix, uv, npm, and similar tools), query APIs, and perform research tasks. There is no outbound network restriction applied by marshal.
+
+### Per-action confirmations
+
+`/allow all` is a GitHub Copilot CLI command that removes confirmation prompts for all tool use. Without it, Copilot asks for your permission before each action; with it, the agent proceeds without pausing.
+
+Inside a revetment, the practical consequences are: the agent can make network calls to external services, modify or delete any file in the mounted project directories, and run arbitrary code — all without prompting you. The container boundary remains intact; the agent cannot access the host beyond what is mounted and cannot gain elevated privileges. What is removed is the human checkpoint layer.
+
+`/allow all` is appropriate for low-stakes sessions where uninterrupted throughput matters more than per-action oversight. For sessions involving sensitive files, destructive operations, or external API calls you want to review, omit `/allow all` so each action requires your confirmation.
+
+______________________________________________________________________
+
 ## Further reading
 
 - [marshal CLI reference](docs/marshal.md) — all subcommands, flags, configuration, and environment variables
