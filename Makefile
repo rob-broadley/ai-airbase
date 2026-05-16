@@ -6,11 +6,13 @@ IMAGE          := revetment
 VERSION        := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 REVISION       := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 CREATED        := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-COPILOT_VERSION ?= $(shell cat .copilot-version)
-BUILD_ARGS     := --build-arg VERSION=$(VERSION) \
-                  --build-arg REVISION=$(REVISION) \
-                  --build-arg CREATED=$(CREATED) \
-                  --build-arg COPILOT_VERSION=$(COPILOT_VERSION)
+COPILOT_VERSION   ?= $(shell sed -n '1p' .copilot-version)
+COPILOT_INTEGRITY ?= $(shell sed -n '2p' .copilot-version)
+BUILD_ARGS        := --build-arg VERSION=$(VERSION) \
+                     --build-arg REVISION=$(REVISION) \
+                     --build-arg CREATED=$(CREATED) \
+                     --build-arg COPILOT_VERSION=$(COPILOT_VERSION) \
+                     --build-arg COPILOT_INTEGRITY=$(COPILOT_INTEGRITY)
 
 INSTALL_DIR := $(HOME)/.local/bin
 
@@ -36,8 +38,11 @@ dev-image:
 	podman build $(BUILD_ARGS) -t $(DEV_IMAGE) -f dev/Containerfile .
 
 update-copilot-version:
-	@curl -sf https://registry.npmjs.org/@github/copilot/latest | jq -r .version > .copilot-version && \
-	echo "COPILOT_VERSION updated to $$(cat .copilot-version)"
+	@version="$$(curl -sf https://registry.npmjs.org/@github/copilot/latest | jq -r .version)" && \
+	integrity="$$(curl -sf https://registry.npmjs.org/@github/copilot-linux-x64/$$version | jq -r .dist.integrity)" && \
+	printf "%s\n%s\n" "$$version" "$$integrity" > .copilot-version && \
+	echo "COPILOT_VERSION updated to $$version" && \
+	echo "COPILOT_INTEGRITY updated to $$integrity"
 
 image:
 	podman build $(BUILD_ARGS) -t $(IMAGE) -f revetment/Containerfile .

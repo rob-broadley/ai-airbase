@@ -14,20 +14,9 @@ dnf install -y --setopt=install_weak_deps=False \
     make \
     nix-core \
     nix-filesystem \
-    nodejs \
-    npm \
     trivy \
     uv
 DNF_INSTALL
-
-# Install GitHub Copilot CLI.
-# Version is supplied via --build-arg COPILOT_VERSION (see .copilot-version
-# and Makefile). Running podman build directly requires passing it explicitly.
-ARG COPILOT_VERSION
-RUN --mount=type=cache,target=/root/.npm <<NPM_INSTALL
-test -n "${COPILOT_VERSION}" || { echo "ERROR: --build-arg COPILOT_VERSION is required"; exit 1; }
-npm install -g @github/copilot@${COPILOT_VERSION}
-NPM_INSTALL
 
 # Install extra tools via uv
 ENV UV_TOOL_BIN_DIR=/usr/local/bin
@@ -39,7 +28,7 @@ uv tool install lizard
 UV_TOOL_INSTALL
 
 # Configure nix; set HOME after all tool installs so build-time cache mounts
-# targeting /root/.npm and /root/.cache/uv are not redirected.
+# targeting /root/.cache/uv are not redirected.
 ENV NIX_CONF_DIR=/etc/nix
 # System-level configuration — nix, git, etc.
 COPY revetment/etc/ /etc/
@@ -83,6 +72,29 @@ chmod -R 1777 \
     $NIX_DIR
 PERMISSIONS
 
+# Install GitHub Copilot CLI.
+# Version and integrity are supplied via build args (see .copilot-version and
+# Makefile). Running podman build directly requires passing them explicitly.
+ENV COPILOT_BIN=/opt/copilot/bin
+ARG COPILOT_VERSION
+ARG COPILOT_INTEGRITY
+RUN <<COPILOT_INSTALL
+set -eu
+
+test -n "${COPILOT_VERSION}" || { echo "ERROR: --build-arg COPILOT_VERSION is required"; exit 1; }
+test -n "${COPILOT_INTEGRITY}" || { echo "ERROR: --build-arg COPILOT_INTEGRITY is required"; exit 1; }
+
+install -d "${COPILOT_BIN}"
+tarball=/tmp/copilot.tgz
+curl -fsSL "https://registry.npmjs.org/@github/copilot-linux-x64/-/copilot-linux-x64-${COPILOT_VERSION}.tgz" -o "${tarball}"
+actual="$(openssl dgst -sha512 -binary "${tarball}" | openssl base64 -A)"
+expected="$(printf '%s' "${COPILOT_INTEGRITY}" | sed 's/^sha512-//')"
+[ "${actual}" = "${expected}" ] || { echo "ERROR: integrity check failed"; rm -f "${tarball}"; exit 1; }
+tar -xzf "${tarball}" -C "${COPILOT_BIN}" --strip-components=1 package/copilot
+chmod +x "${COPILOT_BIN}/copilot"
+rm -f "${tarball}"
+COPILOT_INSTALL
+
 # Ensure tools installed by the runtime user via `uv tool install`
 # are installed to a dedicated directory under $XDG_DATA_HOME/uv so that
 # both tool data and binaries share a single volume mount point.
@@ -93,7 +105,7 @@ ENV UV_TOOL_DIR=$XDG_DATA_HOME/uv/tools
 ENV NPM_CONFIG_PREFIX=$XDG_DATA_HOME/npm
 ENV GOPATH=$XDG_DATA_HOME/go
 ENV CARGO_HOME=$XDG_DATA_HOME/cargo
-ENV PATH=$UV_TOOL_BIN_DIR:$HOME/.nix-profile/bin:$NPM_CONFIG_PREFIX/bin:$GOPATH/bin:$CARGO_HOME/bin:$PATH
+ENV PATH=$COPILOT_BIN:$UV_TOOL_BIN_DIR:$HOME/.nix-profile/bin:$NPM_CONFIG_PREFIX/bin:$GOPATH/bin:$CARGO_HOME/bin:$PATH
 # Redirect all ecosystem cache directories to XDG paths so that agents and
 # build tools never write caches inside the project workspace directory.
 ENV XDG_CACHE_HOME=$HOME/.cache

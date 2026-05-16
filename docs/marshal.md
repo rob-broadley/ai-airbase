@@ -229,7 +229,10 @@ The replacement uses a double-rename sequence (pending → canonical) to minimis
 
 **What is not preserved**
 
-- Any state stored only in the container filesystem (not in a named volume or host bind mount).
+- Any state stored only in the container filesystem (not in a named volume or host bind mount), including the Copilot CLI binary. If the Copilot CLI updated itself via `/update` during a session, the image-bundled version is restored on the next `marshal recreate`.
+
+> [!NOTE]
+> The Copilot CLI binary is a pre-built native binary at `/opt/copilot/bin/copilot`. Running `/update` updates the CLI in-session (the binary bootstraps itself and stores updated state elsewhere), but the bundled binary is restored when `marshal recreate` pulls a new image. To get a permanently updated version, run `marshal recreate`.
 
 **Usage**
 

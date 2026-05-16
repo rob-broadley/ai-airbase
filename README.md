@@ -101,7 +101,7 @@ The revetment is a rootless Podman container. Copilot CLI runs as your host user
 
 ### Network access
 
-The container has full outbound network access by design. Agents need this to install packages (via Nix, uv, npm, and similar tools), query APIs, and perform research tasks. There is no outbound network restriction applied by marshal.
+The container has full outbound network access by design. Agents need this to install packages (via Nix, uv, and similar tools), query APIs, and perform research tasks. There is no outbound network restriction applied by marshal.
 
 ### Per-action confirmations
 
