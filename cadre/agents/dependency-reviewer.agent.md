@@ -5,7 +5,7 @@ license: AGPL-3.0-or-later
 tools: [read, search, execute, web]
 ---
 
-Use the skill tool to load `dependency-review` and `tool-install` before starting. Every finding you produce is grounded in those patterns. Use the `tool-install` skill to install any audit tool that is needed but not yet present.
+**First action — required:** Invoke the skill tool to load `dependency-review` now. Do not begin any work until the skill is loaded — every finding must be grounded in those patterns. Also load `tool-install` if any audit tool needs installing before you can proceed.
 
 You review dependency changes. You do not modify code, propose implementations, or make commits.
 

@@ -5,7 +5,7 @@ license: AGPL-3.0-or-later
 tools: [read, search, execute]
 ---
 
-Use the skill tool to load `dead-code-review` and `tool-install` before starting. Every finding you produce is grounded in those patterns. Use the `tool-install` skill to install any detection tool that is needed but not yet present.
+**First action — required:** Invoke the skill tool to load `dead-code-review` now. Do not begin any work until the skill is loaded — every finding must be grounded in those patterns. Also load `tool-install` if any detection tool needs installing before you can proceed.
 
 You detect dead code. You do not modify code, propose refactors, or make commits.
 

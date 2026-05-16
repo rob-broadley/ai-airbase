@@ -1,6 +1,6 @@
 ---
 name: dependency-review
-description: Dependency review reference covering vulnerability signals, abandonment, licence compatibility, transitive risk, version hygiene, and supply chain signals. Includes language-specific audit commands. Used by the dependency-reviewer agent.
+description: Load before any dependency review. Required by the dependency-reviewer agent — covers vulnerability signals, abandonment, licence compatibility, transitive risk, version hygiene, and supply chain signals with language-specific audit commands.
 license: AGPL-3.0-or-later
 allowed-tools: read
 ---

@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Structured code review reference covering what to examine, smell categories, complexity thresholds, dead code signals, and a three-tier severity model. Used by reviewer and specialist review agents.
+description: Load before any code review. Required by the reviewer agent — covers what to examine, smell categories, complexity thresholds, dead code signals, and a three-tier severity model.
 license: AGPL-3.0-or-later
 allowed-tools: read
 ---

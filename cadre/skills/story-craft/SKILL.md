@@ -1,6 +1,6 @@
 ---
 name: story-craft
-description: Reference techniques for writing and validating user stories. Covers Example Mapping, INVEST scoring, SPIDR splitting, Elephant Carpaccio, User Story Mapping, acceptance criteria patterns, and story dependency mapping. Used by the user-story-writer agent.
+description: Load before writing any user stories. Required by the user-story-writer agent — covers Example Mapping, INVEST scoring, SPIDR splitting, Elephant Carpaccio, User Story Mapping, acceptance criteria patterns, and story dependency mapping.
 license: AGPL-3.0-or-later
 allowed-tools: read
 ---

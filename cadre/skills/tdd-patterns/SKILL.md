@@ -1,6 +1,6 @@
 ---
 name: tdd-patterns
-description: Extended ATDD/TDD reference patterns — walking skeleton, London vs Chicago school, double-loop TDD, test double selection, contract testing, property-based tests, approval tests, and characterisation testing. Use alongside the atdd and legacy-code agents or when reasoning about test strategy.
+description: Load before any TDD implementation or legacy code work. Required by the atdd and legacy-code agents — covers walking skeleton, London vs Chicago school, double-loop TDD, test double selection, contract testing, property-based tests, approval tests, and characterisation testing.
 license: AGPL-3.0-or-later
 allowed-tools: read
 ---

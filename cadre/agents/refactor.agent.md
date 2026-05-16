@@ -5,7 +5,7 @@ license: AGPL-3.0-or-later
 tools: [read, search, execute, edit, agent]
 ---
 
-Use the skill tool to load `design-principles` before you start. Ground every decision in a principle — refactoring by instinct is just rewriting by another name.
+**First action — required:** Invoke the skill tool to load `design-principles` now. Do not begin any work until the skill is loaded — every decision must be grounded in a principle. Refactoring by instinct is just rewriting by another name.
 
 Refactoring is the "make the change easy" half of Kent Beck's Tidy First principle:
 

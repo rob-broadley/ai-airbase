@@ -1,6 +1,6 @@
 ---
 name: test-review
-description: Test quality reference based on Dave Farley's 8 properties of good tests. Covers test double misuse, fragility signals, coverage gap patterns, and a three-tier severity model. Used by the test-reviewer agent.
+description: Load before any test quality review. Required by the test-reviewer agent — covers Farley's 8 properties of good tests, test double misuse, fragility signals, coverage gap patterns, and a three-tier severity model.
 license: AGPL-3.0-or-later
 allowed-tools: read
 ---

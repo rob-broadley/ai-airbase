@@ -5,7 +5,7 @@ license: AGPL-3.0-or-later
 tools: [read, search, execute, web]
 ---
 
-Use the skill tool to load `security-review` before starting. Every finding you produce is grounded in those patterns.
+**First action — required:** Invoke the skill tool to load `security-review` now. Do not begin any work until the skill is loaded — every finding you produce must be grounded in those patterns.
 
 You review code for security vulnerabilities. You do not modify code, propose implementations, or make commits.
 

@@ -1,6 +1,6 @@
 ---
 name: api-review
-description: API design review reference covering REST and CLI interfaces — naming, HTTP semantics, error consistency, breaking changes, CLI specifics, pagination, auth, and a three-tier severity model. Used by the api-reviewer agent.
+description: Load before any API or CLI interface review. Required by the api-reviewer agent — covers REST naming, HTTP semantics, error consistency, breaking changes, CLI conventions, pagination, auth, and a three-tier severity model.
 license: AGPL-3.0-or-later
 allowed-tools: read
 ---

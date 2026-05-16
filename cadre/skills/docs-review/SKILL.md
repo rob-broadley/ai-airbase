@@ -1,6 +1,6 @@
 ---
 name: docs-review
-description: Documentation review reference covering coverage thresholds, accuracy signals, completeness checklist, Godoc and JSDoc format, outdated references, architecture documentation, and a three-tier severity model. Used by the docs-reviewer agent.
+description: Load before any documentation review. Required by the docs-reviewer agent — covers coverage thresholds, accuracy signals, completeness checklist, Godoc and JSDoc format, and a three-tier severity model.
 license: AGPL-3.0-or-later
 allowed-tools: read
 ---

@@ -1,6 +1,6 @@
 ---
 name: observability-review
-description: Observability review reference covering log levels, structured logging, missing log statements, trace context, metric naming, alert quality, and a three-tier severity model. Used by the observability-reviewer agent.
+description: Load before any observability review. Required by the observability-reviewer agent — covers log levels, structured logging, missing log statements, trace context, metric naming, alert quality, and a three-tier severity model.
 license: AGPL-3.0-or-later
 allowed-tools: read
 ---

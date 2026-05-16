@@ -1,6 +1,6 @@
 ---
 name: problem-analysis
-description: Reference techniques for understanding and decomposing a problem before any solution work begins. Covers Impact Mapping, Jobs To Be Done, contradiction taxonomy, NFR catalogue, constraint taxonomy, premortem, and confidence scoring. Used by the problem-analyser agent.
+description: Load before any problem decomposition or requirements analysis. Required by the problem-analyser agent — covers Impact Mapping, Jobs To Be Done, contradiction taxonomy, NFR catalogue, constraint taxonomy, premortem, and confidence scoring.
 license: AGPL-3.0-or-later
 allowed-tools: read
 ---

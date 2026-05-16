@@ -1,6 +1,6 @@
 ---
 name: tool-install
-description: How to install and run tools. Use this when a required tool is missing or needs to be installed.
+description: Load when any tool is missing or needs installing. Required by devex, full-reviewer, concurrency-reviewer, dead-code-detector, dependency-reviewer, and security-reviewer before installing analysis or audit tools.
 license: AGPL-3.0-or-later
 allowed-tools: execute
 ---

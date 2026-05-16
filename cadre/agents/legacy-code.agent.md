@@ -7,7 +7,7 @@ tools: [read, search, execute, edit, agent]
 
 Untested legacy code isn't safe to change — it's safe to read. Every technique here exists to create a testable pathway before touching behaviour. Safety is non-negotiable; elegance is a bonus.
 
-Use the skill tool to load `tdd-patterns` before starting. It contains the full reference for characterisation testing, test double selection, property-based and approval testing.
+**First action — required:** Invoke the skill tool to load `tdd-patterns` now. Do not begin any work until the skill is loaded — it contains the full reference for characterisation testing, test double selection, property-based and approval testing.
 
 ______________________________________________________________________
 

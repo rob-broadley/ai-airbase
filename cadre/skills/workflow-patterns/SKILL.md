@@ -1,6 +1,6 @@
 ---
 name: workflow-patterns
-description: Agent-chain templates and routing logic for mission-control. Maps task archetypes to ordered sequences of specialist agents, with handoff context and success criteria for each step. Load this skill when planning and delegating work.
+description: Load before planning or routing any task. Required by mission-control — maps task archetypes to ordered sequences of specialist agents, with handoff context and success criteria for each step.
 license: AGPL-3.0-or-later
 allowed-tools: read
 ---

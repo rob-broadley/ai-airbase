@@ -1,6 +1,6 @@
 ---
 name: dead-code-review
-description: Patterns for detecting unreachable code, unused exports, orphaned files, stale feature flags, and zombie dependencies. Use to identify code that exists but is never executed or accessed.
+description: Load before any dead-code scan. Required by the dead-code-detector agent — covers unreachable code, unused exports, orphaned files, stale feature flags, and zombie dependencies.
 license: AGPL-3.0-or-later
 allowed-tools: read
 ---
