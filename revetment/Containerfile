@@ -4,7 +4,7 @@ FROM registry.fedoraproject.org/fedora-toolbox:44
 
 # Install core tools
 RUN --mount=type=cache,target=/var/cache/dnf <<DNF_INSTALL
-dnf install -y --setopt=install_weak_deps=False \
+dnf install -y --setopt=install_weak_deps=False --nodocs \
     gcc \
     gcc-c++ \
     gh \
@@ -19,6 +19,7 @@ dnf install -y --setopt=install_weak_deps=False \
     ShellCheck \
     trivy \
     uv
+rm -rf /var/lib/dnf /var/log/dnf.* /var/log/hawkey.log
 DNF_INSTALL
 
 # Install extra tools via uv
