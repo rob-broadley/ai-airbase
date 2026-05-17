@@ -21,20 +21,12 @@ RUN uv tool install mdformat --with mdformat-gfm --with mdformat-frontmatter
 
 WORKDIR /workspace
 
-# ARG and LABEL are last so that build metadata (especially CREATED timestamp)
-# does not invalidate the cache for the expensive layers above.
-ARG VERSION="dev"
-ARG CREATED=""
-ARG REVISION=""
-
+# Static labels are set here. Version and revision are applied via --label CLI
+# flags at build time so they never cause cache misses on the layers above.
 LABEL org.opencontainers.image.title="sapper" \
       org.opencontainers.image.description="AI-Airbase build environment: Go toolchain, golangci-lint, goimports, mdformat" \
-      org.opencontainers.image.version="${VERSION}" \
-      org.opencontainers.image.created="${CREATED}" \
-      org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.source="https://github.com/rob-broadley/ai-airbase" \
       org.opencontainers.image.url="https://github.com/rob-broadley/ai-airbase" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later" \
       org.opencontainers.image.vendor="Rob Broadley" \
-      org.opencontainers.image.authors="Rob Broadley" \
       io.ai-airbase.component="sapper"

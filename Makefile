@@ -3,14 +3,21 @@ DEV_IMAGE      := sapper
 GOMOD_CACHE    := marshal-gomod-cache
 GOBUILD_CACHE  := marshal-gobuild-cache
 IMAGE          := revetment
-VERSION        := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-REVISION       := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+_MARSHAL_TAG      := $(shell git describe --tags --always --dirty --match 'marshal/v*' 2>/dev/null || echo dev)
+MARSHAL_VERSION   := $(subst marshal/,,$(_MARSHAL_TAG))
+_REVETMENT_TAG    := $(shell git describe --tags --always --dirty --match 'revetment/*' 2>/dev/null || echo dev)
+REVETMENT_VERSION := $(subst revetment/,,$(_REVETMENT_TAG))
+REVISION          := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 COPILOT_VERSION   ?= $(shell sed -n '1p' .copilot-version)
 COPILOT_INTEGRITY ?= $(shell sed -n '2p' .copilot-version)
-BUILD_ARGS        := --build-arg VERSION=$(VERSION) \
-                     --build-arg REVISION=$(REVISION) \
-                     --build-arg COPILOT_VERSION=$(COPILOT_VERSION) \
-                     --build-arg COPILOT_INTEGRITY=$(COPILOT_INTEGRITY)
+
+SAPPER_BUILD_ARGS    := --label "org.opencontainers.image.version=$(REVISION)" \
+                        --label "org.opencontainers.image.revision=$(REVISION)"
+
+REVETMENT_BUILD_ARGS := --build-arg COPILOT_VERSION=$(COPILOT_VERSION) \
+                        --build-arg COPILOT_INTEGRITY=$(COPILOT_INTEGRITY) \
+                        --label "org.opencontainers.image.version=$(REVETMENT_VERSION)" \
+                        --label "org.opencontainers.image.revision=$(REVISION)"
 
 INSTALL_DIR := $(HOME)/.local/bin
 
@@ -33,7 +40,7 @@ endif
 .PHONY: dev-image image build test coverage fmt fmt-check fmt-md fmt-md-check vet lint check tidy install clean cache-clean update-copilot-version
 
 dev-image:
-	podman build $(BUILD_ARGS) -t $(DEV_IMAGE) -f dev/Containerfile .
+	podman build $(SAPPER_BUILD_ARGS) -t $(DEV_IMAGE) -f dev/Containerfile .
 
 update-copilot-version:
 	@version="$$(curl -sf https://registry.npmjs.org/@github/copilot/latest | jq -r .version)" && \
@@ -43,11 +50,11 @@ update-copilot-version:
 	echo "COPILOT_INTEGRITY updated to $$integrity"
 
 image:
-	podman build $(BUILD_ARGS) -t $(IMAGE) -f revetment/Containerfile .
+	podman build $(REVETMENT_BUILD_ARGS) -t $(IMAGE) -f revetment/Containerfile .
 
 build:
 	mkdir -p bin
-	$(GORUN) go build -ldflags "-X main.version=$(VERSION)" -o ../bin/$(BINARY) ./cmd
+	$(GORUN) go build -ldflags "-X main.version=$(MARSHAL_VERSION)" -o ../bin/$(BINARY) ./cmd
 
 test:
 	$(GORUN) go test -race ./...

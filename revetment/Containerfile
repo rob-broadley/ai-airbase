@@ -143,15 +143,10 @@ COPY cadre/ $HOME/.copilot/
 
 WORKDIR $WORKSPACE
 
-# ARG and LABEL are last so that build metadata does not invalidate the cache
-# for the expensive layers above.
-ARG VERSION="dev"
-ARG REVISION=""
-
+# Static labels are set here. Version and revision are applied via --label CLI
+# flags at build time so they never cause cache misses on the layers above.
 LABEL org.opencontainers.image.title="revetment" \
       org.opencontainers.image.description="AI-Airbase revetment: isolated container environment for GitHub Copilot agents" \
-      org.opencontainers.image.version="${VERSION}" \
-      org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.source="https://github.com/rob-broadley/ai-airbase" \
       org.opencontainers.image.url="https://github.com/rob-broadley/ai-airbase" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later" \
