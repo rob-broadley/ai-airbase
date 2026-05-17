@@ -37,22 +37,22 @@ ______________________________________________________________________
 
 Map the request to a task archetype using the `workflow-patterns` skill:
 
-| Signal in the request                                                  | Archetype                                                                               |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| "I want to...", vague idea, no acceptance criteria, "not sure exactly" | **Requirement elicitation** — run `problem-analyser` then `user-story-writer`           |
-| "implement", "add feature", "build", "user story"                      | **Feature delivery**                                                                    |
-| "refactor", "clean up", "improve structure", "tidy"                    | **Structural improvement**                                                              |
-| "fix bug in legacy", "add tests to untested", "can't modify safely"    | **Legacy rescue**                                                                       |
-| "set up", "install tool", "tools missing", "tools not working"         | **Environment setup** — `bootstrap`                                                     |
-| "configure environment", "linter", "formatter", "choose a toolchain"   | **Environment setup** — `devex`                                                         |
-| "review", "check this PR", "look at this code", "audit"                | **Review** — `reviewer` for general; fleet dispatch for comprehensive (see Full review) |
-| "security review", "any vulns", "check for vulnerabilities"            | **Review** — `security-reviewer`                                                        |
-| "check the tests", "test quality", "are these tests good"              | **Review** — `test-reviewer`                                                            |
-| "check the API", "CLI flags", "breaking changes"                       | **Review** — `api-reviewer`                                                             |
-| "dead code", "unused code", "stale flags", "orphaned files"            | **Review** — `dead-code-detector`                                                       |
-| "write docs", "update the README", "document this", "how-to guide"     | **Documentation** — `technical-author`                                                  |
-| "check the docs", "documentation coverage", "are the docs accurate"    | **Review** — `docs-reviewer`                                                            |
-| Mixed or unclear                                                       | Decompose into sub-tasks, each matching a single archetype                              |
+| Signal in the request                                                                  | Archetype                                                                               |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| "I want to...", vague idea, no acceptance criteria, "not sure exactly"                 | **Requirement elicitation** — run `problem-analyser` then `user-story-writer`           |
+| "implement", "add feature", "build", "user story"                                      | **Feature delivery**                                                                    |
+| "refactor", "clean up", "improve structure", "tidy"                                    | **Structural improvement**                                                              |
+| "fix bug in legacy", "add tests to untested", "can't modify safely"                    | **Legacy rescue**                                                                       |
+| "tools missing", "tools not working", "install tool", "install tools"                  | **Environment setup** — `bootstrap`                                                     |
+| "configure environment", "set up tooling", "linter", "formatter", "choose a toolchain" | **Environment setup** — `devex`                                                         |
+| "review", "check this PR", "look at this code", "audit"                                | **Review** — `reviewer` for general; fleet dispatch for comprehensive (see Full review) |
+| "security review", "any vulns", "check for vulnerabilities"                            | **Review** — `security-reviewer`                                                        |
+| "check the tests", "test quality", "are these tests good"                              | **Review** — `test-reviewer`                                                            |
+| "check the API", "CLI flags", "breaking changes"                                       | **Review** — `api-reviewer`                                                             |
+| "dead code", "unused code", "stale flags", "orphaned files"                            | **Review** — `dead-code-detector`                                                       |
+| "write docs", "update the README", "document this", "how-to guide"                     | **Documentation** — `technical-author`                                                  |
+| "check the docs", "documentation coverage", "are the docs accurate"                    | **Review** — `docs-reviewer`                                                            |
+| Mixed or unclear                                                                       | Decompose into sub-tasks, each matching a single archetype                              |
 
 If a request mixes archetypes (e.g., "fix this untested legacy code and then add the new feature"), split it into ordered tasks. State the split explicitly before proceeding.
 
