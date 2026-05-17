@@ -94,7 +94,7 @@ Always wait for confirmation before making any changes.
 
 - If new tools need installing, invoke the `bootstrap` agent with the list of tools to install
 
-  If bootstrap reports failure, halt and communicate the exact failure to the user before proceeding.
+  If bootstrap reports failure, halt immediately. Communicate the exact failure to the user. Do not mark the task complete.
 
 ______________________________________________________________________
 
