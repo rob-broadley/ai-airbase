@@ -121,7 +121,7 @@ Not everything needs delegation. Handle these inline:
 - Short investigative tasks (running a command, checking a file)
 - Any task that would take one agent less than a single focused step
 
-**Exception — environment setup:** Do not handle environment analysis or tool installation inline, even as a "short investigative task". Checking what is installed, reading build files, and planning a setup are `bootstrap`'s domain. Delegate immediately.
+**Exception — environment setup:** Do not handle environment analysis or tool installation inline, even as a "short investigative task". Checking what is installed and reading project files to determine what tools to install are `bootstrap`'s domain. Reading tooling configuration files to audit or improve them is `devex`'s domain. Delegate immediately in both cases.
 
 Do not edit application source code directly — that is the domain of specialist agents. The `edit` tool may only be used for planning artifacts (e.g. updating a task list, writing notes).
 
