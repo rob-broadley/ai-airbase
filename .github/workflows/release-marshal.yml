@@ -72,5 +72,5 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
-          name: ${{ steps.version.outputs.version }}
+          name: Marshal ${{ steps.version.outputs.version }}
           files: marshal/marshal-linux-amd64
