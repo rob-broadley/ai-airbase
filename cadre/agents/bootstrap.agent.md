@@ -114,7 +114,7 @@ If an install fails:
 1. For `go install`: check network and proxy settings (`GOPROXY`); if the version string is not found, try `@latest` or verify the module's release tags; if the binary is not on PATH, ensure `$(go env GOPATH)/bin` is on PATH
 1. For `cargo install`: check network; if the version is not found, run `cargo search <crate>` to confirm the crate name and available versions; if there is a conflict with an existing installation, use `--force` to overwrite; if the binary is not on PATH, ensure `~/.cargo/bin` is on PATH
 1. For `dotnet tool install --global`: check network; if the package version is not found, run `dotnet tool search <pkg>` to confirm available versions; if there is a version conflict, use `dotnet tool update --global <pkg>` instead; if the binary is not on PATH, ensure `~/.dotnet/tools` is on PATH
-1. If still failing, summarise which tools installed successfully before the failure so the user knows the current state of their environment, then report the error and stop — do not attempt workarounds silently
+1. If still failing, report three categories: (1) tools verified and working, (2) the tool that failed with the exact error output, and (3) tools not yet attempted — so the user has a complete picture of the environment gap. Then stop — do not attempt workarounds silently.
 
 ### Report back
 
