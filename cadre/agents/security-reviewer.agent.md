@@ -35,7 +35,7 @@ If a specific ref or file list was provided, use that instead of `HEAD~1`.
 1. `search` for input parsing: JSON/XML/form decoders, query parameter extraction, file upload handlers — injection and validation risks
 1. `search` for external API calls and HTTP client usage — SSRF and secrets exposure risks
 1. `search` for configuration loading and environment variable reads — secrets hygiene
-1. **Git history secrets scan:** after the diff review, run `execute trufflehog git file://.`. If not installed, use the `tool-install` skill — install via `go install github.com/trufflesecurity/trufflehog/v3@latest` (do not use `uv tool install trufflehog` — that installs the abandoned Python v2 package). A secret found in git history is a Critical finding even if it was removed in a later commit — the history is public if the repository is public, and may have been cached by mirrors.
+1. **Git history secrets scan:** `gitleaks detect --source .` scans the full git history by default. Run it as part of the SAST step in the Review process below. A secret found only in history is a Critical finding — the history is public if the repository is public and may have been cached by mirrors.
 
 **If a file list was provided in your context** (full-codebase review rather than a diff-based review): use the `read` tool to examine each listed file directly before applying any review checks. Do not use `git diff` as your primary source of code in this case — the diff only covers recent commits and will cause you to miss issues in unchanged files. Read the actual files, then apply your full review process to their contents.
 
@@ -43,9 +43,9 @@ ______________________________________________________________________
 
 ## Review process
 
-**Step 1 — Run SAST.**
+**Step 1 — Run pre-installed SAST and linting tools.**
 
-Run `execute semgrep --config=auto .` — it auto-selects rulesets for the project's detected languages. If not installed, use the `tool-install` skill (`uvx semgrep`). For Rust codebases also run `execute cargo geiger`; for C++ also run `execute clang-tidy -checks='cert-*,bugprone-*'` on the changed files. Include the tool output in the report.
+Run the SAST tools described in the `security-review` skill — the universally pre-installed tools are listed in the skill; language-specific tools (such as `cargo geiger` for Rust) require the language runtime to be installed first via `bootstrap`. Include tool output in the report.
 
 **Step 2 — Review the diff for security signals.**
 

@@ -17,7 +17,7 @@ A dependency with a published CVE is an immediate risk. The severity of the risk
 
 ### How to check
 
-Run `osv-scanner .` — it auto-detects all lockfiles in the project (`uv.lock`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `go.sum`, `Cargo.lock`, `pom.xml`, `packages.lock.json`, etc.) and queries the OSV database in a single pass. Install via `/tool-install` if not present.
+Run `osv-scanner .` — it auto-detects all lockfiles in the project (`uv.lock`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `go.sum`, `Cargo.lock`, `pom.xml`, `packages.lock.json`, etc.) and queries the OSV database in a single pass. If not present, use the `tool-install` skill to install it.
 
 ### What a CVE finding means
 
@@ -48,7 +48,7 @@ Licence obligations must be understood before a dependency is added. Licence pro
 
 ### Automated licence scan
 
-Run `trivy fs --scanners license .` — it scans npm (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`), Maven/Gradle (`pom.xml`, `build.gradle`), NuGet (`*.csproj`, `packages.lock.json`), and Go (`go.sum`) in one pass and reports each dependency's detected licence. Install via the container's nix channel (`nixpkgs#trivy`) or use `/tool-install`.
+Run `trivy fs --scanners license .` — it scans npm (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`), Maven/Gradle (`pom.xml`, `build.gradle`), NuGet (`*.csproj`, `packages.lock.json`), and Go (`go.sum`) in one pass and reports each dependency's detected licence. `trivy` is pre-installed in the environment.
 
 Trivy does not support licence detection for Python (`uv.lock`) or Rust (`Cargo.lock`) — inspect those manually via the package registry pages for each new dependency. C++ (vcpkg, Conan) is also manual.
 

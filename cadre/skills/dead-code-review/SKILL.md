@@ -107,7 +107,7 @@ ______________________________________________________________________
 | Go                        | `deadcode` (`golang.org/x/tools/cmd/deadcode`) | `deadcode -test ./...`                      |
 | Go                        | `go mod tidy`                                  | removes unused module dependencies          |
 | Rust                      | `cargo-udeps`                                  | `cargo +nightly udeps`                      |
-| Any                       | `ripgrep`                                      | Manual cross-reference for symbol names     |
+| Any                       | `ripgrep` (pre-installed)                      | Manual cross-reference for symbol names     |
 
 Tools are a starting point, not a complete answer. Static tools cannot resolve all dynamic dispatch, reflection, or plugin patterns — findings from tooling must be confirmed by reading the code.
 

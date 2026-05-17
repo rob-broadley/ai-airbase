@@ -30,7 +30,7 @@ When running tests, never write language runtime caches inside the repository. I
 **Capture a baseline.** Run the following to get complexity metrics:
 
 ```sh
-which lizard >/dev/null 2>&1 && lizard --CCN 10 . 2>/dev/null | tail -20 || uvx lizard --CCN 10 . 2>/dev/null | tail -20
+lizard --CCN 10 . 2>/dev/null | tail -20
 ```
 
 Note LOC, maximum nesting depth, test count, and public API surface size. You'll need these numbers later to show the refactor was worthwhile.
@@ -74,7 +74,7 @@ ______________________________________________________________________
 Run the following before and after to compare complexity:
 
 ```sh
-which lizard >/dev/null 2>&1 && lizard --CCN 10 . 2>/dev/null | tail -20 || uvx lizard --CCN 10 . 2>/dev/null | tail -20
+lizard --CCN 10 . 2>/dev/null | tail -20
 ```
 
 For a rough nesting-depth proxy: use `search` to identify the source root(s) for this project (look for where the majority of `.go`, `.py`, `.ts`, `.java` files live), then run `grep -rn "^\s\{20,\}" <source-root(s)>` against those directories. Track these across the session:

@@ -164,13 +164,54 @@ ______________________________________________________________________
 
 ## SAST tooling
 
-Run `semgrep --config=auto .` as a first-pass SAST step. Semgrep auto-selects rulesets for the project's detected languages using the community and security rule registry. It covers all seven canonical languages at generally-available quality, though ruleset depth is deepest for JavaScript, TypeScript, Python, Java, C#, and Go — Rust and C++ have full language support but fewer community rules.
+The following tools are pre-installed in the environment. Run them as the first step of every security review.
 
-Semgrep does not replace reading the code. It surfaces known-bad patterns quickly. Manual review of the diff for business-logic and context-dependent risks (broken access control, IDOR, privilege escalation) remains essential.
+**Secrets scanning — `gitleaks`**
 
-For **Rust**: also run `cargo-geiger` (`cargo geiger`) to count and audit `unsafe` blocks and their transitive exposure.
+```sh
+gitleaks detect --source .
+```
 
-For **C++**: also run `clang-tidy -checks='cert-*,bugprone-*,cppcoreguidelines-*'` for additional language-specific signals.
+Scans the repository and git history for leaked credentials, API keys, and tokens. By default it scans the full git history — a secret removed in a later commit is still a finding (Critical severity if the repository is or was public).
+
+**Structural code pattern search — `ast-grep`**
+
+`ast-grep` searches the AST rather than text, so it has no false positives from comments or strings. Use it to find known-bad code patterns for the detected language. Example patterns:
+
+```sh
+# JavaScript/TypeScript — eval with user input
+ast-grep --pattern 'eval($X)' .
+
+# Python — subprocess with shell=True
+ast-grep --pattern 'subprocess.run($$$, shell=True)' .
+
+# Any — hardcoded "secret" or "password" assignment
+ast-grep --pattern '$X = "$$SECRET$$"' .
+```
+
+Adapt patterns to the language and patterns of concern. For a full list of dangerous patterns by language, apply the language-specific risk hotspots below.
+
+**Shell script linting — `shellcheck`**
+
+```sh
+shellcheck $(find . -name "*.sh" -not -path "./.git/*")
+```
+
+ShellCheck catches injection risks (unquoted variables in command positions), unsafe constructs (`eval`, backtick expansion), and portability issues in shell scripts and CI step scripts. Run it whenever any `.sh` files are present.
+
+**Dockerfile linting — `hadolint`**
+
+```sh
+hadolint Dockerfile
+```
+
+hadolint catches security misconfigurations in Dockerfiles (running as root, `ADD` instead of `COPY`, pinned digest missing, `--no-cache` absent on package installs). It also runs ShellCheck on every `RUN` instruction. Run it whenever any `Dockerfile` or `*.dockerfile` is present.
+
+These tools are a first-pass triage, not a substitute for reading the code. They surface known-bad patterns quickly; manual review of the diff for business-logic and context-dependent risks (broken access control, IDOR, privilege escalation) is always required.
+
+**Rust:** also run `cargo geiger` to count and audit `unsafe` blocks and their transitive exposure. `cargo geiger` is not pre-installed — install it with `cargo install cargo-geiger` once the Rust toolchain is available (use `bootstrap` if Rust is not yet installed).
+
+**C++:** also run `clang-tidy -checks='cert-*,bugprone-*,cppcoreguidelines-*'` for additional language-specific signals.
 
 ______________________________________________________________________
 
@@ -259,12 +300,11 @@ ______________________________________________________________________
 - **Secrets in logs:** credential values written to log output; token values included in error messages or debug output.
 - **Secrets in error messages:** internal error detail that includes token fragments, connection strings, or key material returned to callers.
 - **Secrets in environment without protection:** environment variable names that suggest they hold secrets (`*_KEY`, `*_SECRET`, `*_TOKEN`, `*_PASSWORD`) loaded and then logged or returned in responses.
-- **Git history scanning:** hardcoded secrets removed in later commits still live in git history and are exploitable — scan git history with `trufflehog git file://.` or `gitleaks detect --source .` (both scan history by default); a secret found only in history is a Critical finding because it may have already been extracted.
+- **Git history scanning:** hardcoded secrets removed in later commits still live in git history and are exploitable — `gitleaks detect --source .` scans the full history by default; a secret found only in history is a Critical finding because it may have already been extracted.
 
 ### Tool note
 
-- `trufflehog` — `trufflehog git file://.` scans the repository and git history for leaked secrets.
-- `gitleaks` — `gitleaks detect --source .` scans the repository and git history for leaked secrets.
+- `gitleaks` (pre-installed) — `gitleaks detect --source .` scans the repository and git history for leaked secrets.
 
 ______________________________________________________________________
 
