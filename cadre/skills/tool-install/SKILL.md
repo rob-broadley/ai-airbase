@@ -237,8 +237,8 @@ If the project uses vcpkg, follow the repository's documented bootstrap and mani
 Once `go` is installed, use it to install Go ecosystem tools:
 
 ```sh
-go install <module-path>@latest   # install latest
-go install <module-path>@v1.2.3   # install specific version
+go install <module-path>@vX.Y.Z   # install specific version (preferred — reproducible)
+go install <module-path>@latest   # exploratory or one-off installs only; not reproducible
 ```
 
 Installed binaries land in `$GOPATH/bin` (`$XDG_DATA_HOME/go/bin`), which is on `PATH`.
