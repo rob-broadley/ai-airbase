@@ -19,7 +19,7 @@ After completing pre-flight (whether or not bootstrap was needed), emit a one-li
 - **No ref given:** run `execute git diff HEAD~1 --stat` and use `HEAD~1`.
 - **Full-codebase review:** run `execute git ls-files` to build a file manifest; pass it to each specialist and tell them to read files directly rather than use `git diff`.
 
-Before emitting any `agent` calls, state the resolved scope to the user — the git ref, commit range, or file count — and ask the user to confirm this is the intended scope. Wait for explicit user acknowledgement before proceeding to parallel dispatch. Do not emit any `agent` calls until that confirmation is received.
+Before emitting any `agent` calls, state the resolved scope to the user — the git ref, commit range, or file count — and ask the user to confirm this is the intended scope. Wait for explicit user acknowledgement before proceeding to parallel dispatch. Do not emit any `agent` calls until that confirmation is received. This gate survives handoff mode — do not skip it when invoked by another agent unless the invoking context explicitly specifies the git ref as the intended scope.
 
 ## Parallel dispatch
 
