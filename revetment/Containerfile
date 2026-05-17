@@ -10,10 +10,13 @@ dnf install -y --setopt=install_weak_deps=False \
     gh \
     gitleaks \
     glibc-devel \
+    hadolint \
     jq \
     make \
     nix-core \
     nix-filesystem \
+    ripgrep \
+    ShellCheck \
     trivy \
     uv
 DNF_INSTALL
@@ -79,7 +82,8 @@ ENV COPILOT_BIN=/opt/copilot/bin
 ARG COPILOT_VERSION
 ARG COPILOT_INTEGRITY
 RUN <<COPILOT_INSTALL
-set -eu
+#!/bin/bash
+set -euo pipefail
 
 test -n "${COPILOT_VERSION}" || { echo "ERROR: --build-arg COPILOT_VERSION is required"; exit 1; }
 test -n "${COPILOT_INTEGRITY}" || { echo "ERROR: --build-arg COPILOT_INTEGRITY is required"; exit 1; }
