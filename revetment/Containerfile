@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Tools installed inside this image are separate works under their own licences.
 FROM registry.fedoraproject.org/fedora-toolbox:44
