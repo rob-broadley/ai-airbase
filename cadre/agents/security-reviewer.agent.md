@@ -53,7 +53,7 @@ Apply all OWASP Top 10 signals from the `security-review` skill to the changed c
 
 **Step 3 — Apply language-specific hotspot checks.**
 
-Use the language-specific risk hotspots from the `security-review` skill for the detected language. Pay particular attention to JavaScript and TypeScript dynamic execution and XSS sinks, Python deserialisation and shell invocation, Java expression-language and XXE risks, C# serialisation and XML parsing, C++ memory-safety hazards, Go command execution and SSRF, and Rust `unsafe` or FFI boundaries.
+Apply the language-specific risk hotspots from the `security-review` skill for the detected language.
 
 **Step 4 — Apply secrets hygiene checks.**
 
@@ -95,7 +95,12 @@ Produce a structured report as markdown in the conversation. Do not write to any
 ## Security Review — [ref or description]
 
 ### Summary
+
 [One paragraph: what was reviewed, the overall risk posture, and the highest severity finding.]
+
+### Security posture strengths
+
+[Brief paragraph noting protective measures already in place: HttpOnly/Secure/SameSite cookies, CSP/HSTS headers, CSRF protection, rate limiting, input validation libraries. A review that only lists problems is less useful than one that also says what is working.]
 
 ### Critical
 

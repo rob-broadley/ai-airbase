@@ -164,7 +164,7 @@ ______________________________________________________________________
 
 ## SAST tooling
 
-The following tools are pre-installed in the environment. Run them as the first step of every security review.
+The following tools are pre-installed in the environment.
 
 **Secrets scanning — `gitleaks`**
 
@@ -364,20 +364,3 @@ Examples: verbose error messages exposing stack traces; missing rate limiting on
 Hardening improvement; does not represent an immediate exploitable risk.
 
 Examples: security header absent; password complexity policy not enforced at the API level; log entry missing a correlation ID.
-
-______________________________________________________________________
-
-## Output format
-
-Include a brief `Security posture strengths` paragraph noting what protective measures are already in place (HttpOnly/Secure/SameSite cookies, CSP/HSTS headers, CSRF protection, rate limiting, input validation libraries). A reviewer that only lists problems is less useful than one that says "here's what's in place, here's what's missing."
-
-Group findings by severity (Critical first, then High, Medium, Low). For each finding:
-
-```
-**[SEVERITY] location** (file:line or endpoint)
-Description: what the issue is.
-Why it matters: the specific attack vector or consequence.
-Direction: the general approach to resolution — not an implementation.
-```
-
-Do not write security patches. Do not rewrite the code under review. Provide direction, not implementation. If no findings exist in a severity tier, omit that tier.
