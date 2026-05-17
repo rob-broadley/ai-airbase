@@ -250,7 +250,6 @@ ______________________________________________________________________
 
 ```
 [reviewer]                    — quick general review
-[full-reviewer]               — all specialist reviewers in parallel
 [test-reviewer]               — test quality only
 [security-reviewer]           — security vulnerabilities only
 [api-reviewer]                — API/CLI interface design only
@@ -265,7 +264,7 @@ ______________________________________________________________________
 | User signal                                                 | Route to                                                |
 | ----------------------------------------------------------- | ------------------------------------------------------- |
 | "review this", "check this PR", "look at this code"         | `reviewer` — general review with adaptive skill loading |
-| "full review", "comprehensive review", "review everything"  | `full-reviewer` — all specialists in parallel           |
+| "full review", "comprehensive review", "review everything"  | load `full-review` skill and follow its procedure       |
 | "check the tests", "are these tests good"                   | `test-reviewer`                                         |
 | "security review", "any vulnerabilities", "check for vulns" | `security-reviewer`                                     |
 | "review the API", "check the CLI flags"                     | `api-reviewer`                                          |
@@ -281,7 +280,6 @@ ______________________________________________________________________
 - Review agents are read-only. They never modify code, write files, or make commits.
 - Each agent defaults to `git diff HEAD~1` as the review scope when no scope is specified.
 - Pass the git ref, file path, or diff explicitly when reviewing something other than the most recent commit.
-- `full-reviewer` launches all specialists simultaneously and synthesises findings into one report. It runs a pre-flight step to install missing analysis tools before launch.
 - If the development environment is not yet set up (language runtime missing, core tools absent), run `bootstrap` first — then re-run the review with all tooling available.
 
 **Failure handling:** If a review agent reports Blocking findings, surface them immediately and ask the user whether they want to address the findings before proceeding with any planned work.

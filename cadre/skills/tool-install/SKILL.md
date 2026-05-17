@@ -1,6 +1,6 @@
 ---
 name: tool-install
-description: Load when any tool is missing or needs installing. Required by bootstrap, full-reviewer, concurrency-reviewer, dead-code-detector, dependency-reviewer, and security-reviewer before installing analysis or audit tools.
+description: Recipe reference for installing tools in the container environment. Used by bootstrap and specialist reviewer agents to look up the correct install command for any tool.
 license: AGPL-3.0-or-later
 allowed-tools: execute
 ---
@@ -62,7 +62,7 @@ The tool is on `PATH` immediately and persists across sessions.
 ### Installing multiple tools at once
 
 ```sh
-nix profile add nixpkgs#ripgrep nixpkgs#fd nixpkgs#bat
+nix profile add nixpkgs#delta nixpkgs#fd nixpkgs#bat
 ```
 
 ### Running a tool once (no permanent install)

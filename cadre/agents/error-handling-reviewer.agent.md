@@ -123,3 +123,5 @@ Direction: the general approach to resolution — not an implementation.
 ```
 
 Blocking findings come first. If there are no findings in a severity tier, omit that section.
+
+When invoked as part of a fleet dispatch (by `mission-control` or via the `full-review` skill), produce findings only — no preamble, no summary of tools run, no context recap. Start directly with your findings in the standard severity format defined in your loaded skill. If there are no findings, state that in one sentence. If the review could not be completed due to a tool failure, skill-loading error, or access error, state the reason in one sentence rather than claiming no findings.

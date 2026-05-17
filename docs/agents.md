@@ -30,9 +30,7 @@ The cadre is the group of AI agents bundled inside every revetment container. Ea
 
 ### Review
 
-**`reviewer`** — General-purpose code reviewer. Accepts a git ref, file path, or diff. Loads `code-review`, `design-principles`, and `test-review` skills. Routes to specialist reviewers for targeted concerns. Use for a focused review of a specific change; use `full-reviewer` for a comprehensive multi-dimensional review.
-
-**`full-reviewer`** — Fleet orchestrator. Launches all nine specialist review agents in parallel against the same scope and synthesises their findings into one unified, deduplicated report. Use when a comprehensive review across all dimensions is needed.
+**`reviewer`** — General-purpose code reviewer. Accepts a git ref, file path, or diff. Loads `code-review` and `design-principles` skills; loads `test-review` when the review scope includes test files. Identifies concerns that would benefit from specialist attention and surfaces them as recommendations. Use for a focused review of a specific change; for a comprehensive multi-dimensional review, describe the task to `mission-control` — it will load the `full-review` skill and dispatch all specialist reviewers in parallel.
 
 **`security-reviewer`** — Reviews code for security vulnerabilities using the OWASP Top 10 (2021) and security hygiene patterns. Actively searches for auth, input parsing, and external call patterns regardless of what changed. Use for any security audit or when new routes, authentication logic, or external calls are introduced.
 
@@ -60,7 +58,7 @@ The cadre is the group of AI agents bundled inside every revetment container. Ea
 
 **`bootstrap`** — Installs development tools inside the container environment. Reads the project to determine what tools are needed, checks what is already installed, and installs any missing tools. Does not modify project files or create tooling configuration — use `devex` for that.
 
-**`devex`** — Designs and configures the development toolchain inside the container — choosing tools, writing Makefile targets, linter configs, formatter configs, and CI workflows. Also scaffolds toolchains for new projects. Delegates tool installation to `bootstrap`.
+**`devex`** — Designs and configures the development toolchain inside the container — choosing tools, writing Makefile targets, linter configs, formatter configs, and CI workflows. Also audits and improves existing toolchains — performing gap analysis, flagging stale tool versions, and improving inconsistent configuration. Also scaffolds toolchains for new projects. Delegates tool installation to `bootstrap`.
 
 ## Skills
 
@@ -81,6 +79,8 @@ Agents load skills on demand — domain-knowledge reference cards that ground ev
 **`docs-review`** — Documentation review reference — coverage thresholds, accuracy signals, doc comment format, and three-tier severity model.
 
 **`error-handling-review`** — Error handling review reference — swallowed errors, error specificity, resilience, partial failure, and user-facing errors.
+
+**`full-review`** — Comprehensive review reference — scope resolution, pre-flight checks, parallel specialist dispatch procedure, synthesis rules, and unified output format. Loaded by `mission-control` when a comprehensive multi-dimensional review is requested — triggered by phrases such as "full review", "comprehensive review", or "review everything".
 
 **`observability-review`** — Observability review reference — log levels, structured logging, trace context propagation, metric naming, and alert quality.
 
