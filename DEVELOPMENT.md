@@ -78,13 +78,12 @@ pre-commit run --all-files
 | `make clean`        | Remove binary and coverage files                           |
 | `make cache-clean`  | Remove named Podman volumes for Go module and build caches |
 
-Both `make dev-image` and `make image` automatically inject three OCI build args computed from the current git state:
+Both `make dev-image` and `make image` automatically inject two OCI build args computed from the current git state:
 
 | Variable   | Source                         | Example                     |
 | ---------- | ------------------------------ | --------------------------- |
 | `VERSION`  | `git describe --tags --always` | `v0.1.0` or `v0.1.0-3-gabc` |
 | `REVISION` | `git rev-parse HEAD`           | `abc1234...`                |
-| `CREATED`  | `date -u +%Y-%m-%dT%H:%M:%SZ`  | `2026-05-03T21:00:00Z`      |
 
 `make image` (revetment only) also injects:
 

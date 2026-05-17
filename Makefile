@@ -5,12 +5,10 @@ GOBUILD_CACHE  := marshal-gobuild-cache
 IMAGE          := revetment
 VERSION        := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 REVISION       := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
-CREATED        := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 COPILOT_VERSION   ?= $(shell sed -n '1p' .copilot-version)
 COPILOT_INTEGRITY ?= $(shell sed -n '2p' .copilot-version)
 BUILD_ARGS        := --build-arg VERSION=$(VERSION) \
                      --build-arg REVISION=$(REVISION) \
-                     --build-arg CREATED=$(CREATED) \
                      --build-arg COPILOT_VERSION=$(COPILOT_VERSION) \
                      --build-arg COPILOT_INTEGRITY=$(COPILOT_INTEGRITY)
 

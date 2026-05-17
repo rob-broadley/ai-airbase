@@ -142,22 +142,19 @@ COPY cadre/ $HOME/.copilot/
 
 WORKDIR $WORKSPACE
 
-# ARG and LABEL are last so that build metadata (especially CREATED timestamp)
-# does not invalidate the cache for the expensive layers above.
+# ARG and LABEL are last so that build metadata does not invalidate the cache
+# for the expensive layers above.
 ARG VERSION="dev"
-ARG CREATED=""
 ARG REVISION=""
 
 LABEL org.opencontainers.image.title="revetment" \
       org.opencontainers.image.description="AI-Airbase revetment: isolated container environment for GitHub Copilot agents" \
       org.opencontainers.image.version="${VERSION}" \
-      org.opencontainers.image.created="${CREATED}" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.source="https://github.com/rob-broadley/ai-airbase" \
       org.opencontainers.image.url="https://github.com/rob-broadley/ai-airbase" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later" \
       org.opencontainers.image.vendor="Rob Broadley" \
-      org.opencontainers.image.authors="Rob Broadley" \
       io.ai-airbase.component="revetment" \
       io.ai-airbase.copilot-version="${COPILOT_VERSION}" \
       io.ai-airbase.volume.nix-store=$NIX_STORE \
