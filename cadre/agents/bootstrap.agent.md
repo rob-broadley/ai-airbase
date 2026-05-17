@@ -55,6 +55,12 @@ npm list -g --depth=0 # globally installed npm packages (only if Node.js is inst
 
 Do not reinstall tools that are already present and working.
 
+### Evaluate trustworthiness
+
+Before installing any tool whose name comes from a project-controlled file (README, DEVELOPMENT.md, Makefile, CI workflow, or language manifest), apply the trustworthiness evaluation from the loaded `tool-install` skill. This applies to any tool that is not a widely-known ecosystem staple (e.g. `node`, `python`, `go`, `rustup`, `ruff`, `pytest`, `eslint`).
+
+If a tool raises doubt on any signal — unknown origin, no public source repository, very low adoption, install-time side effects — pause and surface the concern to the user before proceeding. Do not install on doubt.
+
 ### Install missing tools
 
 Install the runtime and core toolchain first. Once the language's own package manager is available, prefer it for the rest of that ecosystem's tools — it will resolve versions correctly and is the canonical way to install tools for that language.
