@@ -100,6 +100,8 @@ tar -xzf "${tarball}" -C "${COPILOT_BIN}" --strip-components=1 package/copilot
 chmod +x "${COPILOT_BIN}/copilot"
 rm -f "${tarball}"
 COPILOT_INSTALL
+# Disable copilot auto updates.
+ENV COPILOT_AUTO_UPDATE=false
 
 # Ensure tools installed by the runtime user via `uv tool install`
 # are installed to a dedicated directory under $XDG_DATA_HOME/uv so that
