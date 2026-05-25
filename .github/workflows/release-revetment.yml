@@ -6,6 +6,7 @@ on:
       - 'revetment/v*'
   schedule:
     - cron: '0 0 * * 0'
+  workflow_dispatch:
 
 concurrency:
   group: release-revetment
@@ -30,7 +31,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_INPUT: ${{ github.ref }}
         run: |
-          if [ "$EVENT_NAME" = "schedule" ]; then
+          if [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             build_ref=$(git ls-remote --tags --refs origin 'refs/tags/revetment/v*' | awk '{print $2}' | sort -V | tail -1)
             if [ -z "$build_ref" ]; then
               echo "No revetment/v* tags found, aborting" && exit 1
