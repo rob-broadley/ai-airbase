@@ -31,7 +31,7 @@ jobs:
           GITHUB_REF_INPUT: ${{ github.ref }}
         run: |
           if [ "$EVENT_NAME" = "schedule" ]; then
-            build_ref=$(git ls-remote --tags --sort=-creatordate origin 'refs/tags/revetment/v*' | grep -v '\^{}' | head -1 | awk '{print $2}')
+            build_ref=$(git ls-remote --tags --refs origin 'refs/tags/revetment/v*' | awk '{print $2}' | sort -V | tail -1)
             if [ -z "$build_ref" ]; then
               echo "No revetment/v* tags found, aborting" && exit 1
             fi
