@@ -31,7 +31,7 @@ const (
 	// workspaceDir is the container-side path where project directories are mounted.
 	workspaceDir       = "/workspace"
 	formatNames        = "{{.Names}}"
-	formatImageCreated = `{{.Image}}|{{.Created}}|{{index .Config.Labels "org.opencontainers.image.version"}}`
+	formatImageCreated = `{{.Image}}|{{.Created}}|{{.ImageDigest}}|{{index .Config.Labels "org.opencontainers.image.version"}}`
 	inspectSeparator   = "|"
 
 	// imageAbsentExitCode is the exit code that `podman image exists` returns
@@ -76,11 +76,12 @@ var DefaultContainerCmd = []string{"copilot", "--agent=mission-control"}
 
 // Status describes the current state of a named container.
 type Status struct {
-	Image   string
-	Version string // org.opencontainers.image.version label; empty if absent or label not set
-	Created string
-	Exists  bool
-	Running bool
+	Image       string // raw image ID hex string from podman inspect .Image (no sha256: prefix); empty for a non-existent container
+	ImageDigest string // digest from podman inspect .ImageDigest (e.g. "sha256:<64 hex chars>"); empty for locally built images
+	Version     string // org.opencontainers.image.version label; empty if absent or label not set
+	Created     string // container creation timestamp from podman inspect .Created (e.g. "2026-05-01 09:14:32 +0100 BST"); empty for a non-existent container
+	Exists      bool
+	Running     bool
 }
 
 // MountSpec describes a single bind-mount: a host path mapped to a container path.
@@ -434,6 +435,10 @@ func Rename(r Runner, from, to string) error {
 // fields are zero values. Status.Version carries the
 // org.opencontainers.image.version OCI label value and is also empty when
 // the container exists but its image has no version label set.
+// Status.ImageDigest is similarly empty when the container exists but its
+// image was not pulled from a registry (e.g. a locally built image).
+// Status.Image holds the raw image ID hex string and is empty only when
+// the container does not exist.
 func GetStatus(r Runner, containerName string) (Status, error) {
 	exists, err := Exists(r, containerName)
 	if err != nil {
@@ -453,14 +458,15 @@ func GetStatus(r Runner, containerName string) (Status, error) {
 		return Status{}, fmt.Errorf("inspecting container: %w", err)
 	}
 
-	image, created, version := parseInspectOutput(string(out))
+	image, created, imageDigest, version := parseInspectOutput(string(out))
 
 	return Status{
-		Exists:  true,
-		Running: running,
-		Image:   image,
-		Created: created,
-		Version: version,
+		Exists:      true,
+		Running:     running,
+		Image:       image,
+		ImageDigest: imageDigest,
+		Created:     created,
+		Version:     version,
 	}, nil
 }
 
@@ -518,20 +524,27 @@ func userIdentityArgs(uc UserConfig) []string {
 	}
 }
 
-// parseInspectOutput extracts image, created, and version from raw podman inspect output.
-// It uses the last non-empty line, so any leading warning lines written to
-// stderr (e.g. from CombinedOutput) are skipped gracefully.
-func parseInspectOutput(raw string) (image, created, version string) {
+// parseInspectOutput extracts image, created, imageDigest, and version from raw
+// podman inspect output. The named-return order matches the format-string field
+// order: image (0), created (1), imageDigest (2), version (3). imageDigest
+// precedes version so that any | characters in the version label are absorbed
+// into parts[3] by SplitN and cannot corrupt the digest. It uses the last
+// non-empty line, so any leading warning lines written to stderr (e.g. from
+// CombinedOutput) are skipped gracefully.
+func parseInspectOutput(raw string) (image, created, imageDigest, version string) {
 	line := lastNonEmptyLine(raw)
-	parts := strings.SplitN(line, inspectSeparator, 3)
+	parts := strings.SplitN(line, inspectSeparator, 4)
 	image = strings.TrimSpace(parts[0])
 	if len(parts) > 1 {
 		created = strings.TrimSpace(parts[1])
 	}
 	if len(parts) > 2 {
-		version = strings.TrimSpace(parts[2])
+		imageDigest = strings.TrimSpace(parts[2])
 	}
-	return image, created, version
+	if len(parts) > 3 {
+		version = strings.TrimSpace(parts[3])
+	}
+	return
 }
 
 // lastNonEmptyLine returns the last line in s that contains non-whitespace

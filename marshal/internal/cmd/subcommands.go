@@ -149,7 +149,7 @@ func newStatusCmd(deps Deps, projectFlag *string) *cobra.Command {
 
 // runStatus implements the "status" subcommand: it resolves the project,
 // queries the container state, and prints project name, container name,
-// running status, image ID, version, and creation time.
+// running status, image ID, image digest, version, and creation time.
 func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	project, containerName, err := resolveContainer(deps, projectFlag)
 	if err != nil {
@@ -162,14 +162,15 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	}
 
 	w := cmd.OutOrStdout()
-	fmt.Fprintf(w, "Project:   %s\n", project)
-	fmt.Fprintf(w, "Container: %s\n", containerName)
+	fmt.Fprintf(w, "Project:      %s\n", project)
+	fmt.Fprintf(w, "Container:    %s\n", containerName)
 
 	if !status.Exists {
-		fmt.Fprintf(w, "Status:    absent\n")
-		fmt.Fprintf(w, "Image ID:  -\n")
-		fmt.Fprintf(w, "Version:   -\n")
-		fmt.Fprintf(w, "Created:   -\n")
+		fmt.Fprintf(w, "Status:       absent\n")
+		fmt.Fprintf(w, "Image ID:     -\n")
+		fmt.Fprintf(w, "Image Digest: -\n")
+		fmt.Fprintf(w, "Version:      -\n")
+		fmt.Fprintf(w, "Created:      -\n")
 		return nil
 	}
 
@@ -187,10 +188,32 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		}
 		version = "-"
 	}
-	fmt.Fprintf(w, "Status:    %s\n", statusStr)
-	fmt.Fprintf(w, "Image ID:  %s\n", sanitizeForTerminal(status.Image))
-	fmt.Fprintf(w, "Version:   %s\n", version)
-	fmt.Fprintf(w, "Created:   %s\n", sanitizeForTerminal(status.Created))
+	if status.ImageDigest == "" {
+		deps.logger().Debug("image digest absent", "container", containerName)
+	}
+	imageDigest := sanitizeForTerminal(status.ImageDigest)
+	if imageDigest == "" {
+		if status.ImageDigest != "" {
+			deps.logger().Debug("image digest stripped (control characters only)", "container", containerName)
+		}
+		imageDigest = "-"
+	}
+	image := sanitizeForTerminal(status.Image)
+	if image == "" {
+		image = "-"
+	}
+	created := sanitizeForTerminal(status.Created)
+	if created == "" {
+		if status.Created != "" {
+			deps.logger().Debug("container created timestamp stripped (control characters only)", "container", containerName)
+		}
+		created = "-"
+	}
+	fmt.Fprintf(w, "Status:       %s\n", statusStr)
+	fmt.Fprintf(w, "Image ID:     %s\n", image)
+	fmt.Fprintf(w, "Image Digest: %s\n", imageDigest)
+	fmt.Fprintf(w, "Version:      %s\n", version)
+	fmt.Fprintf(w, "Created:      %s\n", created)
 	return nil
 }
 

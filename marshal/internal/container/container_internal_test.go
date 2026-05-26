@@ -49,12 +49,13 @@ func TestImageExists_UnexpectedFailureIncludesOutput(t *testing.T) {
 // with a warning line (e.g. from CombinedOutput mixing stderr into stdout).
 func TestParseInspectOutput_WithLeadingWarning(t *testing.T) {
 	// Given an inspect output string prefixed with a podman warning line
-	raw := "Warning: blah blah\nimage-name|2024-01-01|v2.0.0"
+	// Field order: image|created|imageDigest|version
+	raw := "Warning: blah blah\nimage-name|2024-01-01|sha256:abc123|v2.0.0"
 
 	// When the output is parsed
-	image, created, version := parseInspectOutput(raw)
+	image, created, imageDigest, version := parseInspectOutput(raw)
 
-	// Then the image, created, and version fields are correctly extracted, ignoring the warning
+	// Then the image, created, version, and imageDigest fields are correctly extracted, ignoring the warning
 	if image != "image-name" {
 		t.Errorf("image = %q, want %q", image, "image-name")
 	}
@@ -64,33 +65,59 @@ func TestParseInspectOutput_WithLeadingWarning(t *testing.T) {
 	if version != "v2.0.0" {
 		t.Errorf("version = %q, want %q", version, "v2.0.0")
 	}
+	if imageDigest != "sha256:abc123" {
+		t.Errorf("imageDigest = %q, want %q", imageDigest, "sha256:abc123")
+	}
 }
 
 // TestParseInspectOutput_AbsentVersionLabel_ReturnsEmptyString verifies that
-// parseInspectOutput returns an empty version when the third field is empty
+// parseInspectOutput returns an empty version when the fourth field is empty
 // (i.e. the org.opencontainers.image.version label is not set on the image).
 func TestParseInspectOutput_AbsentVersionLabel_ReturnsEmptyString(t *testing.T) {
-	// Given inspect output with an empty version field
-	raw := "Warning: blah blah\nimage-name|2024-01-01|"
+	// Given inspect output with an empty version field (field 4); digest is field 3
+	raw := "Warning: blah blah\nimage-name|2024-01-01|sha256:abc123|"
 
 	// When the output is parsed
-	_, _, version := parseInspectOutput(raw)
+	_, _, imageDigest, version := parseInspectOutput(raw)
 
-	// Then version is the empty string
+	// Then version is the empty string and digest is correctly parsed
 	if version != "" {
 		t.Errorf("version = %q, want empty string", version)
+	}
+	if imageDigest != "sha256:abc123" {
+		t.Errorf("imageDigest = %q, want %q", imageDigest, "sha256:abc123")
+	}
+}
+
+// TestParseInspectOutput_VersionLabelWithPipe_DigestUnaffected verifies that a
+// version label containing a pipe character does not corrupt the imageDigest
+// field. imageDigest (field 3) is placed before the version label (field 4) so
+// that SplitN absorbs any extra pipes into the version slot.
+func TestParseInspectOutput_VersionLabelWithPipe_DigestUnaffected(t *testing.T) {
+	// Given a version label that contains a pipe character
+	raw := "image-name|2024-01-01|sha256:abc123|1.0|injected"
+
+	// When the output is parsed
+	_, _, imageDigest, version := parseInspectOutput(raw)
+
+	// Then imageDigest is unaffected and version absorbs the extra pipe content
+	if imageDigest != "sha256:abc123" {
+		t.Errorf("imageDigest = %q, want %q; pipe in version label must not corrupt digest", imageDigest, "sha256:abc123")
+	}
+	if version != "1.0|injected" {
+		t.Errorf("version = %q, want %q", version, "1.0|injected")
 	}
 }
 
 // TestParseInspectOutput_EmptyInput verifies that parseInspectOutput returns
-// empty strings for all three fields when given an empty (or all-whitespace) input.
+// empty strings for all four fields when given an empty (or all-whitespace) input.
 func TestParseInspectOutput_EmptyInput(t *testing.T) {
 	// Given an empty input string
 
 	// When the output is parsed
-	image, created, version := parseInspectOutput("")
+	image, created, imageDigest, version := parseInspectOutput("")
 
-	// Then all three fields are returned as empty strings
+	// Then all four fields are returned as empty strings
 	if image != "" {
 		t.Errorf("image = %q, want empty string", image)
 	}
@@ -99,5 +126,8 @@ func TestParseInspectOutput_EmptyInput(t *testing.T) {
 	}
 	if version != "" {
 		t.Errorf("version = %q, want empty string", version)
+	}
+	if imageDigest != "" {
+		t.Errorf("imageDigest = %q, want empty string", imageDigest)
 	}
 }
