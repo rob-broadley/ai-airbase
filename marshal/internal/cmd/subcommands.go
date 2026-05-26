@@ -149,7 +149,7 @@ func newStatusCmd(deps Deps, projectFlag *string) *cobra.Command {
 
 // runStatus implements the "status" subcommand: it resolves the project,
 // queries the container state, and prints project name, container name,
-// running status, image, version, and creation time.
+// running status, image ID, version, and creation time.
 func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	project, containerName, err := resolveContainer(deps, projectFlag)
 	if err != nil {
@@ -167,7 +167,7 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 
 	if !status.Exists {
 		fmt.Fprintf(w, "Status:    absent\n")
-		fmt.Fprintf(w, "Image:     -\n")
+		fmt.Fprintf(w, "Image ID:  -\n")
 		fmt.Fprintf(w, "Version:   -\n")
 		fmt.Fprintf(w, "Created:   -\n")
 		return nil
@@ -188,7 +188,7 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		version = "-"
 	}
 	fmt.Fprintf(w, "Status:    %s\n", statusStr)
-	fmt.Fprintf(w, "Image:     %s\n", sanitizeForTerminal(status.Image))
+	fmt.Fprintf(w, "Image ID:  %s\n", sanitizeForTerminal(status.Image))
 	fmt.Fprintf(w, "Version:   %s\n", version)
 	fmt.Fprintf(w, "Created:   %s\n", sanitizeForTerminal(status.Created))
 	return nil

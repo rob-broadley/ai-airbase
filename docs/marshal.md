@@ -179,12 +179,12 @@ Inherits [global flags](#global-flags) only.
 Project:   <project>
 Container: marshal-<project>
 Status:    running | stopped | absent
-Image:     <image> | -
+Image ID:  <image-id> | -
 Version:   <version> | -
 Created:   <timestamp> | -
 ```
 
-When the container is absent, `Image`, `Version`, and `Created` are printed as `-`. When the image has no `org.opencontainers.image.version` label, `Version` is printed as `-`.
+When the container is absent, `Image ID`, `Version`, and `Created` are printed as `-`. When the image has no `org.opencontainers.image.version` label, `Version` is printed as `-`.
 
 **Examples**
 
@@ -196,7 +196,7 @@ marshal status
 Project:   my-app
 Container: marshal-my-app
 Status:    running
-Image:     ghcr.io/rob-broadley/ai-airbase/revetment:latest
+Image ID:  20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c
 Version:   0.1.1
 Created:   2026-05-01 09:14:32
 ```
@@ -209,7 +209,7 @@ marshal status --project other-project
 Project:   other-project
 Container: marshal-other-project
 Status:    absent
-Image:     -
+Image ID:  -
 Version:   -
 Created:   -
 ```

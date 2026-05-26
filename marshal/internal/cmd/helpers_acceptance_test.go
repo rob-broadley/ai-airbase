@@ -194,7 +194,7 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 	case "inspect":
 		img := f.image
 		if img == "" {
-			img = "ghcr.io/rob-broadley/ai-airbase/revetment:latest"
+			img = "20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c"
 		}
 		cr := f.created
 		if cr == "" {

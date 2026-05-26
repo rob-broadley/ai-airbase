@@ -10,12 +10,12 @@ import (
 )
 
 // TestStatus_Running verifies that status reports project, container name,
-// running state, image, version, and creation date for a running container.
+// running state, image ID, version, and creation date for a running container.
 func TestStatus_Running(t *testing.T) {
 	// Given a running container with image, version label, and creation metadata
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: true, running: true, image: "ghcr.io/rob-broadley/ai-airbase/revetment:latest", created: "2024-06-01", imageVersion: "1.2.3"}
+	runner := &fakeRunner{exists: true, running: true, image: "20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c", created: "2024-06-01", imageVersion: "1.2.3"}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -33,12 +33,12 @@ func TestStatus_Running(t *testing.T) {
 	root.SetArgs([]string{"--project", "myapp", "status"})
 	assertNoError(t, root.Execute())
 
-	// Then the output contains project, container, state, image, version, and created date
+	// Then the output contains project, container, state, image ID, version, and created date
 	out := buf.String()
 	assertContains(t, out, "myapp")
 	assertContains(t, out, "marshal-myapp")
 	assertContains(t, out, "running")
-	assertContains(t, out, "ghcr.io/rob-broadley/ai-airbase/revetment:latest")
+	assertContains(t, out, "Image ID:  20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c")
 	assertContains(t, out, "Version:")
 	assertContains(t, out, "1.2.3")
 	assertContains(t, out, "2024-06-01")
@@ -51,7 +51,7 @@ func TestStatus_Running_VersionLabelNotSet(t *testing.T) {
 	// Given a running container whose image has no version label
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: true, running: true, image: "ghcr.io/rob-broadley/ai-airbase/revetment:latest", created: "2024-06-01", imageVersion: ""}
+	runner := &fakeRunner{exists: true, running: true, image: "20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c", created: "2024-06-01", imageVersion: ""}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -110,7 +110,7 @@ func TestStatus_Stopped(t *testing.T) {
 	// Given a stopped container
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: true, running: false, image: "ghcr.io/rob-broadley/ai-airbase/revetment:latest", created: "2024-06-01"}
+	runner := &fakeRunner{exists: true, running: false, image: "20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c", created: "2024-06-01"}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
