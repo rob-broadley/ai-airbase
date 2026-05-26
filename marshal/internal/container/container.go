@@ -31,7 +31,7 @@ const (
 	// workspaceDir is the container-side path where project directories are mounted.
 	workspaceDir       = "/workspace"
 	formatNames        = "{{.Names}}"
-	formatImageCreated = `{{.Image}}|{{.Created}}|{{.ImageDigest}}|{{index .Config.Labels "org.opencontainers.image.version"}}`
+	formatImageCreated = `{{.Image}}|{{.Created}}|{{.ImageDigest}}|{{.ImageName}}|{{index .Config.Labels "org.opencontainers.image.version"}}`
 	inspectSeparator   = "|"
 
 	// imageAbsentExitCode is the exit code that `podman image exists` returns
@@ -77,6 +77,7 @@ var DefaultContainerCmd = []string{"copilot", "--agent=mission-control"}
 // Status describes the current state of a named container.
 type Status struct {
 	Image       string // raw image ID hex string from podman inspect .Image (no sha256: prefix); empty for a non-existent container
+	ImageRef    string // fully-qualified image name from podman inspect .ImageName (e.g. "ghcr.io/org/repo/image:tag"); empty if absent
 	ImageDigest string // digest from podman inspect .ImageDigest (e.g. "sha256:<64 hex chars>"); empty for locally built images
 	Version     string // org.opencontainers.image.version label; empty if absent or label not set
 	Created     string // container creation timestamp from podman inspect .Created (e.g. "2026-05-01 09:14:32 +0100 BST"); empty for a non-existent container
@@ -458,12 +459,13 @@ func GetStatus(r Runner, containerName string) (Status, error) {
 		return Status{}, fmt.Errorf("inspecting container: %w", err)
 	}
 
-	image, created, imageDigest, version := parseInspectOutput(string(out))
+	image, created, imageDigest, imageRef, version := parseInspectOutput(string(out))
 
 	return Status{
 		Exists:      true,
 		Running:     running,
 		Image:       image,
+		ImageRef:    imageRef,
 		ImageDigest: imageDigest,
 		Created:     created,
 		Version:     version,
@@ -524,16 +526,16 @@ func userIdentityArgs(uc UserConfig) []string {
 	}
 }
 
-// parseInspectOutput extracts image, created, imageDigest, and version from raw
+// parseInspectOutput extracts image, created, imageDigest, imageRef, and version from raw
 // podman inspect output. The named-return order matches the format-string field
-// order: image (0), created (1), imageDigest (2), version (3). imageDigest
-// precedes version so that any | characters in the version label are absorbed
-// into parts[3] by SplitN and cannot corrupt the digest. It uses the last
+// order: image (0), created (1), imageDigest (2), imageRef (3), version (4). imageDigest
+// and imageRef precede version so that any | characters in the version label are absorbed
+// into parts[4] by SplitN and cannot corrupt the digest or ref. It uses the last
 // non-empty line, so any leading warning lines written to stderr (e.g. from
 // CombinedOutput) are skipped gracefully.
-func parseInspectOutput(raw string) (image, created, imageDigest, version string) {
+func parseInspectOutput(raw string) (image, created, imageDigest, imageRef, version string) {
 	line := lastNonEmptyLine(raw)
-	parts := strings.SplitN(line, inspectSeparator, 4)
+	parts := strings.SplitN(line, inspectSeparator, 5)
 	image = strings.TrimSpace(parts[0])
 	if len(parts) > 1 {
 		created = strings.TrimSpace(parts[1])
@@ -542,7 +544,10 @@ func parseInspectOutput(raw string) (image, created, imageDigest, version string
 		imageDigest = strings.TrimSpace(parts[2])
 	}
 	if len(parts) > 3 {
-		version = strings.TrimSpace(parts[3])
+		imageRef = strings.TrimSpace(parts[3])
+	}
+	if len(parts) > 4 {
+		version = strings.TrimSpace(parts[4])
 	}
 	return
 }

@@ -149,7 +149,7 @@ func newStatusCmd(deps Deps, projectFlag *string) *cobra.Command {
 
 // runStatus implements the "status" subcommand: it resolves the project,
 // queries the container state, and prints project name, container name,
-// running status, image ID, image digest, version, and creation time.
+// running status, image ref, image ID, image digest, version, and creation time.
 func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	project, containerName, err := resolveContainer(deps, projectFlag)
 	if err != nil {
@@ -167,6 +167,7 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 
 	if !status.Exists {
 		fmt.Fprintf(w, "Status:       absent\n")
+		fmt.Fprintf(w, "Image Ref:    -\n")
 		fmt.Fprintf(w, "Image ID:     -\n")
 		fmt.Fprintf(w, "Image Digest: -\n")
 		fmt.Fprintf(w, "Version:      -\n")
@@ -198,6 +199,16 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		}
 		imageDigest = "-"
 	}
+	if status.ImageRef == "" {
+		deps.logger().Debug("image ref absent", "container", containerName)
+	}
+	imageRef := sanitizeForTerminal(status.ImageRef)
+	if imageRef == "" {
+		if status.ImageRef != "" {
+			deps.logger().Debug("image ref stripped (control characters only)", "container", containerName)
+		}
+		imageRef = "-"
+	}
 	image := sanitizeForTerminal(status.Image)
 	if image == "" {
 		image = "-"
@@ -210,6 +221,7 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		created = "-"
 	}
 	fmt.Fprintf(w, "Status:       %s\n", statusStr)
+	fmt.Fprintf(w, "Image Ref:    %s\n", imageRef)
 	fmt.Fprintf(w, "Image ID:     %s\n", image)
 	fmt.Fprintf(w, "Image Digest: %s\n", imageDigest)
 	fmt.Fprintf(w, "Version:      %s\n", version)

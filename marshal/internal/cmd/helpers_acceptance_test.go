@@ -58,6 +58,7 @@ type fakeRunner struct {
 	// --format "{{json .Config.Labels}}". Defaults to "{}" when empty.
 	imageInspectLabelJSON string
 	imageDigest           string
+	imageRef              string
 	calls                 [][]string
 	// projectVolumes is the list of volume names returned by "podman volume ls
 	// --filter label=io.ai-airbase.project=..." to simulate pre-existing
@@ -201,7 +202,7 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 		if cr == "" {
 			cr = "2024-01-01"
 		}
-		return []byte(img + "|" + cr + "|" + f.imageDigest + "|" + f.imageVersion + "\n"), nil
+		return []byte(img + "|" + cr + "|" + f.imageDigest + "|" + f.imageRef + "|" + f.imageVersion + "\n"), nil
 
 	default:
 		// create, start, stop, rm — succeed silently

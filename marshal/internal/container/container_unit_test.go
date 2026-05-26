@@ -1327,19 +1327,19 @@ func TestGetStatus_ContainerDoesNotExist_ReturnsNotExistsStatus(t *testing.T) {
 }
 
 // TestGetStatus_ContainerRunning_ReturnsFullStatus verifies that GetStatus
-// returns full status (Exists, Running, Image, ImageDigest, Created, Version) for a running container.
+// returns full status (Exists, Running, Image, ImageRef, ImageDigest, Created, Version) for a running container.
 func TestGetStatus_ContainerRunning_ReturnsFullStatus(t *testing.T) {
-	// Given a running container with inspect data including the version label and image digest
+	// Given a running container with inspect data including the version label, image ref, and image digest
 	r := newFake(
 		okOut("mycontainer\n"), // Exists → true
 		okOut("mycontainer\n"), // IsRunning → true
-		okOut("docker.io/myimage:latest|2024-01-15T10:30:00Z|sha256:abc123|v1.2.3\n"), // inspect (field order: image|created|digest|version)
+		okOut("docker.io/myimage:latest|2024-01-15T10:30:00Z|sha256:abc123|docker.io/myimage:latest|v1.2.3\n"), // inspect (field order: image|created|digest|imageRef|version)
 	)
 
 	// When GetStatus is called
 	got, err := container.GetStatus(r, "mycontainer")
 
-	// Then full status including image, creation time, version, and digest is returned
+	// Then full status including image, image ref, creation time, version, and digest is returned
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1352,6 +1352,9 @@ func TestGetStatus_ContainerRunning_ReturnsFullStatus(t *testing.T) {
 	if got.Image != "docker.io/myimage:latest" {
 		t.Errorf("Image = %q, want %q", got.Image, "docker.io/myimage:latest")
 	}
+	if got.ImageRef != "docker.io/myimage:latest" {
+		t.Errorf("ImageRef = %q, want %q", got.ImageRef, "docker.io/myimage:latest")
+	}
 	if got.Created != "2024-01-15T10:30:00Z" {
 		t.Errorf("Created = %q, want %q", got.Created, "2024-01-15T10:30:00Z")
 	}
@@ -1361,14 +1364,14 @@ func TestGetStatus_ContainerRunning_ReturnsFullStatus(t *testing.T) {
 	if got.ImageDigest != "sha256:abc123" {
 		t.Errorf("ImageDigest = %q, want %q", got.ImageDigest, "sha256:abc123")
 	}
-	// The inspect call (calls[2]) must include --format with the full 4-field template
+	// The inspect call (calls[2]) must include --format with the full 5-field template
 	if len(r.calls) < 3 {
 		t.Fatalf("expected at least 3 calls, got %d", len(r.calls))
 	}
 	if !hasArg(r.calls[2].args, "--format") {
 		t.Error("expected --format flag in inspect args")
 	}
-	const wantFormat = `{{.Image}}|{{.Created}}|{{.ImageDigest}}|{{index .Config.Labels "org.opencontainers.image.version"}}`
+	const wantFormat = `{{.Image}}|{{.Created}}|{{.ImageDigest}}|{{.ImageName}}|{{index .Config.Labels "org.opencontainers.image.version"}}`
 	if !hasConsecutiveArgs(r.calls[2].args, "--format", wantFormat) {
 		t.Errorf("expected --format %q in inspect args; got %v", wantFormat, r.calls[2].args)
 	}
@@ -1381,7 +1384,7 @@ func TestGetStatus_ContainerStopped_ReturnsExistsNotRunning(t *testing.T) {
 	r := newFake(
 		okOut("mycontainer\n"), // Exists → true
 		okOut(""),              // IsRunning → false
-		okOut("docker.io/myimage:latest|2024-01-10T08:00:00Z||\n"), // inspect (field order: image|created|digest|version)
+		okOut("docker.io/myimage:latest|2024-01-10T08:00:00Z|||\n"), // inspect (field order: image|created|digest|imageRef|version)
 	)
 
 	// When GetStatus is called
@@ -1402,6 +1405,9 @@ func TestGetStatus_ContainerStopped_ReturnsExistsNotRunning(t *testing.T) {
 	}
 	if got.ImageDigest != "" {
 		t.Errorf("ImageDigest = %q, want empty string (no digest for stopped container fixture)", got.ImageDigest)
+	}
+	if got.ImageRef != "" {
+		t.Errorf("ImageRef = %q, want empty string (no imageRef for stopped container fixture)", got.ImageRef)
 	}
 }
 

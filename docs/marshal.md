@@ -179,15 +179,16 @@ Inherits [global flags](#global-flags) only.
 Project:      <project>
 Container:    marshal-<project>
 Status:       running | stopped | absent
+Image Ref:    <image-ref> | -
 Image ID:     <image-id> | -
 Image Digest: <digest> | -
 Version:      <version> | -
 Created:      <timestamp> | -
 ```
 
-When the container is absent, `Image ID`, `Image Digest`, `Version`, and `Created` are printed as `-`. When the image has no `org.opencontainers.image.version` label, `Version` is printed as `-`. When the image digest is unavailable (e.g. for locally built images), `Image Digest` is printed as `-`.
+When the container is absent, `Image Ref`, `Image ID`, `Image Digest`, `Version`, and `Created` are printed as `-`. When the image has no `org.opencontainers.image.version` label, `Version` is printed as `-`. When the image digest is unavailable (e.g. for locally built images), `Image Digest` is printed as `-`.
 
-`Image ID` shows the raw local image identifier — a 64-character hex string with no prefix, sourced from the `Image` field of `podman container inspect`. `Image Digest` shows the registry manifest digest, prefixed with `sha256:`, sourced from the `ImageDigest` field of `podman container inspect`. The two values identify the same image through different mechanisms and are not interchangeable.
+`Image Ref` shows the human-readable OCI image reference (e.g. `ghcr.io/rob-broadley/ai-airbase/revetment:latest`), sourced from the `ImageName` field of `podman container inspect`. `Image ID` shows the raw local image identifier — a 64-character hex string with no prefix, sourced from the `Image` field of `podman container inspect`. `Image Digest` shows the registry manifest digest, prefixed with `sha256:`, sourced from the `ImageDigest` field of `podman container inspect`. Image ID and Image Digest identify the same image through different mechanisms and are not interchangeable.
 
 **Examples**
 
@@ -199,6 +200,7 @@ marshal status
 Project:      my-app
 Container:    marshal-my-app
 Status:       running
+Image Ref:    ghcr.io/rob-broadley/ai-airbase/revetment:latest
 Image ID:     20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c
 Image Digest: sha256:2a4a9ad4a3b974af6820af557240fced4c7395ab393ac1ea3b76ac71663a7921
 Version:      0.1.1
@@ -213,6 +215,7 @@ marshal status --project other-project
 Project:      other-project
 Container:    marshal-other-project
 Status:       absent
+Image Ref:    -
 Image ID:     -
 Image Digest: -
 Version:      -

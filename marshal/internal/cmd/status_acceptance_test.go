@@ -4,18 +4,19 @@ package cmd_test
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/cmd"
 )
 
 // TestStatus_Running verifies that status reports project, container name,
-// running state, image, image digest, version, and creation date for a running container.
+// running state, image, image ref, image digest, version, and creation date for a running container.
 func TestStatus_Running(t *testing.T) {
-	// Given a running container with image, digest, version label, and creation metadata
+	// Given a running container with image, digest, version label, image ref, and creation metadata
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	runner := &fakeRunner{exists: true, running: true, image: "20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c", created: "2024-06-01", imageVersion: "1.2.3", imageDigest: "sha256:abc123"}
+	runner := &fakeRunner{exists: true, running: true, image: "20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c", created: "2024-06-01", imageVersion: "1.2.3", imageDigest: "sha256:abc123", imageRef: "ghcr.io/rob-broadley/ai-airbase/revetment:latest"}
 	deps := cmd.Deps{
 		Runner:              runner,
 		ExecFn:              (&fakeExec{}).exec,
@@ -33,15 +34,26 @@ func TestStatus_Running(t *testing.T) {
 	root.SetArgs([]string{"--project", "myapp", "status"})
 	assertNoError(t, root.Execute())
 
-	// Then the output contains project, container, state, image, digest, version, and created date
+	// Then the output contains project, container, state, image, image ref, digest, version, and created date
 	out := buf.String()
 	assertContains(t, out, "myapp")
 	assertContains(t, out, "marshal-myapp")
 	assertContains(t, out, "running")
 	assertContains(t, out, "Image ID:     20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c")
+	assertContains(t, out, "Image Ref:    ghcr.io/rob-broadley/ai-airbase/revetment:latest")
 	assertContains(t, out, "Image Digest: sha256:abc123")
 	assertContains(t, out, "Version:      1.2.3")
 	assertContains(t, out, "Created:      2024-06-01")
+	// Image Ref: must appear between Status: and Image ID:
+	statusIdx := strings.Index(out, "Status:")
+	imageRefIdx := strings.Index(out, "Image Ref:")
+	imageIDIdx := strings.Index(out, "Image ID:")
+	if statusIdx < 0 || imageRefIdx < 0 || imageIDIdx < 0 {
+		t.Fatalf("expected Status:, Image Ref:, and Image ID: lines in output; got:\n%s", out)
+	}
+	if statusIdx >= imageRefIdx || imageRefIdx >= imageIDIdx {
+		t.Errorf("expected Image Ref: between Status: and Image ID: in output; got:\n%s", out)
+	}
 }
 
 // TestStatus_Running_ImageDigestAbsent verifies that when the container exists
@@ -73,6 +85,7 @@ func TestStatus_Running_ImageDigestAbsent(t *testing.T) {
 	out := buf.String()
 	assertContains(t, out, "Status:       running")
 	assertContains(t, out, "Image ID:     20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c")
+	assertContains(t, out, "Image Ref:    -")
 	assertContains(t, out, "Image Digest: -")
 	assertContains(t, out, "Version:      1.2.3")
 }
@@ -104,6 +117,7 @@ func TestStatus_Running_VersionLabelNotSet(t *testing.T) {
 
 	// Then the Version: and Image Digest: lines are present and show dash placeholders
 	out := buf.String()
+	assertContains(t, out, "Image Ref:    -")
 	assertContains(t, out, "Image Digest: -")
 	assertContains(t, out, "Version:      -")
 }
@@ -136,6 +150,7 @@ func TestStatus_Absent(t *testing.T) {
 	out := buf.String()
 	assertContains(t, out, "absent")
 	assertContains(t, out, "Image ID:     -")
+	assertContains(t, out, "Image Ref:    -")
 	assertContains(t, out, "Image Digest: -")
 	assertContains(t, out, "Version:      -")
 	assertContains(t, out, "Created:      -")
@@ -165,10 +180,11 @@ func TestStatus_Stopped(t *testing.T) {
 	root.SetArgs([]string{"--project", "myapp", "status"})
 	assertNoError(t, root.Execute())
 
-	// Then the output contains stopped and shows the Image ID and Image Digest labels
+	// Then the output contains stopped and shows the Image ID, Image Ref, and Image Digest labels
 	out := buf.String()
 	assertContains(t, out, "stopped")
 	assertContains(t, out, "Image ID:     20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c")
+	assertContains(t, out, "Image Ref:    -")
 	assertContains(t, out, "Image Digest: -")
 }
 
