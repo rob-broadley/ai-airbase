@@ -139,7 +139,7 @@ func TestEnsureConfigFile_CalledTwiceIsIdempotent(t *testing.T) {
 	}
 }
 
-func TestSanitizeGitValue(t *testing.T) {
+func TestSanitizeForTerminal(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -158,8 +158,8 @@ func TestSanitizeGitValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := sanitizeGitValue(tt.input); got != tt.expected {
-				t.Errorf("sanitizeGitValue(%q) = %q, want %q", tt.input, got, tt.expected)
+			if got := sanitizeForTerminal(tt.input); got != tt.expected {
+				t.Errorf("sanitizeForTerminal(%q) = %q, want %q", tt.input, got, tt.expected)
 			}
 		})
 	}

@@ -1327,19 +1327,19 @@ func TestGetStatus_ContainerDoesNotExist_ReturnsNotExistsStatus(t *testing.T) {
 }
 
 // TestGetStatus_ContainerRunning_ReturnsFullStatus verifies that GetStatus
-// returns full status (Exists, Running, Image, Created) for a running container.
+// returns full status (Exists, Running, Image, Created, Version) for a running container.
 func TestGetStatus_ContainerRunning_ReturnsFullStatus(t *testing.T) {
-	// Given a running container with inspect data available
+	// Given a running container with inspect data including the version label
 	r := newFake(
 		okOut("mycontainer\n"), // Exists → true
 		okOut("mycontainer\n"), // IsRunning → true
-		okOut("docker.io/myimage:latest|2024-01-15T10:30:00Z\n"), // inspect
+		okOut("docker.io/myimage:latest|2024-01-15T10:30:00Z|v1.2.3\n"), // inspect
 	)
 
 	// When GetStatus is called
 	got, err := container.GetStatus(r, "mycontainer")
 
-	// Then full status including image and creation time is returned
+	// Then full status including image, creation time, and version is returned
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1355,15 +1355,19 @@ func TestGetStatus_ContainerRunning_ReturnsFullStatus(t *testing.T) {
 	if got.Created != "2024-01-15T10:30:00Z" {
 		t.Errorf("Created = %q, want %q", got.Created, "2024-01-15T10:30:00Z")
 	}
-	// The inspect call (calls[2]) must include --format with the image|created template
+	if got.Version != "v1.2.3" {
+		t.Errorf("Version = %q, want %q", got.Version, "v1.2.3")
+	}
+	// The inspect call (calls[2]) must include --format with the image|created|version template
 	if len(r.calls) < 3 {
 		t.Fatalf("expected at least 3 calls, got %d", len(r.calls))
 	}
 	if !hasArg(r.calls[2].args, "--format") {
 		t.Error("expected --format flag in inspect args")
 	}
-	if !hasConsecutiveArgs(r.calls[2].args, "--format", "{{.Image}}|{{.Created}}") {
-		t.Errorf("expected --format {{.Image}}|{{.Created}} in inspect args; got %v", r.calls[2].args)
+	const wantFormat = `{{.Image}}|{{.Created}}|{{index .Config.Labels "org.opencontainers.image.version"}}`
+	if !hasConsecutiveArgs(r.calls[2].args, "--format", wantFormat) {
+		t.Errorf("expected --format %q in inspect args; got %v", wantFormat, r.calls[2].args)
 	}
 }
 
@@ -1374,7 +1378,7 @@ func TestGetStatus_ContainerStopped_ReturnsExistsNotRunning(t *testing.T) {
 	r := newFake(
 		okOut("mycontainer\n"), // Exists → true
 		okOut(""),              // IsRunning → false
-		okOut("docker.io/myimage:latest|2024-01-10T08:00:00Z\n"), // inspect
+		okOut("docker.io/myimage:latest|2024-01-10T08:00:00Z|\n"), // inspect
 	)
 
 	// When GetStatus is called
@@ -1389,6 +1393,9 @@ func TestGetStatus_ContainerStopped_ReturnsExistsNotRunning(t *testing.T) {
 	}
 	if got.Running {
 		t.Error("expected Running = false")
+	}
+	if got.Version != "" {
+		t.Errorf("Version = %q, want empty string (label absent)", got.Version)
 	}
 }
 

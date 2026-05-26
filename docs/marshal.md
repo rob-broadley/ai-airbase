@@ -180,10 +180,11 @@ Project:   <project>
 Container: marshal-<project>
 Status:    running | stopped | absent
 Image:     <image> | -
+Version:   <version> | -
 Created:   <timestamp> | -
 ```
 
-When the container is absent, `Image` and `Created` are printed as `-`.
+When the container is absent, `Image`, `Version`, and `Created` are printed as `-`. When the image has no `org.opencontainers.image.version` label, `Version` is printed as `-`.
 
 **Examples**
 
@@ -196,6 +197,7 @@ Project:   my-app
 Container: marshal-my-app
 Status:    running
 Image:     ghcr.io/rob-broadley/ai-airbase/revetment:latest
+Version:   0.1.1
 Created:   2026-05-01 09:14:32
 ```
 
@@ -208,6 +210,7 @@ Project:   other-project
 Container: marshal-other-project
 Status:    absent
 Image:     -
+Version:   -
 Created:   -
 ```
 

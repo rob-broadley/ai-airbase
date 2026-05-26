@@ -49,6 +49,7 @@ type fakeRunner struct {
 	pullStderrOutput string
 	image            string
 	created          string
+	imageVersion     string
 	pullImageImage   string
 	// imageInspectVolumeJSON overrides the JSON returned for image inspect
 	// --format "{{json .Config.Volumes}}". Defaults to "{}" when empty.
@@ -199,7 +200,7 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 		if cr == "" {
 			cr = "2024-01-01"
 		}
-		return []byte(img + "|" + cr + "\n"), nil
+		return []byte(img + "|" + cr + "|" + f.imageVersion + "\n"), nil
 
 	default:
 		// create, start, stop, rm — succeed silently

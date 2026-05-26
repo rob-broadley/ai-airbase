@@ -49,33 +49,55 @@ func TestImageExists_UnexpectedFailureIncludesOutput(t *testing.T) {
 // with a warning line (e.g. from CombinedOutput mixing stderr into stdout).
 func TestParseInspectOutput_WithLeadingWarning(t *testing.T) {
 	// Given an inspect output string prefixed with a podman warning line
-	raw := "Warning: blah blah\nimage-name|2024-01-01"
+	raw := "Warning: blah blah\nimage-name|2024-01-01|v2.0.0"
 
 	// When the output is parsed
-	image, created := parseInspectOutput(raw)
+	image, created, version := parseInspectOutput(raw)
 
-	// Then the image and created fields are correctly extracted, ignoring the warning
+	// Then the image, created, and version fields are correctly extracted, ignoring the warning
 	if image != "image-name" {
 		t.Errorf("image = %q, want %q", image, "image-name")
 	}
 	if created != "2024-01-01" {
 		t.Errorf("created = %q, want %q", created, "2024-01-01")
 	}
+	if version != "v2.0.0" {
+		t.Errorf("version = %q, want %q", version, "v2.0.0")
+	}
+}
+
+// TestParseInspectOutput_AbsentVersionLabel_ReturnsEmptyString verifies that
+// parseInspectOutput returns an empty version when the third field is empty
+// (i.e. the org.opencontainers.image.version label is not set on the image).
+func TestParseInspectOutput_AbsentVersionLabel_ReturnsEmptyString(t *testing.T) {
+	// Given inspect output with an empty version field
+	raw := "Warning: blah blah\nimage-name|2024-01-01|"
+
+	// When the output is parsed
+	_, _, version := parseInspectOutput(raw)
+
+	// Then version is the empty string
+	if version != "" {
+		t.Errorf("version = %q, want empty string", version)
+	}
 }
 
 // TestParseInspectOutput_EmptyInput verifies that parseInspectOutput returns
-// empty strings for both fields when given an empty (or all-whitespace) input.
+// empty strings for all three fields when given an empty (or all-whitespace) input.
 func TestParseInspectOutput_EmptyInput(t *testing.T) {
 	// Given an empty input string
 
 	// When the output is parsed
-	image, created := parseInspectOutput("")
+	image, created, version := parseInspectOutput("")
 
-	// Then both fields are returned as empty strings
+	// Then all three fields are returned as empty strings
 	if image != "" {
 		t.Errorf("image = %q, want empty string", image)
 	}
 	if created != "" {
 		t.Errorf("created = %q, want empty string", created)
+	}
+	if version != "" {
+		t.Errorf("version = %q, want empty string", version)
 	}
 }

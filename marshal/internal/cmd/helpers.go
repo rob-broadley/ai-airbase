@@ -127,8 +127,8 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 // stripped before quoting. Returns an empty byte slice when neither value is
 // set so the file is still created, allowing the user to populate it manually.
 func buildGitConfigContent(lookup func(string) string) []byte {
-	name := sanitizeGitValue(lookup("user.name"))
-	email := sanitizeGitValue(lookup("user.email"))
+	name := sanitizeForTerminal(lookup("user.name"))
+	email := sanitizeForTerminal(lookup("user.email"))
 	if name == "" && email == "" {
 		return []byte{}
 	}
@@ -153,9 +153,10 @@ func gitQuote(v string) string {
 	return `"` + v + `"`
 }
 
-// sanitizeGitValue strips control characters (anything < 0x20 and DEL 0x7f)
-// from a git config value as a defence-in-depth measure before quoting.
-func sanitizeGitValue(v string) string {
+// sanitizeForTerminal strips control characters (anything < 0x20 and DEL 0x7f)
+// from a string before writing it to terminal output, guarding against escape
+// sequence injection from untrusted sources such as OCI image labels.
+func sanitizeForTerminal(v string) string {
 	return strings.Map(func(r rune) rune {
 		if r < 0x20 || r == 0x7f {
 			return -1 // drop control characters
