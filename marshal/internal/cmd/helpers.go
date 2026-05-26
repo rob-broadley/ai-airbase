@@ -153,12 +153,13 @@ func gitQuote(v string) string {
 	return `"` + v + `"`
 }
 
-// sanitizeForTerminal strips control characters (anything < 0x20 and DEL 0x7f)
-// from a string before writing it to terminal output, guarding against escape
-// sequence injection from untrusted sources such as OCI image labels.
+// sanitizeForTerminal strips C0 control characters (< 0x20), DEL (0x7f), and
+// C1 control characters (0x80–0x9F, including the 8-bit CSI U+009B) from a
+// string before writing it to terminal output, guarding against escape sequence
+// injection from untrusted sources such as OCI image labels.
 func sanitizeForTerminal(v string) string {
 	return strings.Map(func(r rune) rune {
-		if r < 0x20 || r == 0x7f {
+		if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) {
 			return -1 // drop control characters
 		}
 		return r

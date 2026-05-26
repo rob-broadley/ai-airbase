@@ -154,6 +154,12 @@ func TestSanitizeForTerminal(t *testing.T) {
 		{name: "newline stripped", input: "Alice\nBob", expected: "AliceBob"},
 		{name: "empty string", input: "", expected: ""},
 		{name: "non-ASCII printable preserved", input: "café", expected: "café"},
+		// C1 control characters (U+0080–U+009F) — added to guard against 8-bit CSI injection
+		{name: "C1 boundary-start stripped", input: "\u0080", expected: ""},
+		{name: "C1 8-bit CSI stripped", input: "\u009b", expected: ""},
+		{name: "C1 boundary-end stripped", input: "\u009f", expected: ""},
+		{name: "C1 embedded in string stripped", input: "sha256:\u009b1A", expected: "sha256:1A"},
+		{name: "U+00A0 no-break space preserved (just above C1)", input: "\u00a0", expected: "\u00a0"},
 	}
 
 	for _, tt := range tests {
