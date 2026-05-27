@@ -21,7 +21,8 @@ These flags apply to every command.
 
 `MARSHAL_PROJECT` sets the project name when `--project` is not given. The flag takes precedence over the environment variable.
 
-Project names must start and end with an alphanumeric character and contain only alphanumerics, hyphens, underscores, and dots (1–128 characters). Names ending with `-pending-<pid>-<nano>` or `-retiring-<pid>-<nano>` are reserved for internal use.
+Project names must start and end with an alphanumeric character and contain only alphanumerics, hyphens, underscores, and dots (1–128 characters).
+Names ending with `-pending-<pid>-<nano>` or `-retiring-<pid>-<nano>` are reserved for internal use.
 
 ______________________________________________________________________
 
@@ -31,7 +32,8 @@ ______________________________________________________________________
 
 Start or attach to the project container, launching Copilot CLI.
 
-If the container does not exist, marshal creates it (pulling the image if needed) and starts it. If the container is stopped, marshal starts it and attaches. If the container is already running, marshal attaches to the existing PID 1 session.
+If the container does not exist, marshal creates it (pulling the image if needed) and starts it. If the container is stopped, marshal starts it and
+attaches. If the container is already running, marshal attaches to the existing PID 1 session.
 
 The current process is replaced by the `podman start` or `podman attach` process.
 
@@ -61,9 +63,11 @@ ______________________________________________________________________
 
 Save the mount configuration and create the container. Run this once per project before using any other lifecycle commands.
 
-If no `--mount` flags are given, the current directory is used as the sole mount. Each `--mount` path is bind-mounted inside the container at `/workspace/<basename>`. Paths are saved to the project config file and used by all subsequent commands automatically.
+If no `--mount` flags are given, the current directory is used as the sole mount. Each `--mount` path is bind-mounted inside the container at
+`/workspace/<basename>`. Paths are saved to the project config file and used by all subsequent commands automatically.
 
-Errors if a container for the project already exists. To rebuild an existing project, use `marshal recreate`. To change mounts or masks, run `marshal remove` then `marshal create` with the new `--mount` and `--mask` flags.
+Errors if a container for the project already exists. To rebuild an existing project, use `marshal recreate`.
+To change mounts or masks, run `marshal remove` then `marshal create` with the new `--mount` and `--mask` flags.
 
 **Usage**
 
@@ -89,23 +93,38 @@ to hide.
 
 #### `--mask <path>`
 
-Subdirectory to hide from the agent by shadowing it with a named Podman volume. Repeatable. The named volume starts empty on first use; any data written by the agent into the masked directory persists in the volume and survives `marshal recreate`.
+Subdirectory to hide from the agent by shadowing it with a named Podman volume. Repeatable. The named volume starts empty on first use; any data
+written by the agent into the masked directory persists in the volume and survives `marshal recreate`.
 
-Paths are resolved like shell paths — relative to your current working directory, not relative to any mount root. marshal looks up which configured mount contains the resolved path and mounts the named volume at the corresponding container path, making the host contents at that path invisible to the agent. Absolute paths are accepted if they fall under a configured mount.
+Paths are resolved like shell paths — relative to your current working directory, not relative to any mount root. marshal looks up which configured
+mount contains the resolved path and mounts the named volume at the corresponding container path, making the host contents at that path invisible to
+the agent. Absolute paths are accepted if they fall under a configured mount.
 
 Each mask is resolved independently, so `--mask` works with any number of `--mount` flags.
 
-Named volumes follow the scheme `marshal-<project>-mask-<mount-basename>-<encoded-rel-path>` where `<mount-basename>` is the last path component of the containing mount and `<encoded-rel-path>` is the mask path relative to that mount, with hyphens doubled and slashes converted to hyphens (for example, with mount `/projects/myapp`, masking `.venv` produces `marshal-myapp-mask-myapp-.venv`, masking `src/vendor` produces `marshal-myapp-mask-myapp-src-vendor`, and masking `src-vendor` produces `marshal-myapp-mask-myapp-src--vendor`). The mount basename component prevents volume name collisions when multiple mounts share the same relative subpath. Volume names are visible in `podman volume ls` output, which means masked path names are visible to anyone who can list Podman volumes — accept this as a trade-off when path names are sensitive.
+Named volumes follow the scheme `marshal-<project>-mask-<mount-basename>-<encoded-rel-path>` where `<mount-basename>` is the last path component of
+the containing mount and `<encoded-rel-path>` is the mask path relative to that mount, with hyphens doubled and slashes converted to hyphens (for
+example, with mount `/projects/myapp`, masking `.venv` produces `marshal-myapp-mask-myapp-.venv`, masking `src/vendor` produces
+`marshal-myapp-mask-myapp-src-vendor`, and masking `src-vendor` produces `marshal-myapp-mask-myapp-src--vendor`). The mount basename component
+prevents volume name collisions when multiple mounts share the same relative subpath. Volume names are visible in `podman volume ls` output, which
+means masked path names are visible to anyone who can list Podman volumes — accept this as a trade-off when path names are sensitive.
 
-The path must not contain `:`, must not resolve to a mount root itself or escape the mount (for example, via `..`), and must fall under a configured mount. Absolute paths are accepted when they resolve to a path inside a configured mount. Duplicate paths, paths that point to a regular file on the host, and paths where one mask is a subdirectory of another are also rejected.
+The path must not contain `:`, must not resolve to a mount root itself or escape the mount (for example, via `..`), and must fall under a configured
+mount. Absolute paths are accepted when they resolve to a path inside a configured mount. Duplicate paths, paths that point to a regular file on the
+host, and paths where one mask is a subdirectory of another are also rejected.
 
-Mask volumes are preserved across `marshal recreate` (like the Nix store and uv tool cache), so any data written by the agent into the masked directory survives a container rebuild. `marshal remove` deletes mask volumes automatically along with all other per-project volumes.
+Mask volumes are preserved across `marshal recreate` (like the Nix store and uv tool cache), so any data written by the agent into the masked
+directory survives a container rebuild. `marshal remove` deletes mask volumes automatically along with all other per-project volumes.
 
 > [!NOTE]
-> Masks are set at create time. The `--mask` flag is not available on `marshal recreate` — to change a project's masks, remove the project with `marshal remove` and recreate it with the new `--mask` flags.
+> Masks are set at create time. The `--mask` flag is not available on `marshal recreate` — to change a project's masks, remove the project with
+> `marshal remove` and recreate it with the new `--mask` flags.
 
 > [!NOTE]
-> If `marshal create` fails after some mask volumes were already created (for example, a second `podman volume create` call fails), the project config was saved before container creation began and any partial volumes are left in place. Running `marshal create` again is safe — volume creation uses `--ignore`, so re-running is idempotent and will not duplicate or corrupt existing volumes. If you want to abandon the project entirely, run `marshal remove`, which cleans up all label-tagged volumes including any that were partially provisioned.
+> If `marshal create` fails after some mask volumes were already created (for example, a second `podman volume create` call fails), the project config
+> was saved before container creation began and any partial volumes are left in place. Running `marshal create` again is safe — volume creation uses
+> `--ignore`, so re-running is idempotent and will not duplicate or corrupt existing volumes. If you want to abandon the project entirely, run
+> `marshal remove`, which cleans up all label-tagged volumes including any that were partially provisioned.
 
 **Examples**
 
@@ -213,17 +232,33 @@ Masks:
   ...
 ```
 
-When the container is absent, `Image Ref`, `Image ID`, `Image Digest`, `Version`, and `Created` are printed as `-`. When the image has no `org.opencontainers.image.version` label, `Version` is printed as `-`. When the image digest is unavailable (e.g. for locally built images), `Image Digest` is printed as `-`.
+When the container is absent, `Image Ref`, `Image ID`, `Image Digest`, `Version`, and `Created` are printed as `-`. When the image has no
+`org.opencontainers.image.version` label, `Version` is printed as `-`. When the image digest is unavailable (e.g. for locally built images),
+`Image Digest` is printed as `-`.
 
-`Image Ref` shows the human-readable OCI image reference (e.g. `ghcr.io/rob-broadley/ai-airbase/revetment:latest`), sourced from the `ImageName` field of `podman container inspect`. `Image ID` shows the raw local image identifier — a 64-character hex string with no prefix, sourced from the `Image` field of `podman container inspect`. `Image Digest` shows the registry manifest digest, prefixed with `sha256:`, sourced from the `ImageDigest` field of `podman container inspect`. Image ID and Image Digest identify the same image through different mechanisms and are not interchangeable.
+`Image Ref` shows the human-readable OCI image reference (e.g. `ghcr.io/rob-broadley/ai-airbase/revetment:latest`), sourced from the `ImageName` field
+of `podman container inspect`. `Image ID` shows the raw local image identifier — a 64-character hex string with no prefix, sourced from the `Image`
+field of `podman container inspect`. `Image Digest` shows the registry manifest digest, prefixed with `sha256:`, sourced from the `ImageDigest` field
+of `podman container inspect`. Image ID and Image Digest identify the same image through different mechanisms and are not interchangeable.
 
-When the container exists, each mount and mask entry is prefixed with a status symbol: `✓` (active — mounted from the configured host path at the expected container path), `✗` (missing — configured but absent from the container), or `?` (not in project config — Mounts: untracked bind mount, shown by host source path; Masks: untracked volume, shown by host-equivalent path derived from the parent bind mount, falling back to container path if no parent bind mount is found). The symbols are also described in `marshal status --help`.
+When the container exists, each mount and mask entry is prefixed with a status symbol: `✓` (active — mounted from the configured host path at the
+expected container path), `✗` (missing — configured but absent from the container), or `?` (not in project config — Mounts: untracked bind mount,
+shown by host source path; Masks: untracked volume, shown by host-equivalent path derived from the parent bind mount, falling back to container path
+if no parent bind mount is found). The symbols are also described in `marshal status --help`.
 
-`Mounts:` lists the configured bind mounts by host path. When the container exists, each entry is prefixed with a status symbol: `✓` the bind mount is active with the correct host source and container destination; `✗` the configured mount has no matching bind mount in the container. Bind mounts under `/workspace/` that are present in the container but not in the project config are appended with `?` (shown by host path). When no entries are present in this section, the field is printed as a single line: `Mounts:       none`.
+`Mounts:` lists the configured bind mounts by host path. When the container exists, each entry is prefixed with a status symbol: `✓` the bind mount is
+active with the correct host source and container destination; `✗` the configured mount has no matching bind mount in the container. Bind mounts under
+`/workspace/` that are present in the container but not in the project config are appended with `?` (shown by host path). When no entries are present
+in this section, the field is printed as a single line: `Mounts:       none`.
 
-`Masks:` lists the configured mask volumes by host path. When the container exists, each entry is prefixed with a status symbol: `✓` the named volume is mounted at the expected container path; `✗` the configured mask has no corresponding volume mount in the container. `✓` and `✗` entries are shown by host path, while volume mounts under `/workspace/` that are not accounted for by any configured mask are appended with `?` (shown by host-equivalent path, derived from the parent bind mount; falls back to the container path if no parent bind mount can be found). When no entries are present in this section, the field is printed as a single line: `Masks:        none`.
+`Masks:` lists the configured mask volumes by host path. When the container exists, each entry is prefixed with a status symbol: `✓` the named volume
+is mounted at the expected container path; `✗` the configured mask has no corresponding volume mount in the container. `✓` and `✗` entries are shown
+by host path, while volume mounts under `/workspace/` that are not accounted for by any configured mask are appended with `?` (shown by
+host-equivalent path, derived from the parent bind mount; falls back to the container path if no parent bind mount can be found). When no entries are
+present in this section, the field is printed as a single line: `Masks:        none`.
 
-When the container is absent, `Mounts:` and `Masks:` list the paths saved in the project config file with no symbol prefix and no legend line. If the config has no entries, the `none` placeholder is used.
+When the container is absent, `Mounts:` and `Masks:` list the paths saved in the project config file with no symbol prefix and no legend line. If the
+config has no entries, the `none` placeholder is used.
 
 **Examples**
 
@@ -271,22 +306,28 @@ ______________________________________________________________________
 
 Atomically replace the project container with a fresh one.
 
-marshal always pulls the latest image before replacing the container. If the pull fails but a local copy exists (for example, when offline), marshal warns and continues with the local image. If no local image exists and the pull fails, marshal returns an error and leaves the old container intact.
+marshal always pulls the latest image before replacing the container. If the pull fails but a local copy exists (for example, when offline), marshal
+warns and continues with the local image. If no local image exists and the pull fails, marshal returns an error and leaves the old container intact.
 
 The replacement uses a double-rename sequence (pending → canonical) to minimise the window during which no container is present at the canonical name.
 
 **What is preserved across recreate**
 
-- Three per-project tool volumes: the Nix store (`/nix/store`), the Nix user profile (`~/.local/state/nix`), and the uv tool cache (`~/.local/share/uv`). Tools installed by agents persist across recreates.
-- Conversation history and agent checkpoints (`session-store.db` and `session-state/`) stored under `$XDG_DATA_HOME/marshal/projects/<project>/` on the host.
+- Three per-project tool volumes: the Nix store (`/nix/store`), the Nix user profile (`~/.local/state/nix`), and the uv tool cache
+  (`~/.local/share/uv`). Tools installed by agents persist across recreates.
+- Conversation history and agent checkpoints (`session-store.db` and `session-state/`) stored under `$XDG_DATA_HOME/marshal/projects/<project>/` on
+  the host.
 - Mask volumes — any data written by the agent into each masked directory is preserved across recreates.
 
 **What is not preserved**
 
-- Any state stored only in the container filesystem (not in a named volume or host bind mount), including the Copilot CLI binary. If the Copilot CLI updated itself via `/update` during a session, the image-bundled version is restored on the next `marshal recreate`.
+- Any state stored only in the container filesystem (not in a named volume or host bind mount), including the Copilot CLI binary. If the Copilot CLI
+  updated itself via `/update` during a session, the image-bundled version is restored on the next `marshal recreate`.
 
 > [!NOTE]
-> The Copilot CLI binary is a pre-built native binary at `/opt/copilot/bin/copilot`. Running `/update` updates the CLI in-session (the binary bootstraps itself and stores updated state elsewhere), but the bundled binary is restored when `marshal recreate` pulls a new image. To get a permanently updated version, run `marshal recreate`.
+> The Copilot CLI binary is a pre-built native binary at `/opt/copilot/bin/copilot`. Running `/update` updates the CLI in-session (the binary
+> bootstraps itself and stores updated state elsewhere), but the bundled binary is restored when `marshal recreate` pulls a new image. To get a
+> permanently updated version, run `marshal recreate`.
 
 **Usage**
 
@@ -314,7 +355,8 @@ ______________________________________________________________________
 
 Stop and permanently remove the container and all per-project state.
 
-marshal stops the container if running, removes it, removes all three per-project tool volumes (Nix store, Nix profile, and uv tool cache), and deletes the saved project config file. The revetment image is left untouched.
+marshal stops the container if running, removes it, removes all three per-project tool volumes (Nix store, Nix profile, and uv tool cache), and
+deletes the saved project config file. The revetment image is left untouched.
 
 After `remove`, the project has no container and no config. Use `marshal create` to start fresh.
 
@@ -344,7 +386,8 @@ ______________________________________________________________________
 
 Open an interactive bash shell inside the container.
 
-The container is created (pulling the image if needed) and started automatically if it does not exist or is stopped. When you exit the shell the container keeps running; use `marshal stop` to stop it.
+The container is created (pulling the image if needed) and started automatically if it does not exist or is stopped. When you exit the shell the
+container keeps running; use `marshal stop` to stop it.
 
 The current process is replaced by a `podman exec` session running `/bin/bash`.
 
@@ -462,9 +505,11 @@ masks = [
 ]
 ```
 
-`mounts` lists the host directories bind-mounted into `/workspace/`. `masks` lists the absolute host paths of subdirectories shadowed by empty named volumes — these paths correspond to the `--mask` values passed to `marshal create`, resolved to absolute form.
+`mounts` lists the host directories bind-mounted into `/workspace/`. `masks` lists the absolute host paths of subdirectories shadowed by empty named
+volumes — these paths correspond to the `--mask` values passed to `marshal create`, resolved to absolute form.
 
-marshal writes this file when you run `marshal create`. You do not normally need to edit it by hand. To change the mounts or masks for a project, run `marshal remove` then `marshal create` with the new `--mount` and `--mask` flags.
+marshal writes this file when you run `marshal create`. You do not normally need to edit it by hand. To change the mounts or masks for a project, run
+`marshal remove` then `marshal create` with the new `--mount` and `--mask` flags.
 
 ______________________________________________________________________
 
@@ -492,7 +537,8 @@ ______________________________________________________________________
 
 ## Container networking
 
-The revetment container has unrestricted outbound network access. This is intentional: agents need network access to install packages, pull dependencies, and perform research tasks.
+The revetment container has unrestricted outbound network access. This is intentional: agents need network access to install packages, pull
+dependencies, and perform research tasks.
 
 ______________________________________________________________________
 
