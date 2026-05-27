@@ -311,8 +311,6 @@ func TestRemove_ContinuesPastVolumeFailure(t *testing.T) {
 // TestRemove_ContainerRemoveFails_VolumesAndConfigUntouched verifies that when
 // container.Remove fails, RemoveProjectVolumes and config.Delete are NOT called
 // (the container still exists, so its state must remain consistent).
-//
-// Acceptance criterion 1: container remove fails → volumes and config untouched.
 func TestRemove_ContainerRemoveFails_VolumesAndConfigUntouched(t *testing.T) {
 	// Given a saved config and a runner that fails on "rm"
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -365,9 +363,6 @@ func TestRemove_ContainerRemoveFails_VolumesAndConfigUntouched(t *testing.T) {
 // TestRemove_VolumeRemoveFails_PrintsQualifiedMessage verifies that when container
 // remove succeeds but volume remove fails, stdout reports that the container was
 // removed and cleanup only partially succeeded.
-//
-// Acceptance criterion 2: container remove succeeds, volume remove fails →
-// qualified success message printed, config.Delete still attempted, error returned.
 func TestRemove_VolumeRemoveFails_PrintsQualifiedMessage(t *testing.T) {
 	// Given a stopped container and a runner that fails on the "volume" subcommand
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -405,9 +400,6 @@ func TestRemove_VolumeRemoveFails_PrintsQualifiedMessage(t *testing.T) {
 // TestRemove_ConfigDeleteFails_PrintsQualifiedMessage verifies that when container
 // remove and volume remove both succeed but config.Delete fails, stdout reports
 // partial cleanup failure and an error is returned.
-//
-// Acceptance criterion 3: container remove succeeds, config delete fails →
-// qualified success message printed, error returned.
 func TestRemove_ConfigDeleteFails_PrintsQualifiedMessage(t *testing.T) {
 	// Given a runner that succeeds and a DeleteConfig stub that returns an error.
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())

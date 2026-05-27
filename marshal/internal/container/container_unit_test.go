@@ -1776,3 +1776,127 @@ func TestExec_CommandAppendsCorrectly(t *testing.T) {
 		}
 	}
 }
+
+// TestGetMounts_RunnerReceivesCorrectCommand verifies that GetMounts calls
+// "podman inspect --format {{json .Mounts}} <containerName>".
+func TestGetMounts_RunnerReceivesCorrectCommand(t *testing.T) {
+	// Given a runner that returns an empty mounts JSON
+	runner := newFake(okOut(`[]`))
+
+	// When GetMounts is called
+	_, err := container.GetMounts(runner, "mycontainer")
+
+	// Then no error is returned and the correct command was issued
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(runner.calls) != 1 {
+		t.Fatalf("expected 1 call, got %d", len(runner.calls))
+	}
+	call := runner.calls[0]
+	if call.name != "podman" {
+		t.Errorf("command name = %q, want %q", call.name, "podman")
+	}
+	if !hasArg(call.args, "inspect") {
+		t.Errorf("args %v missing %q", call.args, "inspect")
+	}
+	if !hasArg(call.args, "{{json .Mounts}}") {
+		t.Errorf("args %v missing --format argument %q", call.args, "{{json .Mounts}}")
+	}
+	if !hasArg(call.args, "mycontainer") {
+		t.Errorf("args %v missing container name %q", call.args, "mycontainer")
+	}
+}
+
+// TestGetMounts_ParsesBindAndVolumeMounts verifies that GetMounts correctly
+// parses bind and volume mount entries from the JSON returned by podman inspect.
+func TestGetMounts_ParsesBindAndVolumeMounts(t *testing.T) {
+	// Given podman inspect returns a bind mount and a volume mount
+	json := `[
+		{"Type":"bind","Source":"/home/user/project","Destination":"/workspace/project"},
+		{"Type":"volume","Source":"myapp-vol","Destination":"/workspace/project/secrets"}
+	]`
+	runner := newFake(okOut(json))
+
+	// When GetMounts is called
+	mounts, err := container.GetMounts(runner, "mycontainer")
+
+	// Then both mounts are returned with correct fields
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(mounts) != 2 {
+		t.Fatalf("got %d mounts, want 2", len(mounts))
+	}
+	if mounts[0].Type != "bind" || mounts[0].Source != "/home/user/project" || mounts[0].Destination != "/workspace/project" {
+		t.Errorf("mounts[0] = %+v, want bind /home/user/project -> /workspace/project", mounts[0])
+	}
+	if mounts[1].Type != "volume" || mounts[1].Source != "myapp-vol" || mounts[1].Destination != "/workspace/project/secrets" {
+		t.Errorf("mounts[1] = %+v, want volume myapp-vol -> /workspace/project/secrets", mounts[1])
+	}
+}
+
+// TestGetMounts_RunnerError verifies that GetMounts propagates an error from
+// the runner without masking the original cause, and that the error message
+// includes both the expected prefix and the container name.
+func TestGetMounts_RunnerError(t *testing.T) {
+	// Given a runner that returns an error
+	runner := newFake(errOut(errors.New("podman unavailable")))
+
+	// When GetMounts is called
+	_, err := container.GetMounts(runner, "mycontainer")
+
+	// Then an error is returned that contains the original cause
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "podman unavailable") {
+		t.Errorf("error %q does not mention original cause", err.Error())
+	}
+	// And the error message includes the prefix and container name
+	if !strings.Contains(err.Error(), "running podman inspect for container") {
+		t.Errorf("error %q does not mention runner-error prefix", err.Error())
+	}
+	if !strings.Contains(err.Error(), "mycontainer") {
+		t.Errorf("error %q does not mention the container name", err.Error())
+	}
+}
+
+// TestGetMounts_ParseError verifies that GetMounts returns a parsing error when
+// podman inspect returns malformed mount JSON.
+func TestGetMounts_ParseError(t *testing.T) {
+	// Given a runner that returns malformed JSON for the mounts payload
+	runner := newFake(okOut(`{"Type":`))
+
+	// When GetMounts is called
+	_, err := container.GetMounts(runner, "mycontainer")
+
+	// Then a parsing error is returned
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "parsing mounts for container") {
+		t.Errorf("error %q does not mention parsing container mounts", err.Error())
+	}
+}
+
+// TestGetMounts_EmptySliceOnNoMounts verifies that GetMounts returns an empty
+// (non-nil) slice when the container has no mounts.
+func TestGetMounts_EmptySliceOnNoMounts(t *testing.T) {
+	// Given a runner returning an empty JSON array
+	runner := newFake(okOut(`[]`))
+
+	// When GetMounts is called
+	mounts, err := container.GetMounts(runner, "mycontainer")
+
+	// Then no error is returned and the slice is empty (not nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mounts == nil {
+		t.Error("expected non-nil empty slice, got nil")
+	}
+	if len(mounts) != 0 {
+		t.Errorf("expected 0 mounts, got %d", len(mounts))
+	}
+}

@@ -429,6 +429,38 @@ func TestCreate_NestedMountErrors(t *testing.T) {
 	assertContains(t, err.Error(), "nested")
 }
 
+// TestCreate_LoadConfigErrorPropagated verifies that runCreate honours the
+// injected LoadConfig dependency: when the stub returns an error, runCreate
+// must propagate it rather than falling through to config.Load directly.
+func TestCreate_LoadConfigErrorPropagated(t *testing.T) {
+	// Given a LoadConfig stub that always returns an error
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		LoadConfig: func(project string) (*config.Config, error) {
+			return nil, fmt.Errorf("injected load failure")
+		},
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"--project", "myapp", "create"})
+
+	// When the create subcommand is executed
+	err := root.Execute()
+
+	// Then the injected LoadConfig error is propagated
+	assertError(t, err)
+	assertContains(t, err.Error(), "injected load failure")
+}
+
 // TestCreate_ImagePullFails verifies that create propagates an error when the
 // image is absent and cannot be pulled (registry unreachable).
 func TestCreate_ImagePullFails(t *testing.T) {

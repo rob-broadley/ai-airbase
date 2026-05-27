@@ -15,9 +15,6 @@ import (
 // `podman image exists` fails with an unexpected (non-exit-1) error AND
 // produces output (e.g. "Error: cannot connect to Podman socket"), that output
 // is included in the error returned to the caller.
-//
-// Acceptance criterion: error messages from unexpected ImageExists failures
-// include Podman output.
 func TestImageExists_UnexpectedFailureIncludesOutput(t *testing.T) {
 	// Given: a fake podman binary that exits with an unexpected error code (2)
 	// and writes a diagnostic message to stderr.

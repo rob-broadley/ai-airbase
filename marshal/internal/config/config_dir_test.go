@@ -15,9 +15,6 @@ import (
 // TestEnsureSharedConfigDir_UsesXDGConfigHome verifies that EnsureSharedConfigDir
 // returns a path rooted at XDG_CONFIG_HOME when that env var is set, and that
 // the directory is created with mode 0o700.
-//
-// Acceptance criterion: Returns the correct path under XDG_CONFIG_HOME when
-// that env var is set, and creates the directory.
 func TestEnsureSharedConfigDir_UsesXDGConfigHome(t *testing.T) {
 	// Given XDG_CONFIG_HOME is set to a temp directory
 	tmp := t.TempDir()
@@ -51,9 +48,6 @@ func TestEnsureSharedConfigDir_UsesXDGConfigHome(t *testing.T) {
 // TestEnsureSharedConfigDir_FallsBackToHomeConfig verifies that when
 // XDG_CONFIG_HOME is not set, EnsureSharedConfigDir falls back to
 // ~/.config and returns a path rooted there.
-//
-// Acceptance criterion: Returns the correct path under ~/.config when
-// XDG_CONFIG_HOME is not set.
 func TestEnsureSharedConfigDir_FallsBackToHomeConfig(t *testing.T) {
 	// Given XDG_CONFIG_HOME is unset and HOME is set to a known temp directory
 	tmp := t.TempDir()
@@ -80,8 +74,6 @@ func TestEnsureSharedConfigDir_FallsBackToHomeConfig(t *testing.T) {
 
 // TestEnsureSharedConfigDir_CreatesDirectoryWhenAbsent verifies that
 // EnsureSharedConfigDir creates the target directory when it does not yet exist.
-//
-// Acceptance criterion: Creates the directory when it does not exist.
 func TestEnsureSharedConfigDir_CreatesDirectoryWhenAbsent(t *testing.T) {
 	// Given XDG_CONFIG_HOME is set to a temp directory and the subdir does not exist
 	tmp := t.TempDir()
@@ -108,9 +100,6 @@ func TestEnsureSharedConfigDir_CreatesDirectoryWhenAbsent(t *testing.T) {
 
 // TestEnsureSharedConfigDir_Idempotent verifies that EnsureSharedConfigDir
 // returns no error when the target directory already exists.
-//
-// Acceptance criterion: Returns successfully (no error) when the directory
-// already exists.
 func TestEnsureSharedConfigDir_Idempotent(t *testing.T) {
 	// Given XDG_CONFIG_HOME is set and the directory was already created
 	tmp := t.TempDir()
@@ -130,9 +119,6 @@ func TestEnsureSharedConfigDir_Idempotent(t *testing.T) {
 // TestEnsureSharedConfigDir_DirectoryCreationFails verifies that
 // EnsureSharedConfigDir returns an error containing "creating shared config
 // directory" when a file blocks directory creation.
-//
-// Acceptance criterion: Returns an error when the path exists as a file
-// (or cannot be created).
 func TestEnsureSharedConfigDir_DirectoryCreationFails(t *testing.T) {
 	// Given a file exists at the path where the shared config directory should be
 	tmp := t.TempDir()
@@ -159,9 +145,6 @@ func TestEnsureSharedConfigDir_DirectoryCreationFails(t *testing.T) {
 // TestEnsureSharedConfigDir_NonAbsolutePath_ReturnsUnavailableError verifies
 // that EnsureSharedConfigDir returns an actionable "unavailable" error when
 // neither XDG_CONFIG_HOME nor HOME is usable, leaving a non-absolute path.
-//
-// Acceptance criterion: Returns an error when the path cannot be created
-// (degenerate environment — no absolute base available).
 func TestEnsureSharedConfigDir_NonAbsolutePath_ReturnsUnavailableError(t *testing.T) {
 	// Given XDG_CONFIG_HOME is set to a relative (non-absolute) path
 	t.Setenv("XDG_CONFIG_HOME", "relative")

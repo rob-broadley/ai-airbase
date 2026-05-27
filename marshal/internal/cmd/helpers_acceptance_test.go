@@ -41,6 +41,11 @@ func stubGetgid() int { return 1001 }
 // fakeRunner — simulates podman responses based on container state.
 // ---------------------------------------------------------------------------
 
+const mountsFormatArg = "{{json .Mounts}}"
+
+// fakeRunner is a test double for container.Runner. It is not goroutine-safe
+// and must only be used from a single goroutine (i.e. tests must not call
+// t.Parallel() while sharing a fakeRunner instance).
 type fakeRunner struct {
 	runErrors        map[string]error
 	pullImageErr     error
@@ -75,6 +80,9 @@ type fakeRunner struct {
 	// rename operations (e.g. only fail the promotion rename, not the aside).
 	// This complements runErrors["rename"], which fails ALL renames uniformly.
 	renameErrorFn func(from, to string) error
+	// containerMountsJSON is the JSON returned for "podman inspect --format
+	// '{{json .Mounts}}' <name>". Defaults to "[]" (no mounts) when empty.
+	containerMountsJSON string
 }
 
 func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
@@ -101,6 +109,14 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 		}
 		if args[0] == "volume" && len(args) > 1 {
 			specificKey = "volume-" + args[1]
+		}
+		if args[0] == "inspect" {
+			for _, a := range args {
+				if strings.Contains(a, mountsFormatArg) {
+					specificKey = "inspect-mounts"
+					break
+				}
+			}
 		}
 		if specificKey != "" {
 			if err, ok := f.runErrors[specificKey]; ok {
@@ -194,6 +210,17 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 		return []byte(""), nil
 
 	case "inspect":
+		// Distinguish the mounts-format inspect from the status-format inspect by
+		// checking whether the --format argument requests .Mounts JSON.
+		for _, a := range args {
+			if strings.Contains(a, mountsFormatArg) {
+				j := f.containerMountsJSON
+				if j == "" {
+					j = "[]"
+				}
+				return []byte(j), nil
+			}
+		}
 		img := f.image
 		if img == "" {
 			img = "20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c"
@@ -378,6 +405,14 @@ func assertContains(t *testing.T, s, substr string) {
 	t.Helper()
 	if !strings.Contains(s, substr) {
 		t.Errorf("expected %q to contain %q", s, substr)
+	}
+}
+
+// assertNotContains fails the test if s contains substr.
+func assertNotContains(t *testing.T, s, substr string) {
+	t.Helper()
+	if strings.Contains(s, substr) {
+		t.Errorf("expected %q not to contain %q", s, substr)
 	}
 }
 

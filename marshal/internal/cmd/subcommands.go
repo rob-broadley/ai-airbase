@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
 )
 
@@ -52,7 +51,7 @@ func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValue
 		return fmt.Errorf("getting working directory: %w", err)
 	}
 
-	cfg, err := config.Load(project)
+	cfg, err := deps.loadConfig()(project)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
@@ -141,6 +140,20 @@ func newStatusCmd(deps Deps, projectFlag *string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show the current state of the container for the project",
+		Long: `Show the current state of the container for the project.
+
+Prints project name, container name, running status, image details, version,
+creation time, and mount/mask configuration.
+
+When the container exists, mount and mask entries are annotated with:
+  ✓  active                  — configured entry is mounted from the configured host path at the expected container destination
+  ✗  missing                 — configured entry has no corresponding container mount
+  ?  not in project config   — Mounts: untracked bind mount; host source path shown
+                               Masks:  untracked volume; host-equivalent path shown,
+                                       derived from parent bind mount (falls back to
+                                       container path if no parent bind mount is found)
+
+When the container is absent, configured paths are listed without a symbol prefix.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runStatus(cmd, deps, *projectFlag)
 		},
@@ -149,7 +162,10 @@ func newStatusCmd(deps Deps, projectFlag *string) *cobra.Command {
 
 // runStatus implements the "status" subcommand: it resolves the project,
 // queries the container state, and prints project name, container name,
-// running status, image ref, image ID, image digest, version, and creation time.
+// running status, image ref, image ID, image digest, version, creation time,
+// and configured mounts and masks. When the container exists, mount and mask
+// entries are annotated with reconciliation symbols (✓/✗/?). When absent,
+// raw config paths are shown with no symbol prefix.
 func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	project, containerName, err := resolveContainer(deps, projectFlag)
 	if err != nil {
@@ -172,6 +188,26 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		fmt.Fprintf(w, "Image Digest: -\n")
 		fmt.Fprintf(w, "Version:      -\n")
 		fmt.Fprintf(w, "Created:      -\n")
+		cfg, err := deps.loadConfig()(project)
+		if err != nil {
+			return fmt.Errorf("loading config: %w", err)
+		}
+		if len(cfg.Mounts) > 0 {
+			fmt.Fprintf(w, "Mounts:\n")
+			for _, m := range cfg.Mounts {
+				fmt.Fprintf(w, "  %s\n", sanitizeForTerminal(m))
+			}
+		} else {
+			fmt.Fprintf(w, "Mounts:       none\n")
+		}
+		if len(cfg.Masks) > 0 {
+			fmt.Fprintf(w, "Masks:\n")
+			for _, m := range cfg.Masks {
+				fmt.Fprintf(w, "  %s\n", sanitizeForTerminal(m))
+			}
+		} else {
+			fmt.Fprintf(w, "Masks:        none\n")
+		}
 		return nil
 	}
 
@@ -226,6 +262,16 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	fmt.Fprintf(w, "Image Digest: %s\n", imageDigest)
 	fmt.Fprintf(w, "Version:      %s\n", version)
 	fmt.Fprintf(w, "Created:      %s\n", created)
+
+	cfg, err := deps.loadConfig()(project)
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+	actualMounts, err := container.GetMounts(deps.Runner, containerName)
+	if err != nil {
+		return fmt.Errorf("getting container mounts: %w", err)
+	}
+	renderMountsAndMasks(deps.logger(), w, cfg.Mounts, cfg.Masks, actualMounts)
 	return nil
 }
 

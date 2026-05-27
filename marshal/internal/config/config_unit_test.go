@@ -921,11 +921,6 @@ func TestSave_AtomicRoundTrip(t *testing.T) {
 // TestLoad_RejectsOldTableSyntax verifies that Load returns an error when a
 // config file uses the old, incorrect schema ([mounts] table with a paths key)
 // instead of the correct top-level array (mounts = [...]).
-//
-// Acceptance criterion: Load must not silently accept files written against the
-// old README schema — the TOML decoder's own type checking catches the mismatch
-// between a table value and the expected []string, so the user is never silently
-// given zero mounts.
 func TestLoad_RejectsOldTableSyntax(t *testing.T) {
 	// Given a config file written with the old, incorrect schema
 	tmp := t.TempDir()
@@ -952,9 +947,6 @@ func TestLoad_RejectsOldTableSyntax(t *testing.T) {
 
 // TestLoad_RejectsUnknownTopLevelKey verifies that Load returns an error when
 // a config file contains an unknown top-level key.
-//
-// Acceptance criterion: Any unrecognised field in the config file must cause
-// Load to return an error so the user knows their config is malformed.
 func TestLoad_RejectsUnknownTopLevelKey(t *testing.T) {
 	// Given a config file with an unknown top-level key
 	tmp := t.TempDir()
@@ -984,9 +976,6 @@ func TestLoad_RejectsUnknownTopLevelKey(t *testing.T) {
 // TestLoad_ValidConfig_StillWorks verifies that Load continues to parse a
 // correctly-formed config file (mounts = [...]) without error after the
 // undecoded-key check is added.
-//
-// Acceptance criterion: A valid config file must still be accepted and its
-// mounts returned correctly.
 func TestLoad_ValidConfig_StillWorks(t *testing.T) {
 	// Given a config file with the correct schema
 	tmp := t.TempDir()

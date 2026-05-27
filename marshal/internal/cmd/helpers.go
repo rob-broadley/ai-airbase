@@ -3,6 +3,8 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +16,11 @@ import (
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// containerWorkspaceDir is the container-side root where project directories
+// are bind-mounted. It mirrors the unexported workspaceDir constant in the
+// container package and is used throughout this package for path construction.
+const containerWorkspaceDir = "/workspace"
 
 // buildCredentialMounts returns MountSpec values that bind host credential files
 // into the container. These mounts are shared across all projects unless noted.
@@ -153,14 +160,25 @@ func gitQuote(v string) string {
 	return `"` + v + `"`
 }
 
-// sanitizeForTerminal strips C0 control characters (< 0x20), DEL (0x7f), and
-// C1 control characters (0x80–0x9F, including the 8-bit CSI U+009B) from a
-// string before writing it to terminal output, guarding against escape sequence
-// injection from untrusted sources such as OCI image labels.
+// sanitizeForTerminal strips C0 control characters (< 0x20), DEL (0x7f), C1
+// control characters (0x80–0x9F, including the 8-bit CSI U+009B), Unicode
+// bidirectional formatting characters (U+200E–U+200F, U+202A–U+202E,
+// U+2066–U+2069), line/paragraph separators (U+2028–U+2029), zero-width
+// characters (U+200B Zero Width Space, U+200C Zero Width Non-Joiner,
+// U+200D Zero Width Joiner, U+FEFF BOM/Zero Width No-Break Space), and the
+// Arabic Letter Mark (U+061C) from a string before writing it to terminal
+// output, guarding against escape sequence injection and Trojan-source
+// visual-spoof attacks from untrusted sources such as OCI image labels.
 func sanitizeForTerminal(v string) string {
 	return strings.Map(func(r rune) rune {
-		if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) {
-			return -1 // drop control characters
+		if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) ||
+			(r >= 0x200e && r <= 0x200f) || // LRM, RLM
+			(r >= 0x202a && r <= 0x202e) || // bidi embedding/override
+			(r >= 0x2066 && r <= 0x2069) || // bidi isolates
+			r == 0x2028 || r == 0x2029 || // line/paragraph separator
+			r == 0x200b || r == 0x200c || r == 0x200d || r == 0xfeff || // zero-width chars
+			r == 0x061c { // Arabic Letter Mark
+			return -1 // drop control and bidi formatting characters
 		}
 		return r
 	}, v)
@@ -234,4 +252,173 @@ func resolveContainer(deps Deps, projectFlag string) (project, containerName str
 		return "", "", fmt.Errorf("invalid project: %w", err)
 	}
 	return project, containerNameForProject(project), nil
+}
+
+// statusEntry pairs a status symbol with a display string for a single line
+// in the Mounts or Masks section of the status output.
+type statusEntry struct {
+	symbol  string
+	display string
+}
+
+// writeStatusSection writes one section of the mounts/masks status block to w.
+// When entries is non-empty the header is printed on its own line followed by
+// each entry as "  <symbol> <display>". When entries is empty noneLabel is
+// printed as a single line (e.g. "Mounts:       none").
+func writeStatusSection(w io.Writer, header, noneLabel string, entries []statusEntry) {
+	if len(entries) > 0 {
+		fmt.Fprintf(w, "%s:\n", header)
+		for _, e := range entries {
+			fmt.Fprintf(w, "  %s %s\n", e.symbol, e.display)
+		}
+	} else {
+		fmt.Fprintf(w, "%s\n", noneLabel)
+	}
+}
+
+// renderMountsAndMasks writes the Mounts and Masks sections for an existing
+// container (running or stopped) to w, reconciling the configured entries with
+// the actual mounts reported by podman inspect.
+//
+// Reconciliation rules:
+//   - Configured mount is active (✓) when a bind mount exists whose Destination
+//     equals /workspace/<basename(hostPath)> AND whose Source equals the configured
+//     host path.
+//   - Configured mount is missing (✗) when no such bind mount is present.
+//   - Configured mask is active (✓) when a volume mount exists whose Destination
+//     matches the computed container path for that mask.
+//   - Configured mask is missing (✗) when no such volume mount is present.
+//   - Untracked bind (?) when a bind mount's Destination starts with /workspace/
+//     and its Source is not a configured mount.
+//   - Untracked volume (?) when a volume mount's Destination starts with /workspace/
+//     and is not accounted for by any configured mask.
+//
+// When there are no entries at all, "none" placeholders are used.
+func renderMountsAndMasks(logger *slog.Logger, w io.Writer, configuredMounts, configuredMasks []string, actualMounts []container.ContainerMount) {
+	// Index configured mount host paths and compute their expected container
+	// destinations in a single pass.
+	mountContainerDest := make(map[string]string, len(configuredMounts))
+	for _, m := range configuredMounts {
+		mountContainerDest[m] = filepath.Join(containerWorkspaceDir, filepath.Base(m))
+	}
+
+	// Index actual bind and volume mount destinations.
+	// activeBind maps container destination → host source for bind mounts.
+	activeBind := make(map[string]string)
+	activeVolume := make(map[string]bool)
+	for _, am := range actualMounts {
+		switch am.Type {
+		case "bind":
+			activeBind[am.Destination] = am.Source
+		case "volume":
+			activeVolume[am.Destination] = true
+		}
+	}
+
+	// Reconcile configured mounts and collect untracked bind mounts.
+	var mountEntries []statusEntry
+	for _, m := range configuredMounts {
+		sym := "✗"
+		if activeBind[mountContainerDest[m]] == m {
+			sym = "✓"
+		}
+		mountEntries = append(mountEntries, statusEntry{sym, sanitizeForTerminal(m)})
+	}
+	for _, am := range actualMounts {
+		if am.Type != "bind" || !strings.HasPrefix(am.Destination, containerWorkspaceDir+"/") {
+			continue
+		}
+		if _, ok := mountContainerDest[am.Source]; ok {
+			continue // tracked
+		}
+		mountEntries = append(mountEntries, statusEntry{"?", sanitizeForTerminal(am.Source)})
+	}
+
+	// Compute container destination for each configured mask and reconcile.
+	accountedVolumes := make(map[string]bool)
+	var maskEntries []statusEntry
+	for _, mask := range configuredMasks {
+		containerDest := maskContainerPath(mask, configuredMounts, mountContainerDest)
+		if containerDest == "" {
+			logger.Debug("configured mask has no parent bind mount", "mask", mask)
+		}
+		sym := "✗"
+		if containerDest != "" && activeVolume[containerDest] {
+			sym = "✓"
+			accountedVolumes[containerDest] = true
+		}
+		maskEntries = append(maskEntries, statusEntry{sym, sanitizeForTerminal(mask)})
+	}
+
+	// Collect untracked volume mounts.
+	for _, am := range actualMounts {
+		if am.Type != "volume" || !strings.HasPrefix(am.Destination, containerWorkspaceDir+"/") {
+			continue
+		}
+		if accountedVolumes[am.Destination] {
+			continue // tracked
+		}
+		hostPath := hostEquivalentPath(am.Destination, mountContainerDest, activeBind)
+		if hostPath == am.Destination {
+			logger.Debug("untracked mask path not resolved to host path", "path", am.Destination)
+		}
+		maskEntries = append(maskEntries, statusEntry{"?", sanitizeForTerminal(hostPath)})
+	}
+
+	writeStatusSection(w, "Mounts", "Mounts:       none", mountEntries)
+	writeStatusSection(w, "Masks", "Masks:        none", maskEntries)
+}
+
+// hostEquivalentPath derives the host-side path equivalent to containerPath by
+// reversing the mountContainerDest mapping (hostPath → containerDest). It finds
+// the entry whose containerDest value is a prefix of containerPath, computes the
+// relative suffix, and joins it onto the host path. If no match is found in
+// mountContainerDest, it falls back to actualBind (containerDest → hostSource)
+// using the same logic, covering untracked volumes under untracked bind mounts.
+// Returns containerPath unchanged when no matching bind mount is found in either map.
+func hostEquivalentPath(containerPath string, mountContainerDest, actualBind map[string]string) string {
+	for hostPath, containerDest := range mountContainerDest {
+		prefix := containerDest + string(filepath.Separator)
+		if strings.HasPrefix(containerPath, prefix) {
+			rel := containerPath[len(containerDest):]
+			return hostPath + rel
+		}
+		if containerPath == containerDest {
+			return hostPath
+		}
+	}
+	// Fallback: check actual bind mounts (containerDest → hostSource).
+	for containerDest, hostSource := range actualBind {
+		prefix := containerDest + string(filepath.Separator)
+		if strings.HasPrefix(containerPath, prefix) {
+			rel := containerPath[len(containerDest):]
+			return hostSource + rel
+		}
+		if containerPath == containerDest {
+			return hostSource
+		}
+	}
+	return containerPath
+}
+
+// maskContainerPath returns the container-side destination for mask given the
+// configured mount host paths and their pre-computed container destinations.
+// It walks configuredMounts looking for the mount that contains mask, then
+// computes the relative path from that mount root to the mask and joins it
+// onto the mount's container destination. Returns an empty string when mask
+// does not fall inside any configured mount.
+func maskContainerPath(mask string, configuredMounts []string, mountContainerDest map[string]string) string {
+	for _, m := range configuredMounts {
+		prefix := m + string(filepath.Separator)
+		if strings.HasPrefix(mask, prefix) || mask == m {
+			rel, err := filepath.Rel(m, mask)
+			if err != nil {
+				// Both m and mask are guaranteed to be absolute paths, so filepath.Rel
+				// cannot fail here. Panic to surface any future invariant violation.
+				panic(fmt.Sprintf("maskContainerPath: unexpected filepath.Rel error: %v", err))
+			}
+			return filepath.Join(mountContainerDest[m], rel)
+		}
+	}
+	return ""
 }

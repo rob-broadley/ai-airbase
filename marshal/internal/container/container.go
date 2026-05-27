@@ -108,6 +108,13 @@ type NamedVolumeMount struct {
 	HostPath      string // host path shadowed by this volume (mask volumes only; empty for image volumes)
 }
 
+// ContainerMount represents one entry from podman container inspect .Mounts.
+type ContainerMount struct {
+	Type        string `json:"Type"`        // "bind" or "volume"
+	Source      string `json:"Source"`      // host path (bind) or volume name (volume)
+	Destination string `json:"Destination"` // container-side path
+}
+
 // UserConfig carries the identity that the container process should run as.
 // UID and GID map to --user <UID>:<GID>; HomeDir is exported as HOME=<HomeDir>.
 type UserConfig struct {
@@ -183,6 +190,21 @@ func WorkdirFromMounts(mounts []MountSpec) string {
 		return mounts[0].ContainerPath
 	}
 	return workspaceDir
+}
+
+// GetMounts returns the mounts for the named container by calling
+// podman inspect --format {{json .Mounts}} <name>.
+// Returns an error if the container does not exist or if podman inspect fails.
+func GetMounts(r Runner, containerName string) ([]ContainerMount, error) {
+	out, err := r.Run(podmanBin, "inspect", "--format", "{{json .Mounts}}", containerName)
+	if err != nil {
+		return nil, fmt.Errorf("running podman inspect for container %q: %w", containerName, err)
+	}
+	var mounts []ContainerMount
+	if err := json.Unmarshal(bytes.TrimSpace(out), &mounts); err != nil {
+		return nil, fmt.Errorf("parsing mounts for container %q: %w", containerName, err)
+	}
+	return mounts, nil
 }
 
 // ImageVolumeSpecs inspects image and returns the volumes it declares that have

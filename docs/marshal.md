@@ -175,6 +175,8 @@ Inherits [global flags](#global-flags) only.
 
 **Output**
 
+When the container exists:
+
 ```
 Project:      <project>
 Container:    marshal-<project>
@@ -184,11 +186,44 @@ Image ID:     <image-id> | -
 Image Digest: <digest> | -
 Version:      <version> | -
 Created:      <timestamp> | -
+Mounts:
+  <symbol> <host-path>
+  ...
+Masks:
+  <symbol> <host-path>
+  ...
+```
+
+When the container is absent, entries are shown without symbol prefixes:
+
+```
+Project:      <project>
+Container:    marshal-<project>
+Status:       absent
+Image Ref:    -
+Image ID:     -
+Image Digest: -
+Version:      -
+Created:      -
+Mounts:
+  <host-path>
+  ...
+Masks:
+  <host-path>
+  ...
 ```
 
 When the container is absent, `Image Ref`, `Image ID`, `Image Digest`, `Version`, and `Created` are printed as `-`. When the image has no `org.opencontainers.image.version` label, `Version` is printed as `-`. When the image digest is unavailable (e.g. for locally built images), `Image Digest` is printed as `-`.
 
 `Image Ref` shows the human-readable OCI image reference (e.g. `ghcr.io/rob-broadley/ai-airbase/revetment:latest`), sourced from the `ImageName` field of `podman container inspect`. `Image ID` shows the raw local image identifier — a 64-character hex string with no prefix, sourced from the `Image` field of `podman container inspect`. `Image Digest` shows the registry manifest digest, prefixed with `sha256:`, sourced from the `ImageDigest` field of `podman container inspect`. Image ID and Image Digest identify the same image through different mechanisms and are not interchangeable.
+
+When the container exists, each mount and mask entry is prefixed with a status symbol: `✓` (active — mounted from the configured host path at the expected container path), `✗` (missing — configured but absent from the container), or `?` (not in project config — Mounts: untracked bind mount, shown by host source path; Masks: untracked volume, shown by host-equivalent path derived from the parent bind mount, falling back to container path if no parent bind mount is found). The symbols are also described in `marshal status --help`.
+
+`Mounts:` lists the configured bind mounts by host path. When the container exists, each entry is prefixed with a status symbol: `✓` the bind mount is active with the correct host source and container destination; `✗` the configured mount has no matching bind mount in the container. Bind mounts under `/workspace/` that are present in the container but not in the project config are appended with `?` (shown by host path). When no entries are present in this section, the field is printed as a single line: `Mounts:       none`.
+
+`Masks:` lists the configured mask volumes by host path. When the container exists, each entry is prefixed with a status symbol: `✓` the named volume is mounted at the expected container path; `✗` the configured mask has no corresponding volume mount in the container. `✓` and `✗` entries are shown by host path, while volume mounts under `/workspace/` that are not accounted for by any configured mask are appended with `?` (shown by host-equivalent path, derived from the parent bind mount; falls back to the container path if no parent bind mount can be found). When no entries are present in this section, the field is printed as a single line: `Masks:        none`.
+
+When the container is absent, `Mounts:` and `Masks:` list the paths saved in the project config file with no symbol prefix and no legend line. If the config has no entries, the `none` placeholder is used.
 
 **Examples**
 
@@ -205,6 +240,10 @@ Image ID:     20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c
 Image Digest: sha256:2a4a9ad4a3b974af6820af557240fced4c7395ab393ac1ea3b76ac71663a7921
 Version:      0.1.1
 Created:      2026-05-01 09:14:32
+Mounts:
+  ✓ /home/user/project
+Masks:
+  ✓ /home/user/project/secrets
 ```
 
 ```bash
@@ -220,6 +259,10 @@ Image ID:     -
 Image Digest: -
 Version:      -
 Created:      -
+Mounts:
+  /home/user/other-project
+Masks:
+  /home/user/other-project/private
 ```
 
 ______________________________________________________________________

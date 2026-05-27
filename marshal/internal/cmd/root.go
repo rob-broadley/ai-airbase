@@ -31,6 +31,7 @@ type Deps struct {
 	EnsureSharedConfigDir func(subdir string) (string, error)
 	SaveConfig            func(project string, cfg *config.Config) error // defaults to config.Save
 	DeleteConfig          func(project string) error                     // defaults to config.Delete
+	LoadConfig            func(project string) (*config.Config, error)   // defaults to config.Load
 	// LookupGitConfig reads a git configuration key (e.g. "user.name") from the
 	// host and returns its trimmed value, or an empty string if unset or on error.
 	// Defaults to lookupHostGitConfig.
@@ -60,6 +61,14 @@ func (d Deps) saveConfig() func(string, *config.Config) error {
 		return d.SaveConfig
 	}
 	return config.Save
+}
+
+// loadConfig returns the effective config-load function: the injected one or config.Load.
+func (d Deps) loadConfig() func(string) (*config.Config, error) {
+	if d.LoadConfig != nil {
+		return d.LoadConfig
+	}
+	return config.Load
 }
 
 // ensureSharedConfigDirFn returns the injected EnsureSharedConfigDir or the
@@ -149,6 +158,7 @@ func Execute(version string) {
 		EnsureSharedDataDir:   config.EnsureSharedDataDir,
 		EnsureSharedConfigDir: config.EnsureSharedConfigDir,
 		SaveConfig:            config.Save,
+		LoadConfig:            config.Load,
 		LookupGitConfig:       lookupHostGitConfig,
 		ResolveImage:          defaultImage,
 		Logger:                NewCLILogger(os.Stderr),

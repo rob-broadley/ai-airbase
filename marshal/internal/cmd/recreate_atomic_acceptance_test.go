@@ -14,9 +14,6 @@ import (
 // atomicity guarantee: when the new container cannot be created (e.g. image
 // incompatibility, resource exhaustion), the existing container is left
 // completely untouched — "podman rm <originalName>" must NOT be called.
-//
-// Acceptance criterion: If createContainerWithVolumes fails after the check,
-// the old container is not removed.
 func TestRecreate_CreateFails_ExistingContainerPreserved(t *testing.T) {
 	// Given an existing stopped container and a runner whose "create" fails
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -55,9 +52,6 @@ func TestRecreate_CreateFails_ExistingContainerPreserved(t *testing.T) {
 // TestRecreate_CreateSucceeds_RenameIsCalled verifies that after the pending
 // container is successfully created, "podman rename" is called to promote it
 // to the canonical container name.
-//
-// Acceptance criterion: on a successful recreate, podman rename is invoked
-// to promote the pending container to the real name.
 func TestRecreate_CreateSucceeds_RenameIsCalled(t *testing.T) {
 	// Given an existing stopped container
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -94,9 +88,6 @@ func TestRecreate_CreateSucceeds_RenameIsCalled(t *testing.T) {
 // TestRecreate_CreateFails_NoExistingContainer_RmNotCalled verifies that when
 // there is no existing container and the create attempt fails, "podman rm" is
 // never called against the (absent) original container.
-//
-// Acceptance criterion: rm is not called for the original when create fails and
-// no original container exists.
 func TestRecreate_CreateFails_NoExistingContainer_RmNotCalled(t *testing.T) {
 	// Given no existing container and a runner whose "create" fails
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -142,10 +133,6 @@ func TestRecreate_CreateFails_NoExistingContainer_RmNotCalled(t *testing.T) {
 //  2. Rename old → retiring (reversible aside)
 //  3. Rename pending → canonical (promotion)
 //  4. Force-remove retiring (best-effort cleanup)
-//
-// Acceptance criterion: on success, the old container is renamed aside to a
-// retiring name, the pending container is promoted to the canonical name, and
-// the retiring container is force-removed.
 func TestRecreate_OldRenamedAside_PendingPromotedToCanonical(t *testing.T) {
 	// Given an existing stopped container
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -195,9 +182,6 @@ func TestRecreate_OldRenamedAside_PendingPromotedToCanonical(t *testing.T) {
 // TestRecreate_PromotionFails_OldRestoredFromRetiring verifies that when the
 // promotion rename (pending→canonical) fails, the retiring container is renamed
 // back to the canonical name so the user is never left without a container.
-//
-// Acceptance criterion: if the promotion rename fails, the retiring container is
-// restored to the canonical name before the error is returned.
 func TestRecreate_PromotionFails_OldRestoredFromRetiring(t *testing.T) {
 	// Given an existing stopped container and a runner whose promotion rename fails.
 	// We inject failure only on the pending→canonical rename so the aside rename
@@ -252,9 +236,6 @@ func TestRecreate_PromotionFails_OldRestoredFromRetiring(t *testing.T) {
 // TestRecreate_RemoveAside_Fails_PendingCleaned verifies that when the
 // rename-aside step (old→retiring) fails, the pending container is
 // force-removed so it does not linger as an orphan.
-//
-// Acceptance criterion: if the aside rename fails, the pending container is
-// force-removed and an error is returned.
 func TestRecreate_RemoveAside_Fails_PendingCleaned(t *testing.T) {
 	// Given an existing stopped container and a runner whose aside rename fails.
 	// The pending container was already created successfully before the aside
