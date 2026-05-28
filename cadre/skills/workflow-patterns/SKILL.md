@@ -334,3 +334,5 @@ Success criteria: [what done looks like for this step]
 ```
 
 The more precise the handoff, the better the specialist agent performs. Vague handoffs produce vague results.
+
+Sub-agents dispatched via the `agent` tool follow the `sub-agent-patterns` skill. They run autonomously and return structured completion reports rather than asking interactive questions.

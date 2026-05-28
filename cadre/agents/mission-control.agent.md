@@ -106,6 +106,18 @@ Run steps in order. For each step:
 1. Review the output. If an agent step fails, STOP immediately. Do not continue to the next step. Report to the user: which step failed, what the agent produced, and what options are available (retry, change approach, abandon). Never proceed to a subsequent step on a failed predecessor.
 1. Pass relevant outputs forward as context to the next agent (e.g., pass the test suite state from `atdd` to `refactor`).
 
+### Receiving results from `atdd`
+
+When you invoke a sub-agent via the `agent` tool, it follows the `sub-agent-patterns` skill: it runs autonomously and returns a structured completion report rather than asking interactive questions. When you invoke `atdd`, it runs Red → Green → Refactor → Commit autonomously and returns that report. Before proceeding, check the report's **Phases completed** and **Blockers** fields, then apply this blocker-aware retry policy (maximum one automatic retry per blocker type):
+
+1. **Happy path:** If all four phases completed and there are no blockers, continue to the next step and pass the commit hash and test count forward as context.
+1. **Missing tools or build errors:** Delegate to `bootstrap` to fix the environment, then re-invoke `atdd` with the same story. No user gate before the retry.
+1. **Misconfigured toolchain or missing Makefile targets:** Delegate to `devex` to fix the toolchain, then re-invoke `atdd` with the same story. No user gate before the retry.
+1. **Ambiguous acceptance criteria / `CLARIFICATION_NEEDED`:** If `atdd` reports ambiguous acceptance criteria or returns a `CLARIFICATION_NEEDED` blocker, delegate to `problem-analyser` then `user-story-writer` to produce revised acceptance criteria. Present the revised acceptance criteria to the user and wait for explicit approval before re-invoking `atdd`. Do not retry without that approval.
+1. **Code too tightly coupled to test:** Delegate to `legacy-code` to introduce seams and characterisation tests, then re-invoke `atdd` with the seam context included. No user gate before the retry.
+1. **Logic failure (tests will not go green):** Treat this as a genuine logic failure. STOP, surface the failing tests and the exact **Blockers** field to the user, and offer the options to retry with a different approach, adjust the story, or abandon. Do not auto-retry.
+1. **Retry exhausted:** If the automatic retry also fails, treat it as a genuine logic failure regardless of blocker type. STOP and escalate to the user.
+
 Never skip a step or combine steps without telling the user. If a step is no longer needed (e.g., the `devex` check reveals the environment is already correct), say so explicitly and move on.
 
 ______________________________________________________________________
