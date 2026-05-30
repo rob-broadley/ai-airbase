@@ -168,6 +168,31 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## Review gate
+
+Before producing the end-of-session report, invoke `refactor-reviewer` via the `agent` tool:
+
+```text
+Task: Review the completed refactoring session
+Context:
+  Changed files / diff: [full diff or list of changed files]
+  Complexity metrics before: [baseline captured at session start]
+  Complexity metrics after: [current measurements]
+  Test output: [most recent passing test run]
+  Session summary: [violations fixed, transformations applied, metrics]
+  Retry context: [attempt number and prior rejected findings, if applicable]
+Constraints: Apply the structural improvement quality bar
+Success criteria: Return a structured verdict (approved/rejected)
+```
+
+Parse the verdict:
+
+- `approved` → produce the end-of-session report below.
+- `ESCALATE_TO_USER` in findings → surface the escalation detail with the full rejected findings to the user, and stop. Do not produce the session report.
+- `rejected` → apply the Required changes, make any additional commits needed, and re-invoke `refactor-reviewer`. Allow at most 3 attempts total; after the third consecutive rejection treat it as an implicit escalation and surface the findings to the user.
+
+______________________________________________________________________
+
 ## End-of-session report
 
 Produce this when the session is complete:
