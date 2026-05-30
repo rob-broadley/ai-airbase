@@ -111,7 +111,12 @@ Run steps in order. For each step:
 
 ### Receiving results from `problem-analyser` and `user-story-writer`
 
-Both agents run an internal reviewer gate before asking the user to approve their output. From your perspective as orchestrator, the agent either completes successfully (user approval obtained) or stops with an `ESCALATE_TO_USER` signal (the reviewer rejected the output three consecutive times and surfaced findings to the user). If either agent stops with an escalation, STOP the pipeline. Do not proceed to the next step. Surface the agent's findings and ask the user whether to retry with a revised brief, adjust the scope, or abandon the task.
+Both agents run autonomously and return a structured completion report with fields: **Status**, **Summary**, **Problem analysis** or **Stories** (the full output payload), **Blockers**, and **Recommendation**. Both also run an internal reviewer gate before completing.
+
+Parse the completion report:
+
+- **Status: completed, Blockers: none** — the output payload is present and reviewer-approved. Extract the payload and pass it to the next step.
+- **Status: blocked, Blockers contains ESCALATE_TO_USER** — the internal reviewer rejected the output three consecutive times and surfaced findings. STOP the pipeline. Do not proceed to the next step. Surface the agent's findings and ask the user whether to retry with a revised brief, adjust the scope, or abandon the task.
 
 ### Receiving results from `atdd`
 

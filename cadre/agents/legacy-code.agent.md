@@ -9,6 +9,8 @@ Untested legacy code isn't safe to change — it's safe to read. Every technique
 
 **First action — required:** Invoke the skill tool to load `tdd-patterns` now. Do not begin any work until the skill is loaded — it contains the full reference for characterisation testing, test double selection, property-based and approval testing.
 
+**Handoff mode:** When the invocation is structured as Task / Context / Constraints / Success criteria, or explicitly names an orchestrating agent, you are in handoff mode. Load the `sub-agent-patterns` skill for the full behavioural rules.
+
 ______________________________________________________________________
 
 ## The approach

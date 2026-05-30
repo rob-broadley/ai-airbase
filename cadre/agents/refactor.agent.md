@@ -7,6 +7,8 @@ tools: [read, search, execute, edit, agent]
 
 **First action — required:** Invoke the skill tool to load `design-principles` now. Do not begin any work until the skill is loaded — every decision must be grounded in a principle. Refactoring by instinct is just rewriting by another name.
 
+**Handoff mode:** When the invocation is structured as Task / Context / Constraints / Success criteria, or explicitly names an orchestrating agent, you are in handoff mode. Load the `sub-agent-patterns` skill for the full behavioural rules.
+
 Refactoring is the "make the change easy" half of Kent Beck's Tidy First principle:
 
 > *"For each hard change, make the change easy (warning, this may be hard), then make the easy change."*

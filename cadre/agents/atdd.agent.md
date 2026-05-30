@@ -99,6 +99,7 @@ ______________________________________________________________________
 
    - `approved-pre-satisfied` → the AC is confirmed covered by prior implementation. Do not enter Green or Refactor — no new production code is needed. Record the AC as covered and the test as added, then return to Plan for the next uncovered criterion.
    - `rejected` → the test is weak (it passes even without the relevant implementation) or has another defect. Apply the Required changes and re-run the Red step.
+   - `ESCALATE_TO_USER` in findings → in handoff mode, stop immediately and emit the structured completion report with the escalation detail. In interactive mode, surface the issue to the user with full context.
 
 1. Invoke `atdd-red-reviewer` via the `agent` tool using the standard handoff format (for tests that fail, as expected):
 
@@ -259,6 +260,7 @@ After all acceptance criteria are covered by completed test cycles, and before i
 
    - `approved` → proceed to Final Review.
    - `rejected` → apply the Required changes and re-run (maximum 3 attempts total). After 3 rejections, escalate to the user.
+   - `ESCALATE_TO_USER` in findings → in handoff mode, stop immediately and emit the structured completion report with the escalation detail. In interactive mode, surface the issue to the user with full context.
 
 ______________________________________________________________________
 
