@@ -27,6 +27,7 @@ func TestCreate_MaskFlag_SingleMask(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -67,6 +68,7 @@ func TestCreate_MaskFlag_MultipleMasks(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -218,6 +220,7 @@ func TestCreate_MaskFlag_MultiMount(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)

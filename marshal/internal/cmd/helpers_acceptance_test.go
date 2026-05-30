@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rob-broadley/ai-airbase/marshal/internal/cmd"
 )
 
 // ---------------------------------------------------------------------------
@@ -428,6 +430,12 @@ func sliceContains(ss []string, s string) bool {
 	return false
 }
 
+// noopMkdirAll is a no-op replacement for os.MkdirAll. Inject via Deps.MkdirAll
+// in tests that use fake CWD paths (e.g. /projects/myapp) so that
+// provisionMaskVolumes does not attempt to create directories on the real
+// filesystem during test execution.
+func noopMkdirAll(path string, perm os.FileMode) error { return nil }
+
 // ---------------------------------------------------------------------------
 // credFakes — injectable credential dependencies for mount and isolation tests
 // ---------------------------------------------------------------------------
@@ -478,4 +486,72 @@ func (cf *credFakes) expectedDataMount(subdir, containerPath string) string {
 // expectedConfigMount returns the -v flag value for a config subdir→containerPath pair.
 func (cf *credFakes) expectedConfigMount(subdir, containerPath string) string {
 	return filepath.Join(cf.configBase, subdir) + ":" + containerPath + ":Z"
+}
+
+// ---------------------------------------------------------------------------
+// host directory provisioning helpers
+// ---------------------------------------------------------------------------
+
+// mkdirCall records one invocation of the MkdirAll dependency — the path,
+// the permission bits, and how many runner calls had been recorded at the
+// moment MkdirAll was called (so ordering relative to EnsureProjectVolume
+// can be verified).
+type mkdirCall struct {
+	path                    string
+	perm                    os.FileMode
+	runnerCallsAtInvocation int
+}
+
+// newHostDirDeps builds a cmd.Deps with common fields pre-wired for host
+// directory provisioning tests. The caller provides the runner (so spy state
+// is accessible after the command runs) and the MkdirAll function to inject.
+func newHostDirDeps(t *testing.T, runner *fakeRunner, mkdirAll func(string, os.FileMode) error) cmd.Deps {
+	t.Helper()
+	return cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            mkdirAll,
+	}
+}
+
+// assertMkdirCalledOnceWithPathAndPerm fails the test if mkdirCalls does not
+// contain exactly one entry with the given path and permission bits.
+func assertMkdirCalledOnceWithPathAndPerm(t *testing.T, mkdirCalls []mkdirCall, wantPath string, wantPerm os.FileMode) {
+	t.Helper()
+	if len(mkdirCalls) != 1 {
+		t.Fatalf("expected MkdirAll to be called exactly once, got %d calls", len(mkdirCalls))
+	}
+	if mkdirCalls[0].path != wantPath {
+		t.Errorf("MkdirAll path: got %q, want %q", mkdirCalls[0].path, wantPath)
+	}
+	if mkdirCalls[0].perm != wantPerm {
+		t.Errorf("MkdirAll perm: got %04o, want %04o", mkdirCalls[0].perm, wantPerm)
+	}
+}
+
+// assertMkdirCalledBeforeFirstVolumeCommand fails the test if no podman volume
+// command appears in runner.calls, or if mkdirCalls[0] was recorded after that
+// first volume command. subcommand names the top-level marshal command (e.g.
+// "create", "recreate") and is used only in the failure message.
+func assertMkdirCalledBeforeFirstVolumeCommand(t *testing.T, runner *fakeRunner, mkdirCalls []mkdirCall, subcommand string) {
+	t.Helper()
+	firstVolumeCallIdx := -1
+	for i, call := range runner.calls {
+		if len(call) >= 2 && call[0] == "podman" && call[1] == "volume" {
+			firstVolumeCallIdx = i
+			break
+		}
+	}
+	if firstVolumeCallIdx == -1 {
+		t.Fatalf("expected at least one 'podman volume' call after %s, got none", subcommand)
+	}
+	if mkdirCalls[0].runnerCallsAtInvocation > firstVolumeCallIdx {
+		t.Errorf("MkdirAll was invoked after EnsureProjectVolume: MkdirAll saw %d runner calls, "+
+			"first volume call is at index %d",
+			mkdirCalls[0].runnerCallsAtInvocation, firstVolumeCallIdx)
+	}
 }

@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -41,6 +42,10 @@ type Deps struct {
 	// published revetment image. Override in tests to fix the image name without
 	// touching the environment.
 	ResolveImage func() string
+	// MkdirAll creates a directory named path, along with any necessary parents.
+	// Defaults to os.MkdirAll. Override in tests to avoid touching the real
+	// filesystem when CWD paths are fake.
+	MkdirAll func(path string, perm fs.FileMode) error
 	// Logger receives progress messages during slow operations (image pulls,
 	// container creation, volume provisioning). When nil, a discard logger is
 	// used so callers that do not inject a logger are not affected.
@@ -117,6 +122,14 @@ func (d Deps) resolveImage() string {
 		return d.ResolveImage()
 	}
 	return defaultImage()
+}
+
+// mkdirAll returns the effective MkdirAll function: the injected one or os.MkdirAll.
+func (d Deps) mkdirAll() func(string, fs.FileMode) error {
+	if d.MkdirAll != nil {
+		return d.MkdirAll
+	}
+	return os.MkdirAll
 }
 
 // NewRootCmd builds the root cobra.Command tree with the supplied dependencies.

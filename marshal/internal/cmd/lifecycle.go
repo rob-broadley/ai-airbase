@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"slices"
@@ -96,14 +97,20 @@ func provisionVolumes(runner container.Runner, log *slog.Logger, containerName, 
 	return mounts, nil
 }
 
-// provisionMaskVolumes ensures a named volume exists for each mask spec.
+// provisionMaskVolumes ensures the host directory exists for each mask spec,
+// then ensures a named volume exists for it.
+// MkdirAll is called first so that Podman finds the directory already present
+// with correct ownership, preventing it from creating a root-mapped directory.
 // It reuses EnsureProjectVolume (which applies the project label) so that
 // RemoveProjectVolumes will clean up mask volumes on remove.
 // Volumes are provisioned one at a time; if any step fails the function returns
 // immediately, leaving previously provisioned volumes in place. The caller is
 // responsible for cleanup if the overall create/recreate fails.
-func provisionMaskVolumes(runner container.Runner, log *slog.Logger, containerName string, maskSpecs []container.NamedVolumeMount) error {
+func provisionMaskVolumes(mkdirAll func(string, fs.FileMode) error, runner container.Runner, log *slog.Logger, containerName string, maskSpecs []container.NamedVolumeMount) error {
 	for _, spec := range maskSpecs {
+		if err := mkdirAll(spec.HostPath, 0o755); err != nil {
+			return fmt.Errorf("creating host directory %s: %w", spec.HostPath, err)
+		}
 		created, err := container.EnsureProjectVolume(runner, spec.Name, containerName)
 		if err != nil {
 			return fmt.Errorf("ensuring mask volume %s (host path: %s): %w", spec.Name, spec.HostPath, err)
@@ -122,17 +129,17 @@ func provisionMaskVolumes(runner container.Runner, log *slog.Logger, containerNa
 // "provision → log → create" sequence shared by prepareContainer and
 // runCreate. removeAndRecreateContainer performs an equivalent inline
 // provisioning sequence.
-func createContainerWithVolumes(runner container.Runner, log *slog.Logger, containerName, image string, mountSpecs []container.MountSpec, maskVolumes []container.NamedVolumeMount, uc container.UserConfig, workdir string, cmd []string) error {
-	namedVolumes, err := provisionVolumes(runner, log, containerName, image)
+func createContainerWithVolumes(mkdirAll func(string, fs.FileMode) error, runner container.Runner, log *slog.Logger, p containerParams) error {
+	namedVolumes, err := provisionVolumes(runner, log, p.containerName, p.image)
 	if err != nil {
 		return err
 	}
-	if err := provisionMaskVolumes(runner, log, containerName, maskVolumes); err != nil {
+	if err := provisionMaskVolumes(mkdirAll, runner, log, p.containerName, p.maskVolumes); err != nil {
 		return err
 	}
-	log.Info("creating container", "container", containerName)
-	allNamedVolumes := slices.Concat(namedVolumes, maskVolumes)
-	if err := container.Create(runner, containerName, image, mountSpecs, allNamedVolumes, uc, workdir, cmd); err != nil {
+	log.Info("creating container", "container", p.containerName)
+	allNamedVolumes := slices.Concat(namedVolumes, p.maskVolumes)
+	if err := container.Create(runner, p.containerName, p.image, p.mountSpecs, allNamedVolumes, p.userConfig, p.workdir, p.cmd); err != nil {
 		return fmt.Errorf("creating container: %w", err)
 	}
 	return nil
@@ -160,32 +167,32 @@ func tryForceRemove(runner container.Runner, log *slog.Logger, name, warnMsg str
 //
 // Per-project volumes are provisioned using the real container name so cached
 // packages survive the rebuild.
-func removeAndRecreateContainer(runner container.Runner, log *slog.Logger, containerName, image string, mountSpecs []container.MountSpec, maskVolumes []container.NamedVolumeMount, uc container.UserConfig, workdir string, cmd []string) error {
-	exists, err := container.Exists(runner, containerName)
+func removeAndRecreateContainer(mkdirAll func(string, fs.FileMode) error, runner container.Runner, log *slog.Logger, p containerParams) error {
+	exists, err := container.Exists(runner, p.containerName)
 	if err != nil {
 		return fmt.Errorf("checking container: %w", err)
 	}
 
 	// Provision named volumes using the real container name so that existing
 	// volume data (e.g. Nix store) is preserved across recreates.
-	namedVolumes, err := provisionVolumes(runner, log, containerName, image)
+	namedVolumes, err := provisionVolumes(runner, log, p.containerName, p.image)
 	if err != nil {
 		return err
 	}
-	if err := provisionMaskVolumes(runner, log, containerName, maskVolumes); err != nil {
+	if err := provisionMaskVolumes(mkdirAll, runner, log, p.containerName, p.maskVolumes); err != nil {
 		return err
 	}
 
 	// Build the PID+nanosecond suffix shared by both staging names so they
 	// sort together and a single listing can identify both.
 	suffix := fmt.Sprintf("%d-%d", os.Getpid(), time.Now().UnixNano())
-	pendingName := fmt.Sprintf("%s-pending-%s", containerName, suffix)
-	retiringName := fmt.Sprintf("%s-retiring-%s", containerName, suffix)
+	pendingName := fmt.Sprintf("%s-pending-%s", p.containerName, suffix)
+	retiringName := fmt.Sprintf("%s-retiring-%s", p.containerName, suffix)
 
 	// Step 1 — create the replacement under the staging name.
 	log.Info("creating container", "container", pendingName)
-	allNamedVolumes := slices.Concat(namedVolumes, maskVolumes)
-	if err := container.Create(runner, pendingName, image, mountSpecs, allNamedVolumes, uc, workdir, cmd); err != nil {
+	allNamedVolumes := slices.Concat(namedVolumes, p.maskVolumes)
+	if err := container.Create(runner, pendingName, p.image, p.mountSpecs, allNamedVolumes, p.userConfig, p.workdir, p.cmd); err != nil {
 		// Creation failed — clean up any partial pending container (best-effort)
 		// and leave the original container completely untouched.
 		tryForceRemove(runner, log, pendingName, "failed to clean up pending container after creation failure")
@@ -194,7 +201,7 @@ func removeAndRecreateContainer(runner container.Runner, log *slog.Logger, conta
 
 	// Step 2 — rename old → retiring so we can reverse if promotion fails.
 	if exists {
-		if err := container.Rename(runner, containerName, retiringName); err != nil {
+		if err := container.Rename(runner, p.containerName, retiringName); err != nil {
 			// Aside failed — pending container was created but the old container
 			// is still at the canonical name, so just clean up the pending one.
 			tryForceRemove(runner, log, pendingName, "failed to clean up pending container after rename-aside failure")
@@ -203,18 +210,18 @@ func removeAndRecreateContainer(runner container.Runner, log *slog.Logger, conta
 	}
 
 	// Step 3 — promote pending → canonical.
-	if err := container.Rename(runner, pendingName, containerName); err != nil {
+	if err := container.Rename(runner, pendingName, p.containerName); err != nil {
 		// Promotion failed — restore the retiring container to the canonical
 		// name so the user is never left without a container.
 		if exists {
-			if restoreErr := container.Rename(runner, retiringName, containerName); restoreErr != nil {
+			if restoreErr := container.Rename(runner, retiringName, p.containerName); restoreErr != nil {
 				log.Warn("failed to restore retiring container after promotion failure",
 					"container", retiringName, "error", restoreErr)
 			}
 		}
 		tryForceRemove(runner, log, pendingName, "failed to clean up pending container after promotion failure")
 		return fmt.Errorf("renaming container %s to %s: %w; recover with: podman rename %s %s",
-			pendingName, containerName, err, pendingName, containerName)
+			pendingName, p.containerName, err, pendingName, p.containerName)
 	}
 
 	// Step 4 — force-remove the retiring container (best-effort cleanup).
@@ -241,7 +248,7 @@ func prepareContainer(cmd *cobra.Command, deps Deps, p containerParams) (contain
 		if err := pullImageIfMissing(cmd, deps, p.image); err != nil {
 			return "", false, err
 		}
-		if err := createContainerWithVolumes(deps.Runner, deps.logger(), p.containerName, p.image, p.mountSpecs, p.maskVolumes, p.userConfig, p.workdir, p.cmd); err != nil {
+		if err := createContainerWithVolumes(deps.mkdirAll(), deps.Runner, deps.logger(), p); err != nil {
 			return "", false, err
 		}
 		return p.containerName, false, nil

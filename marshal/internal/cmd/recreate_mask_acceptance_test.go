@@ -48,6 +48,7 @@ func TestRecreateMask_MaskVolumeNotRemovedOnRecreate(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -85,6 +86,7 @@ func TestRecreateMask_MaskVolumeProvisionedOnRecreate(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -123,6 +125,7 @@ func TestRecreateMask_ExistingContainer_MaskVolumesMounted(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -183,6 +186,7 @@ func TestRecreateMask_PreExistingMaskVolume_NotRemovedAndProvisionedIdempotently
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)

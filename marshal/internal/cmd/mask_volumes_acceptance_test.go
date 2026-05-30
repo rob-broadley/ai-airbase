@@ -39,6 +39,7 @@ func TestMaskVolumes_SingleMask(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -75,6 +76,7 @@ func TestMaskVolumes_PathSeparatorSanitised(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -111,6 +113,7 @@ func TestMaskVolumes_TwoMasks(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -210,6 +213,7 @@ func TestMaskVolumes_Recreate_ProvisionsMaskVolumes(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -246,6 +250,7 @@ func TestMaskVolumes_LabelApplied(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -304,6 +309,7 @@ func TestCreate_MaskVolumeProvisionFailure(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -343,6 +349,7 @@ func TestRecreate_MaskVolumeProvisionFailure(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		MkdirAll:            noopMkdirAll,
 	}
 
 	root := cmd.NewRootCmd(deps)
