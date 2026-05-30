@@ -89,7 +89,17 @@ For each issue you find, classify it:
 
 Keep this phase final-review scoped. Do not invent backlog work or speculative improvements.
 
-### 5. Internal reference annotation check
+### 5. Test code structural quality check
+
+Scan the new test files written during this task for structural duplication:
+
+- Identical or near-identical dependency or fixture setup blocks repeated across three or more test functions
+- A type or class definition (e.g. a spy record type) declared more than once in the same or sibling test files
+- An assertion helper block copied verbatim across multiple tests
+
+If you find such patterns, flag them as structural issues and route back to `Refactor`. Do not block approval for minor one-off similarity between two tests — the threshold is three or more functions affected. These findings route as `Refactor`, not `ATDD loop` — they require no new tests.
+
+### 6. Internal reference annotation check
 
 Scan every changed file for ephemeral intra-task planning markers such as `AC1`, `AC2`, `Story 3`, or similar session-only references in code or comments. External project management references (external issue tracker IDs (GitHub issues, Jira tickets, etc.)) are permitted and must not be flagged. The commit message marker check is handled by `atdd` at commit time and is outside this reviewer's scope.
 

@@ -219,6 +219,49 @@ Rules for this phase:
 
 ______________________________________________________________________
 
+### 🧹 Test Refactor — Consolidate test code before commit
+
+After all acceptance criteria are covered by completed test cycles, and before invoking Final Review, scan the new test files written during this story for structural duplication.
+
+**Trigger condition:** Three or more new test functions that share a repeated boilerplate pattern — for example, an identical dependency or fixture setup block, a type or class definition declared more than once, or an identical assertion helper block copied across tests.
+
+**If the trigger condition is not met:** skip this phase. Record `Test Refactor: skipped — fewer than 3 tests share a repeated boilerplate pattern` in the completion report and proceed directly to Final Review.
+
+**If the trigger condition is met:**
+
+1. Identify the repeated patterns across all new test functions. Common examples:
+
+   - Identical or near-identical dependency or fixture setup blocks
+   - A type or class (e.g. a spy record type) defined more than once across test files
+   - An identical assertion loop or helper block repeated verbatim
+
+1. Extract the repeated code into shared helpers. Place them in the project's existing test helper file if one exists and is the established pattern; otherwise add them to the top of the test file or a new dedicated test helpers file. Follow the naming and organisation conventions already present in the test suite.
+
+1. Run the full test suite and confirm all tests still pass.
+
+1. Invoke `atdd-refactor-reviewer` via the `agent` tool using the handoff format:
+
+   ```text
+   Task: Review the Test Refactor phase output
+   Context:
+     Code before and after refactoring: [diff]
+     Complexity metrics before refactoring: [n/a — test-only refactor]
+     Complexity metrics after refactoring: [n/a — test-only refactor]
+     Test run output confirming all tests pass: [output]
+     Structural changes made: [summary of helpers extracted and duplication removed]
+     Test file modification permitted: yes — this is an explicit Test Refactor phase scoped to new test files only
+     Retry context: [attempt count and prior rejected findings, when applicable]
+   Constraints: Apply the Refactor phase quality bar to test code; no behaviour change, no new test logic
+   Success criteria: Return a structured verdict (approved/rejected) with findings and required changes
+   ```
+
+1. Parse the verdict:
+
+   - `approved` → proceed to Final Review.
+   - `rejected` → apply the Required changes and re-run (maximum 3 attempts total). After 3 rejections, escalate to the user.
+
+______________________________________________________________________
+
 ### 🟣 Final Review — Check the complete task before commit
 
 After all acceptance criteria are covered by completed test cycles:
@@ -266,7 +309,7 @@ When operating in handoff mode, always finish by emitting a structured report fo
 
 - **Status:** `completed` or `blocked`.
 - **Summary:** One sentence describing what was done or why execution stopped.
-- **Phases completed:** Which of Plan / Plan-review / Red / Red-review / Green / Green-review / Refactor / Refactor-review / Final-review / Commit were completed.
+- **Phases completed:** Which of Plan / Plan-review / Red / Red-review / Green / Green-review / Refactor / Refactor-review / Test-refactor / Test-refactor-review / Final-review / Commit were completed. For Test-refactor, note whether it ran or was skipped (with reason).
 - **Tests:** Number of new test functions added — verify using the project's test framework conventions (count test function registrations in the new test files using a read-only file inspection, not self-assessment) and the total test suite count after the last run. Note any ACs whose tests were confirmed pre-satisfied rather than driven red.
 - **Commit:** The commit hash and commit message, or `not committed` with the reason.
 - **Out-of-scope observations:** Any pre-existing issues surfaced by the final reviewer, or `none`.
