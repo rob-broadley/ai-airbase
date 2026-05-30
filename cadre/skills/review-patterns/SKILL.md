@@ -1,11 +1,11 @@
 ---
-name: atdd-review-patterns
-description: Load before reviewing any ATDD phase. Required by atdd-plan-reviewer, atdd-red-reviewer, atdd-green-reviewer, atdd-refactor-reviewer, and atdd-final-reviewer — covers adversarial review philosophy, the approve/reject verdict contract, and escalation policy.
+name: review-patterns
+description: Load before reviewing any phase. Required by all internal reviewer agents — covers adversarial review philosophy, the approve/reject verdict contract, and escalation policy.
 license: AGPL-3.0-or-later
 allowed-tools: read
 ---
 
-Reference patterns for the reviewer agents that guard the ATDD loop.
+Reference patterns for internal reviewer agents — covers adversarial review philosophy, the approve/reject verdict contract, and escalation policy.
 
 ______________________________________________________________________
 
@@ -25,15 +25,17 @@ ______________________________________________________________________
 
 ## Verdict contract
 
-Every ATDD reviewer returns a structured verdict so the `atdd` agent can parse the result without interpretation.
+Every reviewer returns a structured verdict so the invoking agent can parse the result without interpretation.
 
-| Field                         | Allowed values / format                             | Notes                                                                                                                 |
-| ----------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Verdict**                   | `approved` \| `rejected`                            | Mandatory top-level outcome                                                                                           |
-| **Phase**                     | `plan` \| `red` \| `green` \| `refactor` \| `final` | Must name the phase actually reviewed                                                                                 |
-| **Findings**                  | Bulleted list                                       | Empty when approved; otherwise each bullet names a specific defect                                                    |
-| **Required changes**          | Bulleted list                                       | Empty when approved; otherwise each bullet states what must change before re-review                                   |
-| **Out-of-scope observations** | Bulleted list — final reviewer only                 | Pre-existing issues unrelated to the task. Non-blocking. Omit the field entirely in plan/red/green/refactor verdicts. |
+**Verdict** — `approved` | `rejected`. Mandatory top-level outcome.
+
+**Phase** — `analysis` | `stories` | `plan` | `red` | `green` | `refactor` | `final`. Must name the phase actually reviewed.
+
+**Findings** — bulleted list. Empty when approved; otherwise each bullet names a specific defect.
+
+**Required changes** — bulleted list. Empty when approved; otherwise each bullet states what must change before re-review.
+
+**Out-of-scope observations** — bulleted list, final reviewer only. Pre-existing issues unrelated to the task. Non-blocking. Omit the field entirely in all other verdicts.
 
 Canonical shape:
 
@@ -93,6 +95,8 @@ Each reviewer examines only the artefacts and quality bar of the current phase.
 
 | Reviewer     | In scope                                             | Out of scope                                            |
 | ------------ | ---------------------------------------------------- | ------------------------------------------------------- |
+| **Analysis** | Completeness and accuracy of the problem analysis    | Implementation choices, story writing                   |
+| **Stories**  | INVEST compliance, AC quality, story structure       | Implementation design, production code                  |
 | **Plan**     | Behaviour statement quality and sequencing           | Implementation design, code structure, future refactors |
 | **Red**      | Fidelity of the failing test and red-step discipline | Production code quality and design                      |
 | **Green**    | Minimum correct implementation for the current test  | Larger refactors that belong to the refactor phase      |

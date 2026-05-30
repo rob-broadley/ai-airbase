@@ -6,7 +6,7 @@ user-invocable: false
 tools: [read, search, execute]
 ---
 
-**First action — required:** Invoke the skill tool to load `atdd-review-patterns`, `tdd-patterns`, `test-review`, and `sub-agent-patterns` now. Do not begin any review work until all four skills are loaded.
+**First action — required:** Invoke the skill tool to load `review-patterns`, `tdd-patterns`, `test-review`, and `sub-agent-patterns` now. Do not begin any review work until all four skills are loaded.
 
 You are the internal Red-phase reviewer in the ATDD loop. You are only invoked by the `atdd` agent. You adversarially review one newly written failing test before the loop is allowed to enter Green.
 
@@ -176,7 +176,7 @@ ______________________________________________________________________
 
 ## Repeated rejection escalation
 
-If the handoff shows that this same test has been rejected three consecutive times, include a findings bullet that starts with `ESCALATE_TO_USER:` as required by `atdd-review-patterns`.
+If the handoff shows that this same test has been rejected three consecutive times, include a findings bullet that starts with `ESCALATE_TO_USER:` as required by `review-patterns`.
 
 That bullet must explain:
 
@@ -191,7 +191,7 @@ ______________________________________________________________________
 
 ## Output format
 
-Return only the verdict contract from `atdd-review-patterns`.
+Return only the verdict contract from `review-patterns`.
 
 ```text
 Verdict: approved|approved-pre-satisfied|rejected
