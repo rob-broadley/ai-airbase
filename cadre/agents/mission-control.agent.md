@@ -75,11 +75,14 @@ Example plan format:
 ```
 Plan: Add order discount feature
 
-1. [bootstrap] Confirm test runner is configured and baseline tests pass
-2. [atdd] Implement discount calculation via Red-Green-Refactor-Commit cycle
-   Success: acceptance test passes; discount applied correctly end-to-end
-3. [refactor] Review structure of changed files after feature lands
-   Success: no method over cyclomatic complexity 10; no SRP violations introduced
+1. [problem-analyser] Decompose the discount requirement; surface contradictions, edge cases, NFRs
+   Success: approved problem analysis
+2. [user-story-writer] Produce INVEST-scored stories with testable acceptance criteria
+   Success: approved story set
+3. [atdd] Implement discount calculation via Red-Green-Refactor-Commit cycle
+   Success: all ACs covered; committed
+4. [refactor] Review production code structure introduced in step 3
+   Success: no new SRP violations; complexity metrics stable or improved
 ```
 
 Show the plan to the user. Wait for explicit approval before executing any step.

@@ -38,8 +38,7 @@ ______________________________________________________________________
 **Notes:**
 
 - Run both steps in sequence. The `user-story-writer` input is the `problem-analyser` output — do not skip step 1.
-- Do not run either agent when requirements are already clear and testable — it adds no value and creates friction.
-- If the user is technical and has expressed the requirement as a clear story with acceptance criteria, skip both and go directly to feature delivery.
+- If the requirement has been expressed as a story with acceptance criteria, use the feature delivery workflow instead — it includes requirement analysis as its first steps and will validate and stress-test the provided ACs.
 
 **Failure handling:** If the user cannot answer the Impact Mapping questions (especially "Why?"), the work should not start. Surface the missing goal as a blocker and stop.
 
@@ -49,21 +48,23 @@ ______________________________________________________________________
 
 **When:** The user wants to add new behaviour — a feature, user story, or acceptance criterion.
 
-**Precondition check:** Before starting, confirm the development environment is ready. If the test runner is not configured or baseline tests are not passing, run the `bootstrap` step first. If tooling configuration files are absent, run the `devex` step first. If requirements are vague, run the `problem-analyser` step first.
+**Precondition check:** Before starting, confirm the development environment is ready. If the test runner is not configured or baseline tests are not passing, run the `bootstrap` step first. If tooling configuration files are absent, run the `devex` step first.
 
 **Chain:**
 
 ```
-[problem-analyser?] → [user-story-writer?] → [bootstrap?] → [atdd] → [refactor?] → [technical-author?]
+[problem-analyser] → [user-story-writer] → [bootstrap?] → [atdd] → [refactor] → [technical-author?]
 ```
 
-**Step 0 (optional) — `problem-analyser`**
+**Step 0 — `problem-analyser`**
 
 **Hand it:** The raw request; project README.
 
 **Success:** Approved problem analysis: goal, subproblems, contradictions, NFRs.
 
-**Step 1 (optional) — `user-story-writer`**
+Always run this step. Even when the user provides acceptance criteria, run it — it validates, stress-tests, and surfaces gaps the user may not have considered.
+
+**Step 1 — `user-story-writer`**
 
 **Hand it:** Approved problem analysis.
 
@@ -81,11 +82,13 @@ ______________________________________________________________________
 
 **Success:** All acceptance criteria covered; each phase approved by the corresponding reviewer; committed. Surface any `Out-of-scope observations` from the completion report to the user before continuing.
 
-**Step 4 (optional) — `refactor`**
+**Step 4 — `refactor`**
 
 **Hand it:** Files changed in step 3; passing test suite; complexity baseline.
 
 **Success:** No method over CC 10; no new SRP violations; metrics stable or improved.
+
+**Skip if:** The change produced no new production code (test-only, doc-only, or a trivial single-line fix).
 
 **Step 5 (optional) — `technical-author`**
 
@@ -95,7 +98,7 @@ ______________________________________________________________________
 
 **Notes:**
 
-- The `atdd` agent's internal Refactor phase covers local cleanup of the code written in the Green phase — making the new code readable and principle-compliant. The optional post-feature `refactor` step (step 4) is for broader structural review: god classes introduced, coupling increased, metrics degraded. Only run step 4 if cyclomatic complexity or coupling metrics degraded measurably during step 3.
+- The `atdd` agent's internal Refactor phase covers local cleanup of the code written in the Green phase — making the new code readable and principle-compliant. The post-feature `refactor` step (step 4) is for broader structural review: god classes introduced, coupling increased, metrics degraded. Run it after every non-trivial production code change.
 - If the story touches untested legacy code, insert a `legacy-code` step before `atdd`.
 - Run the optional `technical-author` step only when the change introduces, modifies, or removes user-facing behaviour — new CLI commands or flags, changed output format, new config options, new env vars, new or renamed agents or skills. Skip it for internal refactors, test additions, and bug fixes to undocumented behaviour.
 
