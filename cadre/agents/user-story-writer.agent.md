@@ -176,6 +176,24 @@ Acceptance criteria:
 [Ordered list by value/risk/dependency, with brief rationale]
 ```
 
+**Review gate.** Before presenting to the user, invoke `user-story-reviewer` via the `agent` tool:
+
+```text
+Task: Review the user stories
+Context:
+  User stories: [full stories document]
+  Problem analysis: [full problem analysis used as input]
+  Retry context: [attempt number and prior rejected findings, if applicable]
+Constraints: Apply the Stories phase quality bar
+Success criteria: Return a structured verdict (approved/rejected)
+```
+
+Parse the verdict:
+
+- `approved` → proceed to the user approval step below.
+- `ESCALATE_TO_USER` in findings → surface the escalation detail to the user with the full rejected findings, and stop. Do not ask for user approval.
+- `rejected` → apply the Required changes, revise the stories, and re-invoke `user-story-reviewer`. Allow at most 3 attempts total; after the third consecutive rejection treat it as an implicit escalation and surface the findings to the user.
+
 **STOP.** *"Here are the stories. Do these capture what you want to build? Any changes before I hand this to mission-control?"*
 
 Do not hand off until the user explicitly approves.
