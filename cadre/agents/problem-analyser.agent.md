@@ -197,6 +197,23 @@ When the user confirms Phase 2 is complete, produce the following as structured 
 | Risks and unknowns | ?/10 | |
 ```
 
+**Review gate.** Before presenting to the user, invoke `problem-analysis-reviewer` via the `agent` tool:
+
+```text
+Task: Review the problem analysis
+Context:
+  Problem analysis: [full analysis text]
+  Retry context: [attempt number and prior rejected findings, if applicable]
+Constraints: Apply the Analysis phase quality bar
+Success criteria: Return a structured verdict (approved/rejected)
+```
+
+Parse the verdict:
+
+- `approved` → proceed to the user approval step below.
+- `ESCALATE_TO_USER` in findings → surface the escalation detail to the user with the full rejected findings, and stop. Do not ask for user approval.
+- `rejected` → apply the Required changes, revise the analysis, and re-invoke `problem-analysis-reviewer`. Allow at most 3 attempts total; after the third consecutive rejection treat it as an implicit escalation and surface the findings to the user.
+
 **STOP.** *"Here is the problem analysis. Does this accurately capture the problem? Any changes before I hand this to user-story-writer?"*
 
 Do not hand off until the user explicitly approves.
