@@ -115,7 +115,7 @@ Both agents run autonomously and return a structured completion report with fiel
 
 Parse the completion report:
 
-- **Status: completed, Blockers: none** — the output payload is reviewer-approved. Present the full payload to the user, highlighting any open questions and assumptions the agent flagged. Ask the user to confirm the analysis or stories are correct, or to provide additional context. If the user provides additional context, re-invoke the same agent with the original brief plus the new context as a `Clarification answers` block (see format below). If the user approves without changes, pass the payload to the next pipeline step.
+- **Status: completed, Blockers: none** — the output payload is reviewer-approved. Present the full payload to the user, highlighting any unresolved questions and assumptions the agent flagged. Ask the user to confirm the analysis or stories are correct, or to provide additional context. **Any response that answers an unresolved question, overrides a proposed default, or corrects an assumption is additional context** — re-invoke the same agent with the original brief plus those answers structured as a `Clarification answers` block (see format below). Only proceed to the next pipeline step when the user explicitly approves the payload without any changes or corrections.
 
 - **Status: clarification_needed** — the agent identified critical gaps too fundamental to resolve by assumption. Present the **Questions** list to the user. Each question includes why it matters and a proposed default. Collect the user's answers (they may accept the proposed defaults). Then re-invoke the agent with the original brief plus the answers structured as a `Clarification answers` block (see format below).
 
