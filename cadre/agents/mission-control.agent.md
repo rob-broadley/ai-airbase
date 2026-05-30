@@ -111,12 +111,27 @@ Run steps in order. For each step:
 
 ### Receiving results from `problem-analyser` and `user-story-writer`
 
-Both agents run autonomously and return a structured completion report with fields: **Status**, **Summary**, **Problem analysis** or **Stories** (the full output payload), **Blockers**, and **Recommendation**. Both also run an internal reviewer gate before completing.
+Both agents run autonomously and return a structured completion report with fields: **Status**, **Summary**, **Problem analysis** or **Stories** (the full output payload), **Questions** (when clarification is needed), **Blockers**, and **Recommendation**. Both also run an internal reviewer gate before completing.
 
 Parse the completion report:
 
-- **Status: completed, Blockers: none** — the output payload is present and reviewer-approved. Extract the payload and pass it to the next step.
-- **Status: blocked, Blockers contains ESCALATE_TO_USER** — the internal reviewer rejected the output three consecutive times and surfaced findings. STOP the pipeline. Do not proceed to the next step. Surface the agent's findings and ask the user whether to retry with a revised brief, adjust the scope, or abandon the task.
+- **Status: completed, Blockers: none** — the output payload is reviewer-approved. Present the full payload to the user, highlighting any open questions and assumptions the agent flagged. Ask the user to confirm the analysis or stories are correct, or to provide additional context. If the user provides additional context, re-invoke the same agent with the original brief plus the new context as a `Clarification answers` block (see format below). If the user approves without changes, pass the payload to the next pipeline step.
+
+- **Status: clarification_needed** — the agent identified critical gaps too fundamental to resolve by assumption. Present the **Questions** list to the user. Each question includes why it matters and a proposed default. Collect the user's answers (they may accept the proposed defaults). Then re-invoke the agent with the original brief plus the answers structured as a `Clarification answers` block (see format below).
+
+- **Status: blocked, Blockers contains ESCALATE_TO_USER** — the internal reviewer rejected the output three consecutive times. Present the reviewer's findings to the user. Ask whether to retry with a revised brief, adjust the scope, or abandon.
+
+All three cases may loop: re-invoke, receive a new completion report, parse again. Only proceed to the next pipeline step after **Status: completed** and explicit user approval. If the user cannot or will not provide the needed context, abandon and explain why the brief is not ready to build.
+
+**Clarification answers block format** — include in the `Context` field of the re-invocation:
+
+```
+Clarification answers:
+  Q: [question text]
+  A: [user's answer or "accepted proposed default: [default]"]
+  Q: [question text]
+  A: [user's answer or "accepted proposed default: [default]"]
+```
 
 ### Receiving results from `atdd`
 

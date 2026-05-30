@@ -39,8 +39,9 @@ ______________________________________________________________________
 
 - Run both steps in sequence. The `user-story-writer` input is the `problem-analyser` output — do not skip step 1.
 - If the requirement has been expressed as a story with acceptance criteria, use the feature delivery workflow instead — it includes requirement analysis as its first steps and will validate and stress-test the provided ACs.
+- Requirement elicitation is inherently iterative. `problem-analyser` may return `clarification_needed` when critical gaps prevent a meaningful analysis, or may complete with open questions that the user wants to address before proceeding. Expect multiple rounds. This is normal, not a failure.
 
-**Failure handling:** If the user cannot answer the Impact Mapping questions (especially "Why?"), the work should not start. Surface the missing goal as a blocker and stop.
+**Failure handling:** If the user cannot answer the Impact Mapping questions (especially "Why?"), the work should not start. Surface the missing goal as a blocker and stop. If either agent's internal reviewer escalates (`ESCALATE_TO_USER`), surface the findings to the user, incorporate their response, and re-invoke.
 
 ______________________________________________________________________
 
