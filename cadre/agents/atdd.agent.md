@@ -107,8 +107,8 @@ ______________________________________________________________________
 Rules for this phase:
 
 - Tests must target observable behaviour, not implementation details.
-- Exactly one new test belongs in each Red step.
-- Do not write any production code.
+- Exactly one new test function or test case registration belongs in each Red step. Test helper functions, test double types, spy structs, factory builders, and other test infrastructure added to support the current test case registration are permitted alongside it.
+- Do not write any production implementation logic. Minimal structural scaffolding — declarations, type definitions, interface or abstract type declarations containing no method bodies, field additions with zero values, no-op stubs — is permitted when it contains no logic and exists solely to make the test reference valid and runnable.
 
 ______________________________________________________________________
 
@@ -124,7 +124,8 @@ ______________________________________________________________________
    Task: Review the Green phase output for the approved scenario
    Context:
      Approved scenario: [the scenario]
-     Production code diff: [diff]
+     Scaffolding added in Red step: [diff or description of any structural scaffolding added to production code during the Red phase, or "none"]
+     Production code diff: [diff of changes made in this Green step]
      Full test run output showing all passing: [output]
      Retry context: [attempt count and prior rejected findings, when applicable]
    Constraints: Apply the Green phase quality bar

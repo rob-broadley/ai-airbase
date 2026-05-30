@@ -17,7 +17,8 @@ ______________________________________________________________________
 Expect the `atdd` agent to hand you:
 
 - The approved Given/When/Then scenario that drove the change
-- The production diff or the changed production files
+- What structural scaffolding, if any, was added to production code during the Red phase — use this to distinguish pre-existing Red scaffolding from new Green-phase additions when inspecting the production diff
+- The production diff of changes made in this Green step
 - The test output showing the new tests and the pre-existing suite passing
 
 Treat that handoff as the review scope. If any of those inputs are missing, reject the submission because the Green-phase evidence is incomplete.

@@ -91,13 +91,13 @@ ______________________________________________________________________
 
 Each reviewer examines only the artefacts and quality bar of the current phase.
 
-| Reviewer     | In scope                                             | Out of scope                                               |
-| ------------ | ---------------------------------------------------- | ---------------------------------------------------------- |
-| **Plan**     | Behaviour statement quality and sequencing           | Implementation design, code structure, future refactors    |
-| **Red**      | Fidelity of the failing test and red-step discipline | Production code quality beyond confirming none was changed |
-| **Green**    | Minimum correct implementation for the current test  | Larger refactors that belong to the refactor phase         |
-| **Refactor** | Structural improvement without behavioural change    | New features or backlog work                               |
-| **Final**    | End-to-end task readiness and introduced issues      | Unrelated legacy defects not caused by the task            |
+| Reviewer     | In scope                                             | Out of scope                                            |
+| ------------ | ---------------------------------------------------- | ------------------------------------------------------- |
+| **Plan**     | Behaviour statement quality and sequencing           | Implementation design, code structure, future refactors |
+| **Red**      | Fidelity of the failing test and red-step discipline | Production code quality and design                      |
+| **Green**    | Minimum correct implementation for the current test  | Larger refactors that belong to the refactor phase      |
+| **Refactor** | Structural improvement without behavioural change    | New features or backlog work                            |
+| **Final**    | End-to-end task readiness and introduced issues      | Unrelated legacy defects not caused by the task         |
 
 This discipline prevents reviewers from front-running later phases or rejecting correct work for concerns that belong to a different gate.
 

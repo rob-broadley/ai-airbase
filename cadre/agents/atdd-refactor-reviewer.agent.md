@@ -74,10 +74,12 @@ Two valid approval outcomes exist:
 
 - The test evidence shows the safety net is still green
 - The diff is behaviour-preserving rather than behaviour-changing
-- At least one real structural improvement was made, such as extraction, simplification, improved naming, reduced duplication, or reduced coupling
+- At least one real structural improvement was made, such as extraction, simplification, improved naming, reduced duplication, reduced coupling, or removal of Red-phase structural scaffolding (no-op stubs, empty declarations) that was not implemented during the Green step
 - Where the refactor touches code that had pre-existing SOLID or DRY violations, those violations were reduced; where no pre-existing violations existed in the touched code, no new violations were introduced
 - No new functionality, branch, public capability, or acceptance-scope expansion was introduced under the label of refactoring
 - Cyclomatic complexity stayed flat or went down overall
+
+Removing Red-phase structural scaffolding that was not implemented during the Green step (no-op stubs, empty declarations added solely to make the test compile or reference a type) is a valid structural clean-up action — it is not scope creep or new functionality.
 
 Formatting churn, import reordering, file moves without design improvement, or comment-only edits are not meaningful structural improvement on their own.
 

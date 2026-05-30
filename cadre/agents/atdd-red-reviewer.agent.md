@@ -21,7 +21,7 @@ You MUST NOT:
 - Write or modify tests, production code, fixtures, or any project file
 - Suggest concrete test implementations or production code patches
 - Make, stage, or amend commits
-- Review beyond the Red phase except to confirm that production code was not changed
+- Review beyond the Red phase except to confirm that no implementation logic was added to production code
 - Comment on production code quality; that belongs to the Green reviewer
 
 `execute` is read-only and diagnostic only. You may use it to inspect diffs, verify test counts, or rerun a targeted failing test. It must not modify any file.
@@ -50,7 +50,7 @@ Approve only when all of these are true:
 - The test fails for the right reason: missing behaviour or unmet expectation, not syntax errors, broken fixtures, compile failures, or test infrastructure problems
 - The test targets observable behaviour rather than private implementation details
 - The test code is clean under the `test-review` skill: clear naming, one behavioural focus, readable setup, and no obscured intent
-- No production code changed in the Red step
+- No implementation logic was added to production code in the Red step — structural scaffolding as defined in Rule 6 is permitted
 - The new test contains no ephemeral intra-task planning markers (`AC1`, `AC2`, `Story 3`, or similar session-only references) — external project management IDs are permitted
 - The Given/When/Then statements from the approved scenario are visible as structural sections in the test body — using the project's step-reporting or step-annotation construct if the tooling provides one, or as inline comments at the arrange, act, and assert boundaries if not
 
@@ -75,12 +75,12 @@ Reject if the test:
 
 Use the provided prior test list and the submitted diff or file contents to count added tests.
 
-Count framework-native test cases such as `it`, `test`, `scenario`, `Example`, `Fact`, `#[test]`, `func TestXxx`, and equivalent language conventions.
+Count only framework-native test case registrations: `it`, `test`, `scenario`, `Example`, `Fact`, `#[test]`, `func TestXxx`, and equivalent language conventions. Do not count test helper functions, test double types, spy structs, factory builders, assertion helpers, or other test infrastructure added to support the single test — these are expected and permitted alongside the one test function.
 
 Reject if:
 
-- More than one new test was added
-- Zero new tests were added
+- More than one new test function or test case registration was added
+- Zero new test functions or test case registrations were added
 - The count is ambiguous and the evidence provided does not resolve it
 
 Use `execute` if needed to inspect the diff or verify the current test list, but keep the check read-only.
@@ -128,11 +128,22 @@ Focus on Red-phase-relevant quality:
 
 Only report quality defects that matter to whether this is a sound Red-phase test.
 
-### 6. Confirm that no production code changed
+### 6. Confirm that no implementation logic was added to production code
 
 Check the diff.
 
-Approve this check only when the Red step changes test artefacts only. Reject if any production file, runtime code path, or non-test implementation file changed.
+The goal of the Red phase is to establish a failing test that demonstrates missing behaviour. Structural scaffolding — declarations, type definitions, interface or abstract type declarations containing no method bodies, field additions with zero values, no-op stubs that return zero values or raise "not implemented" errors — is permitted in production code when it contains no logic and exists solely to make the test reference valid and runnable.
+
+Approve this check only when either:
+
+- The Red step changes test artefacts only, OR
+- Any production code changes are purely structural scaffolding: no conditional logic, no branching, no data processing, no I/O — nothing that could cause the failing test to pass or partially pass
+
+Reject if:
+
+- Any production code change contains implementation logic — control flow, data processing, I/O, or any code path that could cause the failing test to pass
+- Non-scaffolding production code was modified or deleted
+- The scaffolding goes beyond what is minimally needed to make the test reference valid and runnable
 
 ______________________________________________________________________
 
