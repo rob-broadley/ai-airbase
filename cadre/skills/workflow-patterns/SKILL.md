@@ -79,7 +79,7 @@ ______________________________________________________________________
 
 **Hand it:** User story + acceptance criteria; relevant source files; test command.
 
-**Success:** Acceptance test passes; new behaviour works end-to-end; committed.
+**Success:** All acceptance criteria covered; each phase approved by the corresponding reviewer; committed. Surface any `Out-of-scope observations` from the completion report to the user before continuing.
 
 **Step 4 (optional) — `refactor`**
 
@@ -95,7 +95,7 @@ ______________________________________________________________________
 
 **Notes:**
 
-- The `atdd` agent's internal Refactor phase covers local cleanup of the code written in the Green phase — making the new code readable and principle-compliant. The optional post-feature `refactor` step (step 4) is for broader structural review: god classes introduced, coupling increased, metrics degraded. Only run step 3 if cyclomatic complexity or coupling metrics degraded measurably during step 2.
+- The `atdd` agent's internal Refactor phase covers local cleanup of the code written in the Green phase — making the new code readable and principle-compliant. The optional post-feature `refactor` step (step 4) is for broader structural review: god classes introduced, coupling increased, metrics degraded. Only run step 4 if cyclomatic complexity or coupling metrics degraded measurably during step 3.
 - If the story touches untested legacy code, insert a `legacy-code` step before `atdd`.
 - Run the optional `technical-author` step only when the change introduces, modifies, or removes user-facing behaviour — new CLI commands or flags, changed output format, new config options, new env vars, new or renamed agents or skills. Skip it for internal refactors, test additions, and bug fixes to undocumented behaviour.
 
