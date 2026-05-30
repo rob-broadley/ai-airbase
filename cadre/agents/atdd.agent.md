@@ -79,7 +79,28 @@ ______________________________________________________________________
 
 1. Run the relevant tests and confirm the new test fails for the right reason (not a compile error or test infrastructure issue). If the test failure is due to missing tools or build errors, STOP immediately. Do not proceed. In handoff mode, emit the structured completion report with the exact error so the calling agent can delegate to `bootstrap` or `devex`. In interactive mode, delegate to `bootstrap` for missing tools or build environment gaps, or to `devex` for absent Makefile targets or misconfigured toolchain. Include the exact error output and a description of what is needed. If the test fails but for the wrong reason (syntax error, broken fixture, import failure), correct the test or its environment first and re-run before invoking the reviewer. Do not forward a known-defective submission.
 
-1. Invoke `atdd-red-reviewer` via the `agent` tool using the handoff format:
+1. **If the new test passes immediately without any production code change**, it may have been pre-satisfied by a prior cycle's implementation. Do not skip the Red reviewer — invoke it with a `Pre-satisfied submission: yes` flag so it can verify the test is genuinely testing the right behaviour. Use the pre-satisfied handoff format:
+
+   ```text
+   Task: Review the Red phase output for the approved scenario
+   Context:
+     Approved scenario: [the scenario]
+     New test code diff: [diff]
+     Test run output showing the test passing without production code change: [output]
+     Tests that existed before this step: [list]
+     Targeted test command: [command used to run this specific test]
+     Pre-satisfied submission: yes — test passes without new production code; please verify it would fail without the prior cycle's implementation
+     Retry context: [attempt count and prior rejected findings, when applicable]
+   Constraints: Apply the Red phase quality bar including the pre-satisfied verification path
+   Success criteria: Return a structured verdict (approved-pre-satisfied/rejected) with findings and required changes
+   ```
+
+   Parse the verdict:
+
+   - `approved-pre-satisfied` → the AC is confirmed covered by prior implementation. Do not enter Green or Refactor — no new production code is needed. Record the AC as covered and the test as added, then return to Plan for the next uncovered criterion.
+   - `rejected` → the test is weak (it passes even without the relevant implementation) or has another defect. Apply the Required changes and re-run the Red step.
+
+1. Invoke `atdd-red-reviewer` via the `agent` tool using the standard handoff format (for tests that fail, as expected):
 
    ```text
    Task: Review the Red phase output for the approved scenario
@@ -246,7 +267,7 @@ When operating in handoff mode, always finish by emitting a structured report fo
 - **Status:** `completed` or `blocked`.
 - **Summary:** One sentence describing what was done or why execution stopped.
 - **Phases completed:** Which of Plan / Plan-review / Red / Red-review / Green / Green-review / Refactor / Refactor-review / Final-review / Commit were completed.
-- **Tests:** Number of new tests added, and the total test suite count after the last run.
+- **Tests:** Number of new test functions added — verify using the project's test framework conventions (count test function registrations in the new test files using a read-only file inspection, not self-assessment) and the total test suite count after the last run. Note any ACs whose tests were confirmed pre-satisfied rather than driven red.
 - **Commit:** The commit hash and commit message, or `not committed` with the reason.
 - **Out-of-scope observations:** Any pre-existing issues surfaced by the final reviewer, or `none`.
 - **Blockers:** `none`, or each blocker that required stopping. Use `CLARIFICATION_NEEDED: [question]` for ambiguous acceptance criteria; state the exact error or reason for all other blockers.

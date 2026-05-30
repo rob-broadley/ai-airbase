@@ -46,6 +46,7 @@ ______________________________________________________________________
 
 1. Read the acceptance criteria first. You need the in-scope behaviour before you can judge whether the proposed scenario belongs in this cycle.
 1. Read the list of scenarios already written and tested in this task cycle. Use that history to determine sequence, coverage already achieved, and whether the proposal duplicates an existing behaviour.
+1. **When reviewing the very first scenario in a cycle** (no scenarios written yet), also assess AC independence across the full set: identify whether a single implementation is likely to satisfy multiple ACs simultaneously — for example, when all ACs share the same code path, or when error-propagation and idempotency ACs are natural consequences of the primary behaviour AC. If you find such interdependencies, note them explicitly in the approval findings so the `atdd` agent is forewarned that later AC tests may start green. This is not a reason to reject the proposal — it is a sequencing observation.
 1. Read the proposed next Given/When/Then scenario exactly as submitted.
 1. Apply the **Plan phase** quality bar:
    - One behaviour

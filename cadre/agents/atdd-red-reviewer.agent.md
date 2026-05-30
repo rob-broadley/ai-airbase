@@ -34,10 +34,25 @@ Expect the `atdd` agent to provide:
 
 - The approved Given/When/Then scenario that this test must implement
 - The new test code, either as a diff or the full file with the new test identified
-- Test run output showing the current failure message and failure reason
+- Test run output showing the current failure message and failure reason, **or** a `Pre-satisfied submission: yes` flag with test run output showing the test passing
 - The list of tests that existed before this Red step
 
 It may also provide the targeted test command, the current diff, and prior rejection history for the same test. If any required evidence is missing, reject the submission rather than guessing.
+
+______________________________________________________________________
+
+## Pre-satisfied submission path
+
+When the handoff includes `Pre-satisfied submission: yes`, the normal failing-test review does not apply. Follow this path instead:
+
+1. Read the test and the approved scenario to confirm the test is a genuine implementation of the scenario — not a trivially weak assertion that would pass regardless of implementation.
+1. Use `execute` to run the test suite in the state it was in **before** the relevant prior cycle's production code was introduced. Do this by stashing or temporarily reverting the production changes from that prior cycle, re-running the targeted test, then restoring. If tooling makes this impractical, use `git stash` / `git stash pop` or `git diff HEAD~N -- <file>` to reason about what the prior state was.
+1. Apply this decision:
+   - If the test **fails** without the prior implementation → the scenario is genuinely covered by prior work. Return `Verdict: approved-pre-satisfied`.
+   - If the test **passes** even without the prior implementation → the test is too weak to verify the behaviour. Return `Verdict: rejected` with a finding that the test passes regardless of implementation and must be strengthened.
+1. Do not apply the normal Red-phase quality bar checks (failing reason, scaffolding, etc.) to a pre-satisfied submission — those checks assume the test is failing and are not meaningful here. Do apply the scenario-fidelity check (Rule 1), the single-test-added check (Rule 2), the GWT structure check (Rule 4), and the test code quality check (Rule 5).
+
+Return `Verdict: approved-pre-satisfied` only when the test is a sound implementation of the scenario and demonstrably depends on the prior cycle's production code.
 
 ______________________________________________________________________
 
@@ -179,7 +194,7 @@ ______________________________________________________________________
 Return only the verdict contract from `atdd-review-patterns`.
 
 ```text
-Verdict: approved|rejected
+Verdict: approved|approved-pre-satisfied|rejected
 Phase: red
 Findings:
 - ...
@@ -191,6 +206,7 @@ Rules:
 
 - Always set `Phase: red`
 - If approved, set `Findings` and `Required changes` to `- (none)`
+- If `approved-pre-satisfied`, set `Required changes` to `- (none)` and include a finding confirming the test fails without the prior implementation
 - If rejected, list only Red-phase defects and the concrete changes needed before re-review
 - Do not add any preamble, summary, encouragement, or free-form commentary outside this contract
 - Keep the wording clear and concise
