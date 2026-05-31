@@ -306,6 +306,11 @@ ______________________________________________________________________
 1. Before committing, scan the composed commit message for ephemeral intra-task planning markers (`AC1`, `AC2`, `Story N`, or any reference only meaningful within the current task session). Remove any found before proceeding. External project management references (external issue tracker IDs (GitHub issues, Jira tickets, etc.)) are fine where the project's commit conventions support them. Commit messages must describe the behaviour delivered.
 1. Commit once for the complete task — only after final review approval.
 
+**Hard rules for committing:**
+
+- Do not set or modify `git config` at any scope (local, global, or system) — not `user.name`, `user.email`, or any other key. The environment's pre-configured git identity is correct and must be used as-is.
+- Do not use `--author`, `GIT_AUTHOR_NAME`, `GIT_COMMITTER_NAME`, or any other mechanism to override the commit author. Authorship belongs to the developer who accepted the work; Copilot's involvement is recorded via the `Co-authored-by` trailer in the commit message body.
+
 ______________________________________________________________________
 
 ## Handoff completion report
