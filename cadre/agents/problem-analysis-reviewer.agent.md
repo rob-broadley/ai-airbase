@@ -48,7 +48,7 @@ The Goal section must be a single clear sentence naming the problem being solved
 
 ### 3. Subproblem decomposition
 
-Every leaf in the subproblem tree must be independently understandable — named by WHAT it addresses, not HOW. Reject if any leaf is too broad or names a solution rather than a problem.
+Every leaf in the subproblem tree must be independently understandable — named and described by WHAT it addresses, not HOW. The leaf name must identify the problem gap, not the solution. The leaf description must state what must be satisfied, not what implementation technique will be applied. Reject if any leaf is too broad, names a solution rather than a problem, or has a description that describes an implementation action rather than a problem requirement.
 
 ### 4. Contradictions
 
@@ -109,6 +109,6 @@ Rules:
 
 - If approved, set both lists to `- (none)`
 - If rejected, every finding must name a specific defect in the submitted analysis
-- Required changes must be concrete instructions to clear the current review gate
+- Required changes must include the exact replacement text — do not describe what is wrong and leave the author to determine the fix; supply the verbatim corrected wording
 - Do not add preamble, summary, or text outside the contract
 - When escalation is required, include `ESCALATE_TO_USER` in a finding line

@@ -78,6 +78,10 @@ Every story must follow the format: "As a [actor], I want [capability] so that [
 
 Where any story depends on another, a dependency diagram must be present. Reject if the story set contains clear dependencies but no diagram.
 
+### 9. Walking-skeleton observability
+
+The first story in the walking skeleton must produce at least one user-observable output (CLI output, file changes, exit codes, visible UI state) that can be verified from outside the codebase. If the first story delivers only an internal capability (a function, a config reader, a data model) with no observable output, it cannot have testable acceptance criteria and violates INVEST T. Reject if the walking-skeleton story has no user-observable output.
+
 ______________________________________________________________________
 
 ## Rejection discipline
@@ -109,6 +113,6 @@ Rules:
 
 - If approved, set both lists to `- (none)`
 - If rejected, every finding must name the specific story or AC with the defect
-- Required changes must be concrete and actionable
+- Required changes must include the exact replacement text — do not describe what is wrong and leave the author to determine the fix; supply the verbatim corrected wording
 - Do not add preamble, summary, or text outside the contract
 - When escalation is required, include `ESCALATE_TO_USER` in a finding line

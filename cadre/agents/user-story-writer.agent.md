@@ -58,7 +58,7 @@ From the problem analysis, list every distinct user type or system actor. Every 
 Using the User Story Mapping technique from the `story-craft` skill:
 
 1. Lay out the backbone: the high-level steps in the actor's journey, in order.
-1. Under each backbone step, identify the minimum slice that works end-to-end — the **walking skeleton**.
+1. Under each backbone step, identify the minimum slice that works end-to-end — the **walking skeleton**. "Works end-to-end" means it produces user-observable output (CLI output, file changes, exit codes, visible UI state); a slice that only adds internal structure (a function, a config reader, a data model) with no observable output is not a valid skeleton entry.
 1. Add enhancement stories below the walking skeleton line.
 
 Present the map as a table before writing individual stories:
@@ -68,6 +68,8 @@ Present the map as a table before writing individual stories:
 | -------- | ---------------- | ------------ |
 | ...      | ...              | ...          |
 ```
+
+**Walking-skeleton observability check.** Before writing individual stories, verify that every story in your decomposition produces at least one user-observable output — something verifiable from outside the codebase (CLI output, file changes, exit codes, visible UI state). A story that delivers only an internal capability (a new function, a data structure, a config-file reader) with no observable output cannot have testable acceptance criteria. If you find such a story, merge it into the story that produces the first observable output using that capability.
 
 **Step 3 — Apply Elephant Carpaccio to large stories.**
 

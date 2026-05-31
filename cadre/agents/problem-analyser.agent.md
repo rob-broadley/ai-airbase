@@ -76,7 +76,7 @@ Do not accept "it would be nice" or "users want it" as a Why. If the user cannot
 
 **Step 3 — Decompose into subproblems.**
 
-Break the problem into named subproblems. A good subproblem is independently understandable, has its own stakeholders and success criteria, and is named by WHAT it addresses — not HOW.
+Break the problem into named subproblems. A good subproblem is independently understandable, has its own stakeholders and success criteria, and is named by WHAT it addresses — not HOW. This rule applies to both names and description bodies: leaf descriptions must state what gap exists or what must be satisfied, not what implementation technique will be used.
 
 Represent it as a nested list. Keep decomposing until each leaf is unambiguous.
 
@@ -200,6 +200,10 @@ When the user confirms Phase 2 is complete, produce the following as structured 
 | Constraints | ?/10 | |
 | Risks and unknowns | ?/10 | |
 ```
+
+**Self-check before review.** Before invoking the reviewer, apply this heuristic to every subproblem leaf description, constraint, and rule: *"If I removed all references to technology, tools, frameworks, and internal identifiers, does this statement still describe the same requirement?"* If the meaning changes or the statement becomes empty, it contains HOW language. Rewrite it to describe what gap exists or what boundary must be respected, without naming the technique used to address it.
+
+Fix any violations before invoking the reviewer — each one costs a review cycle.
 
 **Review gate.** Before presenting to the user, invoke `problem-analysis-reviewer` via the `agent` tool:
 
