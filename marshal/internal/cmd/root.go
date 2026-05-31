@@ -33,6 +33,9 @@ type Deps struct {
 	SaveConfig            func(project string, cfg *config.Config) error // defaults to config.Save
 	DeleteConfig          func(project string) error                     // defaults to config.Delete
 	LoadConfig            func(project string) (*config.Config, error)   // defaults to config.Load
+	// ListProjects returns all registered project names and any per-file warnings.
+	// Defaults to config.ListProjects.
+	ListProjects func() ([]string, []string, error)
 	// LookupGitConfig reads a git configuration key (e.g. "user.name") from the
 	// host and returns its trimmed value, or an empty string if unset or on error.
 	// Defaults to lookupHostGitConfig.
@@ -74,6 +77,14 @@ func (d Deps) loadConfig() func(string) (*config.Config, error) {
 		return d.LoadConfig
 	}
 	return config.Load
+}
+
+// listProjects returns the effective projects lister: the injected one or config.ListProjects.
+func (d Deps) listProjects() func() ([]string, []string, error) {
+	if d.ListProjects != nil {
+		return d.ListProjects
+	}
+	return config.ListProjects
 }
 
 // ensureSharedConfigDirFn returns the injected EnsureSharedConfigDir or the
@@ -148,6 +159,7 @@ func NewRootCmd(deps Deps) *cobra.Command {
 
 	root.AddCommand(
 		newCreateCmd(deps, &projectFlag),
+		newListCmd(deps),
 		newStopCmd(deps, &projectFlag),
 		newStatusCmd(deps, &projectFlag),
 		newRecreateCmd(deps, &projectFlag),

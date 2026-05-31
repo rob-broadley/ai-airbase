@@ -54,7 +54,7 @@ func assertMounts(t *testing.T, cfg *Config, want []string) {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Project name resolution
+// Project name resolution
 // ---------------------------------------------------------------------------
 
 // TestResolveProject_FlagTakesPrecedence verifies that a non-empty flag value
@@ -130,7 +130,7 @@ func TestResolveProject_CWDFallback(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 2. ConfigPath
+// ConfigPath
 // ---------------------------------------------------------------------------
 
 // TestConfigPath_XDGOverride verifies that ConfigPath returns a path under
@@ -172,7 +172,7 @@ func TestConfigPath_DefaultXDG(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Load — file missing
+// Load — file missing
 // ---------------------------------------------------------------------------
 
 // TestLoad_FileMissing_ReturnsEmptyConfig verifies that Load returns an empty
@@ -198,7 +198,7 @@ func TestLoad_FileMissing_ReturnsEmptyConfig(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Load — file exists with mounts
+// Load — file exists with mounts
 // ---------------------------------------------------------------------------
 
 // TestLoad_FileExists_ReturnsMounts verifies that Load parses mounts correctly
@@ -253,7 +253,7 @@ func TestLoad_MalformedTOML_ReturnsError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Save — round-trip
+// Save — round-trip
 // ---------------------------------------------------------------------------
 
 // TestSave_RoundTrip verifies that Save writes config to disk and a subsequent
@@ -305,7 +305,7 @@ func TestSave_CreatesDirectories(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Save — overwrite
+// Save — overwrite
 // ---------------------------------------------------------------------------
 
 // TestSave_Overwrite verifies that Save overwrites an existing config file with
@@ -336,7 +336,7 @@ func TestSave_Overwrite(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. Delete
+// Delete
 // ---------------------------------------------------------------------------
 
 // TestDelete_RemovesConfigFile verifies that Delete removes a previously saved
@@ -381,8 +381,61 @@ func TestDelete_NoopWhenFileAbsent(t *testing.T) {
 	}
 }
 
+// TestDelete_InvalidProjectName_ReturnsValidationError verifies that Delete
+// returns an error immediately when the project name is invalid, without
+// attempting any filesystem operation.
+func TestDelete_InvalidProjectName_ReturnsValidationError(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set to a temp directory
+	tmp := t.TempDir()
+	setenv(t, "XDG_CONFIG_HOME", tmp)
+
+	// When Delete is called with a path-traversal project name
+	err := Delete("../../evil")
+
+	// Then an error is returned (validation fails before any filesystem access)
+	if err == nil {
+		t.Error("expected an error for invalid project name, got nil")
+	}
+}
+
+// TestDelete_RemoveFailsWithNonErrNotExist_ReturnsRemovingProjectConfigError
+// verifies that Delete propagates an os.Remove error (other than ErrNotExist)
+// as an error whose message contains "removing project config".
+func TestDelete_RemoveFailsWithNonErrNotExist_ReturnsRemovingProjectConfigError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("skipping permission test: running as root bypasses directory permission checks")
+	}
+
+	// Given XDG_CONFIG_HOME is set to a temp directory, a config file exists for
+	// "perm-delete-project", and the parent projects directory has permissions
+	// set to 0o000, making os.Remove fail with EACCES
+	tmp := t.TempDir()
+	setenv(t, "XDG_CONFIG_HOME", tmp)
+
+	if err := Save("perm-delete-project", &Config{}); err != nil {
+		t.Fatalf("Save failed during setup: %v", err)
+	}
+
+	projDir := filepath.Join(tmp, "marshal", "projects")
+	if err := os.Chmod(projDir, 0o000); err != nil {
+		t.Fatalf("Chmod failed during setup: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(projDir, 0o755) }) //nolint:errcheck
+
+	// When Delete is called
+	err := Delete("perm-delete-project")
+
+	// Then an error is returned whose message contains "removing project config"
+	if err == nil {
+		t.Fatal("expected an error when os.Remove fails, got nil")
+	}
+	if !strings.Contains(err.Error(), "removing project config") {
+		t.Errorf("expected 'removing project config' in error, got: %v", err)
+	}
+}
+
 // ---------------------------------------------------------------------------
-// 8. EnsureSharedConfigDir
+// EnsureSharedConfigDir
 // ---------------------------------------------------------------------------
 
 // TestEnsureSharedConfigDir_XDGOverride verifies that EnsureSharedConfigDir
@@ -511,7 +564,7 @@ func TestEnsureSharedConfigDir_FileAtTargetPath_ReturnsCreateError(t *testing.T)
 }
 
 // ---------------------------------------------------------------------------
-// 9. SharedDataPath
+// SharedDataPath
 // ---------------------------------------------------------------------------
 
 // TestSharedDataPath_XDGOverride verifies that SharedDataPath returns a path
@@ -570,7 +623,7 @@ func TestSharedDataPath_DefaultXDG(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 8. EnsureSharedDataDir
+// EnsureSharedDataDir
 // ---------------------------------------------------------------------------
 
 // TestEnsureSharedDataDir_CreatesDir verifies that EnsureSharedDataDir creates
@@ -643,7 +696,7 @@ func TestEnsureSharedDataDir_CreatesNestedDirs(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 9. Save — error paths
+// Save — error paths
 // ---------------------------------------------------------------------------
 
 // TestSave_DirectoryCreationFails verifies that Save returns an error containing
@@ -699,8 +752,75 @@ func TestSave_FileCreationFails(t *testing.T) {
 	}
 }
 
+// TestSave_MkdirAllFailsAtProjectsPath_ReturnsCreatingConfigDirectoryError
+// verifies that Save returns an error containing "creating config directory"
+// when os.MkdirAll cannot create the projects directory because a regular file
+// already occupies that exact path.
+func TestSave_MkdirAllFailsAtProjectsPath_ReturnsCreatingConfigDirectoryError(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set to a temp directory and a regular file exists
+	// at "<tmp>/marshal/projects" — the exact path MkdirAll would create as a directory
+	tmp := t.TempDir()
+	setenv(t, "XDG_CONFIG_HOME", tmp)
+
+	marshallDir := filepath.Join(tmp, "marshal")
+	if err := os.MkdirAll(marshallDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	blockPath := filepath.Join(marshallDir, "projects")
+	if err := os.WriteFile(blockPath, []byte("block"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// When Save is called
+	err := Save("mkdirall-block-project", &Config{})
+
+	// Then an error containing "creating config directory" is returned
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "creating config directory") {
+		t.Errorf("expected 'creating config directory' in error, got: %v", err)
+	}
+}
+
+// TestSave_ReadOnlyProjectsDir_ReturnsCreatingTempConfigFileError verifies that
+// Save returns an error containing "creating temp config file" when the projects
+// directory exists but is not writable, causing os.CreateTemp to fail.
+func TestSave_ReadOnlyProjectsDir_ReturnsCreatingTempConfigFileError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("skipping permission test: running as root bypasses directory permission checks")
+	}
+
+	// Given XDG_CONFIG_HOME is set to a temp directory, the projects directory has
+	// been created successfully, and its permissions are then set to 0o555
+	// (readable/executable but not writable) — preventing os.CreateTemp from
+	// creating a temp file inside it
+	tmp := t.TempDir()
+	setenv(t, "XDG_CONFIG_HOME", tmp)
+
+	projDir := filepath.Join(tmp, "marshal", "projects")
+	if err := os.MkdirAll(projDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(projDir, 0o555); err != nil {
+		t.Fatalf("Chmod failed during setup: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(projDir, 0o755) }) //nolint:errcheck
+
+	// When Save is called
+	err := Save("readonly-dir-project", &Config{})
+
+	// Then an error containing "creating temp config file" is returned
+	if err == nil {
+		t.Fatal("expected an error when the projects directory is not writable, got nil")
+	}
+	if !strings.Contains(err.Error(), "creating temp config file") {
+		t.Errorf("expected 'creating temp config file' in error, got: %v", err)
+	}
+}
+
 // ---------------------------------------------------------------------------
-// 10. EnsureSharedDataDir — error paths
+// EnsureSharedDataDir — error paths
 // ---------------------------------------------------------------------------
 
 // TestEnsureSharedDataDir_DirectoryCreationFails verifies that
@@ -819,7 +939,7 @@ func TestLoad_RejectsInvalidProjectNames(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 11. Guard: non-absolute config path (Fix 1)
+// Guard: non-absolute config path (Fix 1)
 // ---------------------------------------------------------------------------
 
 // TestLoad_NonAbsoluteConfigPath_ReturnsUnavailableError verifies that Load
@@ -888,7 +1008,7 @@ func TestEnsureSharedDataDir_NonAbsoluteDataPath_ReturnsUnavailableError(t *test
 }
 
 // ---------------------------------------------------------------------------
-// 12. Atomic Save: file is valid after Save (Fix 2)
+// Atomic Save: file is valid after Save (Fix 2)
 // ---------------------------------------------------------------------------
 
 // TestSave_AtomicRoundTrip verifies that a completed Save always leaves a
@@ -1077,6 +1197,21 @@ func assertMasks(t *testing.T, cfg *Config, want []string) {
 	}
 }
 
+// makeProjectsDir creates a temporary XDG_CONFIG_HOME, registers t.Setenv for
+// cleanup, creates the marshal/projects subdirectory with permissions 0o755,
+// and returns its absolute path. It is used by ListProjects tests that need a
+// writable projects directory to exist before calling the function.
+func makeProjectsDir(t *testing.T) string {
+	t.Helper()
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	projDir := filepath.Join(tmp, "marshal", "projects")
+	if err := os.MkdirAll(projDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return projDir
+}
+
 // ---------------------------------------------------------------------------
 // Masks — config persistence
 // ---------------------------------------------------------------------------
@@ -1221,4 +1356,278 @@ func TestLoad_ZeroMaskRoundTrip(t *testing.T) {
 		t.Fatalf("Load failed: %v", err)
 	}
 	assertMasks(t, loaded, []string{})
+}
+
+// ---------------------------------------------------------------------------
+// ListProjects
+// ---------------------------------------------------------------------------
+
+// TestListProjects_ProjectsDirAbsent_ReturnsEmptySliceNoError verifies that
+// ListProjects returns an empty (non-nil) names slice, nil warnings, and nil
+// error when the projects configuration directory does not exist.
+func TestListProjects_ProjectsDirAbsent_ReturnsEmptySliceNoError(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set to a temp directory with no marshal/projects subdirectory
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	// When ListProjects is called
+	names, warnings, err := ListProjects()
+
+	// Then an empty (non-nil) names slice, nil warnings, and nil error are returned
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if warnings != nil {
+		t.Errorf("expected nil warnings, got: %v", warnings)
+	}
+	if names == nil {
+		t.Fatal("expected non-nil names slice, got nil")
+	}
+	if len(names) != 0 {
+		t.Errorf("expected empty names slice, got: %v", names)
+	}
+}
+
+// TestListProjects_ProjectsDirEmpty_ReturnsEmptySliceNoError verifies that
+// ListProjects returns an empty (non-nil) names slice, nil warnings, and nil
+// error when the projects directory exists but contains no files.
+func TestListProjects_ProjectsDirEmpty_ReturnsEmptySliceNoError(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set to a temp directory and the marshal/projects directory exists but is empty
+	makeProjectsDir(t)
+
+	// When ListProjects is called
+	names, warnings, err := ListProjects()
+
+	// Then an empty (non-nil) names slice, nil warnings, and nil error are returned
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if warnings != nil {
+		t.Errorf("expected nil warnings, got: %v", warnings)
+	}
+	if names == nil {
+		t.Fatal("expected non-nil names slice, got nil")
+	}
+	if len(names) != 0 {
+		t.Errorf("expected empty names slice, got: %v", names)
+	}
+}
+
+// TestListProjects_NonTomlFile_SkipsFile verifies that ListProjects ignores
+// files that do not have the .toml extension — they must not appear in names.
+func TestListProjects_NonTomlFile_SkipsFile(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set to a temp directory and the projects directory contains only a file named "README.md"
+	projDir := makeProjectsDir(t)
+	if err := os.WriteFile(filepath.Join(projDir, "README.md"), []byte("docs"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// When ListProjects is called
+	names, warnings, err := ListProjects()
+
+	// Then names does not contain "README.md" or "README", and no error is returned
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if warnings != nil {
+		t.Errorf("expected nil warnings, got: %v", warnings)
+	}
+	for _, n := range names {
+		if n == "README.md" || n == "README" {
+			t.Errorf("expected non-.toml file to be skipped, but found %q in names", n)
+		}
+	}
+}
+
+// TestListProjects_Subdirectory_SkipsDirectoryEntry verifies that ListProjects
+// ignores directory entries — they must not appear in names.
+// The directory is named "myproject.toml" so only the non-regular-entry guard
+// (not the suffix check) is responsible for excluding it.
+func TestListProjects_Subdirectory_SkipsDirectoryEntry(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set to a temp directory and the projects directory contains only a subdirectory named "myproject.toml"
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	projDir := filepath.Join(tmp, "marshal", "projects")
+	if err := os.MkdirAll(filepath.Join(projDir, "myproject.toml"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// When ListProjects is called
+	names, warnings, err := ListProjects()
+
+	// Then names does not contain "myproject", and no error or warnings are returned
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if warnings != nil {
+		t.Errorf("expected nil warnings, got: %v", warnings)
+	}
+	for _, n := range names {
+		if n == "myproject" {
+			t.Errorf("expected subdirectory to be skipped, but found %q in names", n)
+		}
+	}
+}
+
+// TestListProjects_Symlink_SkipsSymlink verifies that ListProjects ignores
+// symlinks even when they point to a valid .toml file.
+func TestListProjects_Symlink_SkipsSymlink(t *testing.T) {
+	// Given the projects directory contains a symlink named "linked.toml" pointing to a valid .toml file
+	projDir := makeProjectsDir(t)
+	targetDir := t.TempDir()
+	targetPath := filepath.Join(targetDir, "linked.toml")
+	if err := os.WriteFile(targetPath, []byte("mounts = []\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	linkPath := filepath.Join(projDir, "linked.toml")
+	if err := os.Symlink(targetPath, linkPath); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+
+	// When ListProjects is called
+	names, warnings, err := ListProjects()
+
+	// Then names does not contain "linked", and no error or warnings are returned
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if warnings != nil {
+		t.Errorf("expected nil warnings, got: %v", warnings)
+	}
+	for _, n := range names {
+		if n == "linked" {
+			t.Errorf("expected symlink to be skipped, but found %q in names", n)
+		}
+	}
+}
+
+// TestListProjects_ValidTomlFiles_ReturnsNamesInLexicographicOrder verifies
+// that ListProjects returns bare project names (no path, no extension) in
+// lexicographic order and produces nil warnings and nil error.
+func TestListProjects_ValidTomlFiles_ReturnsNamesInLexicographicOrder(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set to a temp directory and the projects directory contains three valid .toml files: "zebra.toml", "alpha.toml", "middle.toml"
+	projDir := makeProjectsDir(t)
+	for _, name := range []string{"zebra", "alpha", "middle"} {
+		if err := os.WriteFile(filepath.Join(projDir, name+".toml"), []byte(""), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// When ListProjects is called
+	names, warnings, err := ListProjects()
+
+	// Then names equals ["alpha", "middle", "zebra"] (bare stems, no extension, in lexicographic order), warnings is nil, and error is nil
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if warnings != nil {
+		t.Errorf("expected nil warnings, got: %v", warnings)
+	}
+	want := []string{"alpha", "middle", "zebra"}
+	if len(names) != len(want) {
+		t.Fatalf("expected %d names, got %d: %v", len(want), len(names), names)
+	}
+	for i, w := range want {
+		if names[i] != w {
+			t.Errorf("names[%d]: expected %q, got %q", i, w, names[i])
+		}
+	}
+}
+
+// TestListProjects_InvalidStemTomlFile_ReturnsWarningExcludesName verifies
+// that a .toml file whose stem is not a valid project name (e.g. ".hidden.toml")
+// is excluded from names and produces a warning message containing "skipping".
+func TestListProjects_InvalidStemTomlFile_ReturnsWarningExcludesName(t *testing.T) {
+	// Given XDG_CONFIG_HOME is set to a temp directory and the projects directory contains a file named ".hidden.toml"
+	projDir := makeProjectsDir(t)
+	if err := os.WriteFile(filepath.Join(projDir, ".hidden.toml"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// When ListProjects is called
+	names, warnings, err := ListProjects()
+
+	// Then names does not contain ".hidden", warnings contains at least one entry with the substring "skipping", and error is nil
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	for _, n := range names {
+		if n == ".hidden" {
+			t.Errorf("expected invalid stem to be excluded from names, but found %q", n)
+		}
+	}
+	if len(warnings) == 0 {
+		t.Fatal("expected at least one warning, got none")
+	}
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "skipping") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected a warning containing %q, got: %v", "skipping", warnings)
+	}
+}
+
+// TestListProjects_UnreadableDir_ReturnsReadError verifies that ListProjects
+// returns nil names, nil warnings, and an error containing "reading projects
+// directory" when the projects directory exists but cannot be read.
+func TestListProjects_UnreadableDir_ReturnsReadError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("skipping unreadable-directory test: running as root can read any directory")
+	}
+
+	// Given XDG_CONFIG_HOME is set to a temp directory, the projects directory exists, and its permissions are set to 0o000
+	projDir := makeProjectsDir(t)
+	if err := os.Chmod(projDir, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(projDir, 0o755) }) //nolint:errcheck
+
+	// When ListProjects is called
+	names, warnings, err := ListProjects()
+
+	// Then names is nil, warnings is nil, and error contains the substring "reading projects directory"
+	if err == nil {
+		t.Fatal("expected an error for unreadable directory, got nil")
+	}
+	if !strings.Contains(err.Error(), "reading projects directory") {
+		t.Errorf("expected error to contain %q, got: %v", "reading projects directory", err)
+	}
+	if names != nil {
+		t.Errorf("expected nil names, got: %v", names)
+	}
+	if warnings != nil {
+		t.Errorf("expected nil warnings, got: %v", warnings)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// xdgBaseDir — home directory unavailable
+// ---------------------------------------------------------------------------
+
+// TestXdgConfigHome_BothEnvAndHomeMissing_ReturnsEmptyString verifies that
+// xdgConfigHome returns "" when XDG_CONFIG_HOME is unset and HOME is unset,
+// so that os.UserHomeDir cannot resolve a home directory from the environment.
+// When the process runs in an environment where UserHomeDir falls back to the
+// passwd database and still succeeds, the test is skipped.
+func TestXdgConfigHome_BothEnvAndHomeMissing_ReturnsEmptyString(t *testing.T) {
+	// Given XDG_CONFIG_HOME is unset and HOME is unset
+	unsetenv(t, "XDG_CONFIG_HOME")
+	unsetenv(t, "HOME")
+
+	// If UserHomeDir succeeds despite HOME being unset (e.g. via passwd lookup),
+	// the test environment cannot exercise the error path — skip gracefully.
+	if _, err := os.UserHomeDir(); err == nil {
+		t.Skip("UserHomeDir succeeded without HOME set (passwd fallback active) — skipping on this host")
+	}
+
+	// When xdgConfigHome is called
+	got := xdgConfigHome()
+
+	// Then the result is an empty string
+	if got != "" {
+		t.Errorf("expected empty string when home is unavailable, got %q", got)
+	}
 }

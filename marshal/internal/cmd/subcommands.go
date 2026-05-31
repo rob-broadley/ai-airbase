@@ -4,6 +4,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -380,6 +381,109 @@ func newShellCmd(deps Deps, projectFlag *string) *cobra.Command {
 			return ensureContainerAndExec(cmd, deps, *projectFlag)
 		},
 	}
+}
+
+// newListCmd returns the cobra.Command for the "list" subcommand, which
+// prints all registered projects and their container status.
+func newListCmd(deps Deps) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all registered projects and their container status",
+		Long: `List all registered projects and their Podman container status.
+
+Prints a table with three columns — NAME, STATUS, and CONFIG — sorted
+in case-sensitive lexicographic order by project name. The header is always
+printed, even when there are no projects.
+
+STATUS values:
+  running  the container is currently running
+  stopped  the container exists but is not running
+  absent   no container exists for this project yet
+  unknown  the Podman query failed (a warning is printed to stderr)
+
+CONFIG values:
+  ok     the project config file is valid
+  error  the project config file could not be loaded (a warning is printed to stderr)
+
+Exit codes:
+  0  success, including per-project Podman failures (STATUS "unknown") and
+     config-load failures (CONFIG "error")
+  1  the projects config directory is unreadable
+
+The --project / -p flag is accepted but has no effect on the output.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runList(cmd, deps)
+		},
+	}
+}
+
+// runList implements the "list" subcommand: it prints a header row and one
+// row per registered project with its container status. The NAME column is
+// padded to the width of the longest project name (or the header word "NAME"
+// if shorter), with at least 2 spaces separating it from the STATUS column.
+// When a per-project Podman query fails, the row shows "unknown", a warning is
+// written to stderr naming the project, and the command still exits 0.
+func runList(cmd *cobra.Command, deps Deps) error {
+	projects, warnings, err := deps.listProjects()()
+	if err != nil {
+		return fmt.Errorf("listing projects: %w", err)
+	}
+
+	for _, w := range warnings {
+		deps.logger().Warn(w)
+	}
+
+	// Compute column width: max of len("NAME") and all project name lengths.
+	colWidth := len("NAME")
+	for _, p := range projects {
+		if len(p) > colWidth {
+			colWidth = len(p)
+		}
+	}
+
+	const statusColWidth = 7 // width of the longest STATUS value ("running", "stopped", "unknown")
+
+	w := cmd.OutOrStdout()
+	fmt.Fprintf(w, "%-*s  %-*s  %s\n", colWidth, "NAME", statusColWidth, "STATUS", "CONFIG")
+
+	for _, project := range projects {
+		configStatus := "ok"
+		if _, loadErr := deps.loadConfig()(project); loadErr != nil {
+			if errors.Is(loadErr, os.ErrNotExist) {
+				loadErr = fmt.Errorf("config file disappeared: %w", loadErr)
+			}
+			deps.logger().Warn("config problem for project", "project", project, "error", sanitizeForTerminal(loadErr.Error()))
+			configStatus = "error"
+		}
+		status, statusErr := containerStatusStringErr(deps.Runner, containerNameForProject(project))
+		if statusErr != nil {
+			deps.logger().Warn("failed to query container for project", "project", project, "container", containerNameForProject(project), "error", sanitizeForTerminal(statusErr.Error()))
+		}
+		fmt.Fprintf(w, "%-*s  %-*s  %s\n", colWidth, project, statusColWidth, status, configStatus)
+	}
+	return nil
+}
+
+// containerStatusStringErr returns the display status and the first error
+// encountered while querying the container state. It returns ("unknown", err)
+// when an error occurs so that callers can render an explicit unknown row while
+// also detecting the failure.
+func containerStatusStringErr(runner container.Runner, containerName string) (string, error) {
+	exists, err := container.Exists(runner, containerName)
+	if err != nil {
+		return "unknown", err
+	}
+	if !exists {
+		return "absent", nil
+	}
+	running, err := container.IsRunning(runner, containerName)
+	if err != nil {
+		return "unknown", err
+	}
+	if !running {
+		return "stopped", nil
+	}
+	return "running", nil
 }
 
 // newPullCmd returns the cobra.Command for the "pull" subcommand, which

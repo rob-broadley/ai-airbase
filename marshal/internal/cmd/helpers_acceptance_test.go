@@ -2,6 +2,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -93,41 +94,8 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 	call = append(call, args...)
 	f.calls = append(f.calls, call)
 
-	// Error injection: if a runError is set for this subcommand, return it.
-	if len(f.runErrors) > 0 && name == "podman" && len(args) > 0 {
-		key := args[0]
-		specificKey := ""
-		if args[0] == "ps" {
-			hasAll := false
-			for _, a := range args {
-				if a == "--all" {
-					hasAll = true
-					break
-				}
-			}
-			if hasAll {
-				key = "ps-all"
-			}
-		}
-		if args[0] == "volume" && len(args) > 1 {
-			specificKey = "volume-" + args[1]
-		}
-		if args[0] == "inspect" {
-			for _, a := range args {
-				if strings.Contains(a, mountsFormatArg) {
-					specificKey = "inspect-mounts"
-					break
-				}
-			}
-		}
-		if specificKey != "" {
-			if err, ok := f.runErrors[specificKey]; ok {
-				return nil, err
-			}
-		}
-		if err, ok := f.runErrors[key]; ok {
-			return nil, err
-		}
+	if err := f.errorFor(name, args); err != nil {
+		return nil, err
 	}
 
 	// Selective rename error injection: allows tests to fail only specific
@@ -145,98 +113,157 @@ func (f *fakeRunner) Run(name string, args ...string) ([]byte, error) {
 
 	switch args[0] {
 	case "ps":
-		containerName := ""
-		for i, a := range args {
-			if a == "--filter" && i+1 < len(args) && strings.HasPrefix(args[i+1], "name=") {
-				// Strip "name=" prefix and any anchoring regex chars (^ and $)
-				// added by queryContainerNames for exact-match filtering.
-				raw := strings.TrimPrefix(args[i+1], "name=")
-				raw = strings.TrimPrefix(raw, "^")
-				raw = strings.TrimSuffix(raw, "$")
-				containerName = raw
-			}
-		}
-		includeAll := false
-		for _, a := range args {
-			if a == "--all" {
-				includeAll = true
-				break
-			}
-		}
-		if (includeAll && f.exists) || (!includeAll && f.running) {
-			return []byte(containerName + "\n"), nil
-		}
-		return []byte(""), nil
-
+		return f.handlePS(args)
 	case "image":
-		if len(args) > 1 && args[1] == "exists" {
-			f.imageExistsCalls++
-			if f.imageExistsErr != nil {
-				return nil, f.imageExistsErr
-			}
-			exists := f.imageExistsResult
-			if f.imageExistsCalls > 1 {
-				exists = f.imageExistsAfterPull
-			}
-			if exists {
-				return []byte(""), nil
-			}
-			return nil, fakeExitError(1)
-		}
-		// Differentiate between the two image inspect format calls so tests
-		// can inject custom volume and label JSON for volume provisioning.
-		for i, a := range args {
-			if a == "--format" && i+1 < len(args) {
-				switch {
-				case strings.Contains(args[i+1], "Volumes"):
-					if f.imageInspectVolumeJSON != "" {
-						return []byte(f.imageInspectVolumeJSON), nil
-					}
-				case strings.Contains(args[i+1], "Labels"):
-					if f.imageInspectLabelJSON != "" {
-						return []byte(f.imageInspectLabelJSON), nil
-					}
-				}
-			}
-		}
-		// Return empty JSON for any image inspect format query (Config.Volumes,
-		// Config.Labels, etc.) so callers see no declared volumes by default.
-		return []byte("{}"), nil
-
+		return f.handleImage(args)
 	case "volume":
-		if len(args) > 1 && args[1] == "ls" {
-			// Return any pre-configured project volumes, one name per line.
-			return []byte(strings.Join(f.projectVolumes, "\n")), nil
-		}
-		// create, rm — succeed silently.
-		return []byte(""), nil
-
+		return f.handleVolume(args)
 	case "inspect":
-		// Distinguish the mounts-format inspect from the status-format inspect by
-		// checking whether the --format argument requests .Mounts JSON.
-		for _, a := range args {
-			if strings.Contains(a, mountsFormatArg) {
-				j := f.containerMountsJSON
-				if j == "" {
-					j = "[]"
-				}
-				return []byte(j), nil
-			}
-		}
-		img := f.image
-		if img == "" {
-			img = "20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c"
-		}
-		cr := f.created
-		if cr == "" {
-			cr = "2024-01-01"
-		}
-		return []byte(img + "|" + cr + "|" + f.imageDigest + "|" + f.imageRef + "|" + f.imageVersion + "\n"), nil
-
+		return f.handleInspect(args)
 	default:
 		// create, start, stop, rm — succeed silently
 		return []byte(""), nil
 	}
+}
+
+// errorFor derives the lookup key for the given podman subcommand arguments
+// and returns any configured runError for that key (nil if none is set).
+// Special keys: "ps-all" for ps with --all, "volume-<sub>" for volume
+// subcommands, and "inspect-mounts" for inspect with the mounts format arg.
+func (f *fakeRunner) errorFor(name string, args []string) error {
+	if len(f.runErrors) == 0 || name != "podman" || len(args) == 0 {
+		return nil
+	}
+	key := args[0]
+	specificKey := ""
+	if args[0] == "ps" {
+		for _, a := range args {
+			if a == "--all" {
+				key = "ps-all"
+				break
+			}
+		}
+	}
+	if args[0] == "volume" && len(args) > 1 {
+		specificKey = "volume-" + args[1]
+	}
+	if args[0] == "inspect" {
+		for _, a := range args {
+			if strings.Contains(a, mountsFormatArg) {
+				specificKey = "inspect-mounts"
+				break
+			}
+		}
+	}
+	if specificKey != "" {
+		if err, ok := f.runErrors[specificKey]; ok {
+			return err
+		}
+	}
+	if err, ok := f.runErrors[key]; ok {
+		return err
+	}
+	return nil
+}
+
+// handlePS simulates "podman ps" responses based on container state.
+func (f *fakeRunner) handlePS(args []string) ([]byte, error) {
+	containerName := ""
+	for i, a := range args {
+		if a == "--filter" && i+1 < len(args) && strings.HasPrefix(args[i+1], "name=") {
+			// Strip "name=" prefix and any anchoring regex chars (^ and $)
+			// added by queryContainerNames for exact-match filtering.
+			raw := strings.TrimPrefix(args[i+1], "name=")
+			raw = strings.TrimPrefix(raw, "^")
+			raw = strings.TrimSuffix(raw, "$")
+			containerName = raw
+		}
+	}
+	includeAll := false
+	for _, a := range args {
+		if a == "--all" {
+			includeAll = true
+			break
+		}
+	}
+	if (includeAll && f.exists) || (!includeAll && f.running) {
+		return []byte(containerName + "\n"), nil
+	}
+	return []byte(""), nil
+}
+
+// handleImage simulates "podman image" responses, covering image exists checks
+// and image inspect format queries for Volumes and Labels.
+func (f *fakeRunner) handleImage(args []string) ([]byte, error) {
+	if len(args) > 1 && args[1] == "exists" {
+		f.imageExistsCalls++
+		if f.imageExistsErr != nil {
+			return nil, f.imageExistsErr
+		}
+		exists := f.imageExistsResult
+		if f.imageExistsCalls > 1 {
+			exists = f.imageExistsAfterPull
+		}
+		if exists {
+			return []byte(""), nil
+		}
+		return nil, fakeExitError(1)
+	}
+	// Differentiate between the two image inspect format calls so tests
+	// can inject custom volume and label JSON for volume provisioning.
+	for i, a := range args {
+		if a == "--format" && i+1 < len(args) {
+			switch {
+			case strings.Contains(args[i+1], "Volumes"):
+				if f.imageInspectVolumeJSON != "" {
+					return []byte(f.imageInspectVolumeJSON), nil
+				}
+			case strings.Contains(args[i+1], "Labels"):
+				if f.imageInspectLabelJSON != "" {
+					return []byte(f.imageInspectLabelJSON), nil
+				}
+			}
+		}
+	}
+	// Return empty JSON for any image inspect format query (Config.Volumes,
+	// Config.Labels, etc.) so callers see no declared volumes by default.
+	return []byte("{}"), nil
+}
+
+// handleVolume simulates "podman volume" responses. ls returns any configured
+// project volumes; create and rm succeed silently.
+func (f *fakeRunner) handleVolume(args []string) ([]byte, error) {
+	if len(args) > 1 && args[1] == "ls" {
+		// Return any pre-configured project volumes, one name per line.
+		return []byte(strings.Join(f.projectVolumes, "\n")), nil
+	}
+	// create, rm — succeed silently.
+	return []byte(""), nil
+}
+
+// handleInspect simulates "podman inspect" responses. Returns mounts JSON when
+// the --format arg requests .Mounts; otherwise returns a status-format line.
+func (f *fakeRunner) handleInspect(args []string) ([]byte, error) {
+	// Distinguish the mounts-format inspect from the status-format inspect by
+	// checking whether the --format argument requests .Mounts JSON.
+	for _, a := range args {
+		if strings.Contains(a, mountsFormatArg) {
+			j := f.containerMountsJSON
+			if j == "" {
+				j = "[]"
+			}
+			return []byte(j), nil
+		}
+	}
+	img := f.image
+	if img == "" {
+		img = "20232757d1f59e6e733cd1cd3d8a35a87e24524a17b75543499dddc6c8a4369c"
+	}
+	cr := f.created
+	if cr == "" {
+		cr = "2024-01-01"
+	}
+	return []byte(img + "|" + cr + "|" + f.imageDigest + "|" + f.imageRef + "|" + f.imageVersion + "\n"), nil
 }
 
 // RunStreaming is a spy: records the streamed command via the same call log as
@@ -428,6 +455,25 @@ func sliceContains(ss []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// runCmd constructs a root command from deps, wires stdout/stderr output
+// buffers, sets args, executes, and returns the captured output and any error.
+// It is the standard invocation helper for marshal acceptance tests and removes
+// the repeated NewRootCmd + SetOut + SetErr + SetArgs + Execute boilerplate.
+func runCmd(t *testing.T, deps cmd.Deps, args ...string) (out, errOut *bytes.Buffer, err error) {
+	t.Helper()
+	out = &bytes.Buffer{}
+	errOut = &bytes.Buffer{}
+	if deps.Logger == nil {
+		deps.Logger = cmd.NewCLILogger(errOut)
+	}
+	root := cmd.NewRootCmd(deps)
+	root.SetOut(out)
+	root.SetErr(errOut)
+	root.SetArgs(args)
+	err = root.Execute()
+	return
 }
 
 // noopMkdirAll is a no-op replacement for os.MkdirAll. Inject via Deps.MkdirAll

@@ -79,9 +79,49 @@ func ValidateProjectName(name string) error {
 	return nil
 }
 
+// projectsDir returns the filesystem path for the projects configuration directory.
+func projectsDir() string {
+	return filepath.Join(xdgConfigHome(), "marshal", "projects")
+}
+
+// ListProjects returns the names of all registered projects by scanning the
+// projects configuration directory for *.toml files. Names are returned in
+// lexicographic ascending order (os.ReadDir guarantees entries are sorted by
+// filename, yielding case-sensitive byte-order sort). Returns an empty slice
+// (not an error) when the directory does not exist. Warnings holds a
+// human-readable message for each file whose stem is not a valid project name;
+// those files are excluded from names.
+func ListProjects() (names, warnings []string, err error) {
+	dir := projectsDir()
+	entries, readErr := os.ReadDir(dir)
+	if readErr != nil {
+		if errors.Is(readErr, os.ErrNotExist) {
+			return []string{}, nil, nil
+		}
+		return nil, nil, fmt.Errorf("reading projects directory: %w", readErr)
+	}
+	names = make([]string, 0, len(entries))
+	for _, e := range entries {
+		if !e.Type().IsRegular() {
+			continue
+		}
+		filename := e.Name()
+		if !strings.HasSuffix(filename, ".toml") {
+			continue
+		}
+		project := strings.TrimSuffix(filename, ".toml")
+		if validateErr := ValidateProjectName(project); validateErr != nil {
+			warnings = append(warnings, fmt.Sprintf("skipping %q: %v", filename, validateErr))
+			continue
+		}
+		names = append(names, project)
+	}
+	return names, warnings, nil
+}
+
 // configPath returns the filesystem path for a given project's config file.
 func configPath(projectName string) string {
-	return filepath.Join(xdgConfigHome(), "marshal", "projects", projectName+".toml")
+	return filepath.Join(projectsDir(), projectName+".toml")
 }
 
 // Load reads the config for projectName from disk.

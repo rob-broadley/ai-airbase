@@ -302,6 +302,63 @@ Masks:
 
 ______________________________________________________________________
 
+### marshal list
+
+List all configured projects and their container status.
+
+Reads the marshal configuration directory and prints one row per project, sorted in case-sensitive byte order by name. The header is always printed, even when no projects are configured.
+
+When a Podman query fails for a project, the STATUS column shows `unknown` and a warning naming the project is written to stderr. When a config file cannot be loaded, the CONFIG column shows `error` and a warning is written to stderr; the STATUS column still reflects the real Podman container state. The command exits 0 in both cases; only an unreadable config directory causes exit 1.
+
+**Usage**
+
+```
+marshal list [flags]
+```
+
+**Flags**
+
+Inherits [global flags](#global-flags) only. The `--project` flag has no effect on this command.
+
+**Output**
+
+A three-column table. The `NAME` column is left-aligned, padded to the widest project name with at least two spaces before `STATUS`. The `STATUS` column is left-aligned, padded to seven characters (the width of the longest STATUS value: `running`, `stopped`, `unknown`) with at least two spaces before `CONFIG`.
+
+| STATUS value | Meaning                                                                |
+| ------------ | ---------------------------------------------------------------------- |
+| `running`    | Container exists and is running                                        |
+| `stopped`    | Container exists but is not running                                    |
+| `absent`     | Project is configured but no container exists yet                      |
+| `unknown`    | Podman query failed; a warning naming the project is written to stderr |
+
+| CONFIG value | Meaning                                                                                  |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| `ok`         | Config file loaded cleanly                                                               |
+| `error`      | Config file is malformed or contains unrecognised fields; a warning is written to stderr |
+
+**Examples**
+
+```bash
+marshal list
+```
+
+```
+NAME        STATUS   CONFIG
+my-app      running  ok
+shared-lib  stopped  error
+```
+
+```bash
+# No projects configured — header only
+marshal list
+```
+
+```
+NAME  STATUS   CONFIG
+```
+
+______________________________________________________________________
+
 ### marshal recreate
 
 Atomically replace the project container with a fresh one.

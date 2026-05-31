@@ -9,7 +9,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 13. EnsureSharedConfigDir
+// EnsureSharedConfigDir
 // ---------------------------------------------------------------------------
 
 // TestEnsureSharedConfigDir_UsesXDGConfigHome verifies that EnsureSharedConfigDir
