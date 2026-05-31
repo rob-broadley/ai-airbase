@@ -17,6 +17,8 @@ ______________________________________________________________________
 Expect the `atdd` agent to hand you:
 
 - The approved Given/When/Then scenario that drove the change
+- The full list of acceptance criteria for the story
+- Which ACs were already covered by passing tests before this cycle
 - What structural scaffolding, if any, was added to production code during the Red phase — use this to distinguish pre-existing Red scaffolding from new Green-phase additions when inspecting the production diff
 - The production diff of changes made in this Green step
 - The test output showing the new tests and the pre-existing suite passing
@@ -87,6 +89,8 @@ Reject for Green-phase overreach such as:
 - Additional user-visible behaviour beyond the approved scenario
 
 Use KISS and YAGNI pressure from `design-principles`. In Green, speculative generality is a defect, not foresight.
+
+Additionally, use the "All acceptance criteria" and "ACs already covered" fields from the handoff to check whether the diff introduces code paths that are only reachable when exercising acceptance criteria not yet covered by a passing test. Reject if the implementation handles behaviour beyond the approved scenario that belongs to an uncovered AC — even if that behaviour is correct and required by the story. The next Red cycle will drive that behaviour.
 
 ### 4. Fake-implementation check
 

@@ -146,6 +146,8 @@ ______________________________________________________________________
    Task: Review the Green phase output for the approved scenario
    Context:
      Approved scenario: [the scenario]
+     All acceptance criteria for this story: [list all ACs]
+     ACs already covered by passing tests before this cycle: [list, or "none"]
      Scaffolding added in Red step: [diff or description of any structural scaffolding added to production code during the Red phase, or "none"]
      Production code diff: [diff of changes made in this Green step]
      Full test run output showing all passing: [output]
@@ -169,6 +171,7 @@ Rules for this phase:
 - No new features beyond what the failing test requires.
 - No refactoring — that is the next phase.
 - No changes to existing tests.
+- Triangulate: do not implement logic paths required by acceptance criteria not yet covered by a passing test, even when you know the full implementation. A correct implementation that serves future ACs is not "minimum" — write only enough to pass the current test and let the next Red phase drive the next behaviour.
 
 ______________________________________________________________________
 
