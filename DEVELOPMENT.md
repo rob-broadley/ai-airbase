@@ -85,24 +85,6 @@ Both `make dev-image` and `make image` automatically inject two OCI build args c
 | `VERSION`  | `git describe --tags --always` | `v0.1.0` or `v0.1.0-3-gabc` |
 | `REVISION` | `git rev-parse HEAD`           | `abc1234...`                |
 
-`make image` (revetment only) also injects:
-
-| Variable          | Source                  | Example  |
-| ----------------- | ----------------------- | -------- |
-| `COPILOT_VERSION` | `.copilot-version` file | `1.0.42` |
-
-To update to the latest published Copilot CLI version (queries the npm registry and rewrites `.copilot-version`):
-
-```sh
-make update-copilot-version
-```
-
-To pin a specific version for a one-off build without changing `.copilot-version`:
-
-```sh
-make image COPILOT_VERSION=1.0.43
-```
-
 ## Caches
 
 Go modules and build artifacts live in named Podman volumes so they survive across runs — no manual setup needed.
@@ -192,7 +174,7 @@ ai-airbase/
 │       ├── config/               # XDG config dirs, TOML loading, project resolution
 │       └── container/            # Runner interface, PodmanRunner, container lifecycle
 ├── cadre/
-│   ├── agents/                   # agent definition files (.agent.md)
+│   ├── agents/                   # agent definition files (.md)
 │   └── skills/                   # skill definition files (SKILL.md per skill)
 ├── dev/Containerfile             # sapper image (build toolchain)
 ├── revetment/Containerfile       # revetment container image (agent sandbox)
@@ -203,7 +185,7 @@ ai-airbase/
 
 `marshal/internal/config` handles all persistence: per-project TOML files under `$XDG_CONFIG_HOME/marshal/`.
 
-`cadre/` files are bundled into the revetment image at build time via `COPY cadre/ $HOME/.copilot/` in `revetment/Containerfile`.
+`cadre/` files are bundled into the revetment image at build time via `COPY cadre/ $HOME/.opencode/` in `revetment/Containerfile`.
 
 ## Extending the cadre
 
@@ -211,22 +193,27 @@ The `cadre/` directory holds the agent and skill definition files that ship insi
 
 ### Adding an agent
 
-Create `cadre/agents/<name>.agent.md`:
+Create `cadre/agents/<name>.md`:
 
 ```markdown
 ---
 name: my-agent
 description: Use when … Handles … Do not use for …
-tools: [read, search, execute, edit]
+mode: subagent
+permission:
+  read: allow
+  glob: allow
+  grep: allow
+  edit: allow
 ---
 
 Full instruction set for the agent — role, hard boundaries, working style,
 and any skill loads via the skill tool.
 ```
 
-- **`name`** — must match the filename stem (`my-agent` → `my-agent.agent.md`).
+- **`name`** — must match the filename stem (`my-agent` → `my-agent.md`).
 - **`description`** — used by `mission-control` to route tasks; write it as a decision rule: _"Use when…"_ or _"Handles…"_, including a negative case where relevant.
-- **`tools`** — the set of Copilot CLI tools the agent may call.
+- **`permission`** — the set of OpenCode tool permissions the agent is allowed to use.
 - **body** — the agent's complete role and instructions, including any `Use the skill tool to load \`my-skill\`\` directives.
 
 ### Adding a skill
@@ -251,7 +238,7 @@ Skills are loaded on demand by agents via the `skill` tool. They are not invoked
 The Containerfile copies the entire `cadre/` directory into the image:
 
 ```dockerfile
-COPY cadre/ $HOME/.copilot/
+COPY cadre/ $HOME/.opencode/
 ```
 
 Changes to agents or skills take effect on the next `make image` build. To test a locally built image without pushing:

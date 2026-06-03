@@ -5,7 +5,7 @@ license: AGPL-3.0-or-later
 allowed-tools: execute
 ---
 
-> **Copilot environment only.** These instructions apply to the Copilot container environment. They are not guidance for configuring developer machines or CI pipelines — use the `devex` agent for toolchain design and configuration, or the `bootstrap` agent for tool installation.
+> **Opencode environment only.** These instructions apply to the Opencode container environment. They are not guidance for configuring developer machines or CI pipelines — use the `devex` agent for toolchain design and configuration, or the `bootstrap` agent for tool installation.
 >
 > **No root access.** `sudo`, `apt`, `dnf`, and all system package managers are unavailable. Use `nix` and `uv` to install language runtimes, compilers, and core development tools. Once a runtime is available, use its own toolchain for ecosystem-specific packages (e.g. `go install`, `cargo install`, `npm install -g`).
 
@@ -294,4 +294,4 @@ ______________________________________________________________________
 
 ## Cache hygiene
 
-Never write tool caches inside the repository working directory. If a cache or data environment variable is unset or points inside the workspace, redirect it to a directory under `$HOME`. Always check `.github/copilot-instructions.md` for project-specific overrides.
+Never write tool caches inside the repository working directory. If a cache or data environment variable is unset or points inside the workspace, redirect it to a directory under `$HOME`. Always check `.github/opencode-instructions.md` for project-specific overrides.

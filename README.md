@@ -1,25 +1,25 @@
 # AI-Airbase
 
-A containerised, isolated environment for running GitHub Copilot agents on your projects.
+A containerised, isolated environment for running OpenCode agents on your projects.
 
 ## What it is
 
-AI-Airbase gives each project its own persistent Podman container — the **revetment** — pre-loaded with GitHub Copilot CLI, a suite of code analysis tools, and Nix for on-demand package installation. Inside every revetment lives a **cadre**: a group of specialist AI agents covering feature delivery, code review, refactoring, documentation, and more. The **marshal** CLI runs on your host machine to manage the container lifecycle — creating, starting, stopping, and recreating revetments — without ever running inside the container itself. Your project directory is bind-mounted in automatically, so the environment is ready whenever you are.
+AI-Airbase gives each project its own persistent Podman container — the **revetment** — pre-loaded with OpenCode, a suite of code analysis tools, and Nix for on-demand package installation. Inside every revetment lives a **cadre**: a group of specialist AI agents covering feature delivery, code review, refactoring, documentation, and more. The **marshal** CLI runs on your host machine to manage the container lifecycle — creating, starting, stopping, and recreating revetments — without ever running inside the container itself. Your project directory is bind-mounted in automatically, so the environment is ready whenever you are.
 
 The naming follows a military airbase metaphor: a revetment is the hardened blast bay where aircraft are maintained, the cadre are the trained ground crew, and marshal guides each aircraft to its stand.
 
 ## Components
 
-| Component     | What it does                                                                     |
-| ------------- | -------------------------------------------------------------------------------- |
-| **Marshal**   | Host-side CLI — manages the container lifecycle for each project                 |
-| **Revetment** | Container image — Fedora-based sandbox with Copilot CLI, analysis tools, and Nix |
-| **Cadre**     | Specialist AI agents bundled inside every revetment container                    |
+| Component     | What it does                                                                  |
+| ------------- | ----------------------------------------------------------------------------- |
+| **Marshal**   | Host-side CLI — manages the container lifecycle for each project              |
+| **Revetment** | Container image — Fedora-based sandbox with OpenCode, analysis tools, and Nix |
+| **Cadre**     | Specialist AI agents bundled inside every revetment container                 |
 
 ## Prerequisites
 
 - [Podman](https://podman.io/) installed and available on your `PATH`
-- A [GitHub Copilot subscription](https://github.com/features/copilot/plans) with GitHub Copilot CLI access
+- OpenCode access
 
 ## Installation
 
@@ -59,11 +59,11 @@ cd ~/work/my-app
 # 2. Create the revetment for this project
 marshal create
 
-# 3. Attach and launch GitHub Copilot CLI
+# 3. Attach and launch OpenCode
 marshal
 ```
 
-`marshal` attaches to the container and starts GitHub Copilot CLI with `mission-control` as the active agent. Describe your task; `mission-control` routes it to the right specialist agents and coordinates the work.
+`marshal` starts the OpenCode web server with `mission-control` as the active agent. Open the URL printed by the server (default: `http://127.0.0.1:4096/`) in your host's browser to connect. Describe your task; `mission-control` routes it to the right specialist agents and coordinates the work.
 
 ```bash
 # 4. Stop the container when you are done
@@ -97,7 +97,7 @@ The agent sees an empty, writable directory at each masked path; the host conten
 
 ### Sandbox model
 
-The revetment is a rootless Podman container. Copilot CLI runs as your host user's UID with `--security-opt no-new-privileges`, so the process cannot escalate privileges or access the host filesystem beyond the directories explicitly mounted via `--mount`. There is no root access to the host, and the container boundary provides meaningful containment for agent activity.
+The revetment is a rootless Podman container. OpenCode runs as your host user's UID with `--security-opt no-new-privileges`, so the process cannot escalate privileges or access the host filesystem beyond the directories explicitly mounted via `--mount`. There is no root access to the host, and the container boundary provides meaningful containment for agent activity.
 
 ### Network access
 
@@ -105,7 +105,7 @@ The container has full outbound network access by design. Agents need this to in
 
 ### Per-action confirmations
 
-`/allow all` is a GitHub Copilot CLI command that removes confirmation prompts for all tool use. Without it, Copilot asks for your permission before each action; with it, the agent proceeds without pausing.
+`/allow all` is an OpenCode command that removes confirmation prompts for all tool use. Without it, OpenCode asks for your permission before each action; with it, the agent proceeds without pausing.
 
 Inside a revetment, the practical consequences are: the agent can make network calls to external services, modify or delete any file in the mounted project directories, and run arbitrary code — all without prompting you. The container boundary remains intact; the agent cannot access the host beyond what is mounted and cannot gain elevated privileges. What is removed is the human checkpoint layer.
 

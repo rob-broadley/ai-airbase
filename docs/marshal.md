@@ -1,6 +1,6 @@
 # marshal CLI reference
 
-`marshal` manages Podman containers (revetments) for GitHub Copilot CLI — one container per project — from your host machine.
+`marshal` manages Podman containers (revetments) for OpenCode — one container per project — from your host machine.
 
 ## Synopsis
 
@@ -30,10 +30,10 @@ ______________________________________________________________________
 
 ### marshal
 
-Start or attach to the project container, launching Copilot CLI.
+Start or attach to the project container, launching the OpenCode web server.
 
 If the container does not exist, marshal creates it (pulling the image if needed) and starts it. If the container is stopped, marshal starts it and
-attaches. If the container is already running, marshal attaches to the existing PID 1 session.
+attaches. If the container is already running, marshal attaches to the existing PID 1 session. The web server listens on port 4096 within the container, which is forwarded to port 4096 on the host loopback (`127.0.0.1`) only, keeping the web interface securely isolated to the host machine.
 
 The current process is replaced by the `podman start` or `podman attach` process.
 
@@ -378,13 +378,11 @@ The replacement uses a double-rename sequence (pending → canonical) to minimis
 
 **What is not preserved**
 
-- Any state stored only in the container filesystem (not in a named volume or host bind mount), including the Copilot CLI binary. If the Copilot CLI
-  updated itself via `/update` during a session, the image-bundled version is restored on the next `marshal recreate`.
+- Any state stored only in the container filesystem (not in a named volume or host bind mount), including the OpenCode package. If OpenCode
+  updated itself during a session, the image-bundled version is restored on the next `marshal recreate`.
 
 > [!NOTE]
-> The Copilot CLI binary is a pre-built native binary at `/opt/copilot/bin/copilot`. Running `/update` updates the CLI in-session (the binary
-> bootstraps itself and stores updated state elsewhere), but the bundled binary is restored when `marshal recreate` pulls a new image. To get a
-> permanently updated version, run `marshal recreate`.
+> The OpenCode package is installed globally via npm. Running updates within the session may modify the package, but the bundled version is restored when `marshal recreate` pulls a new image. To get a permanently updated version, run `marshal recreate`.
 
 **Usage**
 

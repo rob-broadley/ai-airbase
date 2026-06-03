@@ -10,7 +10,7 @@ The cadre is the group of AI agents bundled inside every revetment container. Ea
 
 `mission-control` is the co-pilot. It reads your project, classifies your request against a routing table, builds a numbered plan scoped to individual agents, and presents it for approval before executing. It does not write code itself — it delegates to specialists and passes context between them.
 
-**Auto-loads:** GitHub Copilot CLI inside the revetment starts with `mission-control` as the active agent. Describe what you want; `mission-control` takes it from there.
+**Auto-loads:** OpenCode inside the revetment starts with `mission-control` as the active agent. Describe what you want; `mission-control` takes it from there.
 
 **When to use:** Start here for any task — especially complex or multi-step ones, or when you are unsure which specialist to invoke.
 
