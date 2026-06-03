@@ -56,10 +56,19 @@ const (
 
 	// ContainerUserHome is the home directory of the container user inside the image.
 	// All credential mount targets and the HOME environment variable must agree with this value.
-	ContainerUserHome = "/home/copilot"
+	ContainerUserHome = "/home/opencode"
 
-	// ContainerCopilotDir is the container-side path for the Copilot extension state directory.
-	ContainerCopilotDir = ContainerUserHome + "/.copilot"
+	// ContainerOpencodeDir is the container-side path for the Opencode extension state directory.
+	ContainerOpencodeDir = ContainerUserHome + "/.opencode"
+
+	// ContainerOpencodeConfigDir is the container-side path for the global opencode config files.
+	ContainerOpencodeConfigDir = ContainerUserHome + "/.config/opencode"
+
+	// ContainerOpencodeDataFile is the container-side path for the opencode session database.
+	ContainerOpencodeDataFile = ContainerUserHome + "/.local/share/opencode/opencode.db"
+
+	// ContainerOpencodeStateDir is the container-side path for the opencode session state / snapshots.
+	ContainerOpencodeStateDir = ContainerUserHome + "/.local/state/opencode"
 
 	// ContainerGitConfigFile is the XDG user-level git config path inside the container.
 	// This overrides the system /etc/gitconfig baked into the image.
@@ -67,8 +76,8 @@ const (
 )
 
 // DefaultContainerCmd is the command run inside the container when started
-// by marshal. It launches Copilot CLI routing through the mission-control agent.
-var DefaultContainerCmd = []string{"copilot", "--agent=mission-control"}
+// by marshal. It launches OpenCode routing through the mission-control agent.
+var DefaultContainerCmd = []string{"opencode", "web", "--port=4096", "--hostname=0.0.0.0"}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -118,7 +127,7 @@ type ContainerMount struct {
 // UserConfig carries the identity that the container process should run as.
 // UID and GID map to --user <UID>:<GID>; HomeDir is exported as HOME=<HomeDir>.
 type UserConfig struct {
-	HomeDir string // container-side home path, e.g. "/home/copilot"
+	HomeDir string // container-side home path, e.g. "/home/opencode"
 	UID     int
 	GID     int
 }
@@ -387,6 +396,7 @@ func Create(r Runner, containerName, image string, mounts []MountSpec, namedVolu
 		"--tty",
 		"--interactive",
 		"--security-opt", "no-new-privileges",
+		"-p", "127.0.0.1:4096:4096",
 	}
 	args = append(args, userIdentityArgs(uc)...)
 	for _, m := range mounts {
@@ -544,7 +554,7 @@ func userIdentityArgs(uc UserConfig) []string {
 	return []string{
 		"--user", fmt.Sprintf("%d:%d", uc.UID, uc.GID),
 		"-e", "HOME=" + uc.HomeDir,
-		"--passwd-entry", fmt.Sprintf("copilot:x:%d:%d::%s:/bin/bash", uc.UID, uc.GID, uc.HomeDir),
+		"--passwd-entry", fmt.Sprintf("opencode:x:%d:%d::%s:/bin/bash", uc.UID, uc.GID, uc.HomeDir),
 	}
 }
 

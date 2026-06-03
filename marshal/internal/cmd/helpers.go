@@ -32,7 +32,7 @@ const containerWorkspaceDir = "/workspace"
 // so conversation history and checkpoints survive container recreates.
 //
 // The agents/ and skills/ directories baked into the container image are left
-// untouched — no whole-directory ~/.copilot mount is used.
+// untouched — no whole-directory ~/.opencode mount is used.
 func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, error) {
 	specs := make([]container.MountSpec, 0, 8)
 	ensureConfigDir := deps.ensureSharedConfigDirFn()
@@ -53,9 +53,9 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 	})
 
 	// User-editable config files — individual file mounts from XDG_CONFIG.
-	configDir, err := ensureConfigDir("copilot")
+	configDir, err := ensureConfigDir("opencode")
 	if err != nil {
-		return nil, fmt.Errorf("ensuring config dir copilot: %w", err)
+		return nil, fmt.Errorf("ensuring config dir opencode: %w", err)
 	}
 
 	type configFile struct {
@@ -66,27 +66,27 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 	configFiles := []configFile{
 		{
 			name:           "settings.json",
-			containerPath:  container.ContainerCopilotDir + "/settings.json",
+			containerPath:  container.ContainerOpencodeConfigDir + "/settings.json",
 			defaultContent: []byte("{}\n"),
 		},
 		{
 			name:           "mcp-config.json",
-			containerPath:  container.ContainerCopilotDir + "/mcp-config.json",
+			containerPath:  container.ContainerOpencodeConfigDir + "/mcp-config.json",
 			defaultContent: []byte(`{"mcpServers":{}}` + "\n"),
 		},
 		{
-			name:           "copilot-instructions.md",
-			containerPath:  container.ContainerCopilotDir + "/copilot-instructions.md",
+			name:           "opencode-instructions.md",
+			containerPath:  container.ContainerOpencodeConfigDir + "/opencode-instructions.md",
 			defaultContent: []byte{},
 		},
 		{
 			name:           "permissions-config.json",
-			containerPath:  container.ContainerCopilotDir + "/permissions-config.json",
+			containerPath:  container.ContainerOpencodeConfigDir + "/permissions-config.json",
 			defaultContent: []byte("{}\n"),
 		},
 		{
 			name:           "config.json",
-			containerPath:  container.ContainerCopilotDir + "/config.json",
+			containerPath:  container.ContainerOpencodeConfigDir + "/opencode.json",
 			defaultContent: []byte("{}\n"),
 		},
 	}
@@ -113,7 +113,7 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 	}
 	specs = append(specs, container.MountSpec{
 		HostPath:      sessionStorePath,
-		ContainerPath: container.ContainerCopilotDir + "/session-store.db",
+		ContainerPath: container.ContainerOpencodeDataFile,
 	})
 
 	sessionStateDir, err := deps.ensureSharedDataDir()("projects/" + project + "/session-state")
@@ -122,7 +122,7 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 	}
 	specs = append(specs, container.MountSpec{
 		HostPath:      sessionStateDir,
-		ContainerPath: container.ContainerCopilotDir + "/session-state",
+		ContainerPath: container.ContainerOpencodeStateDir,
 	})
 
 	return specs, nil

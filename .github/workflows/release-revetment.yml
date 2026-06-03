@@ -46,13 +46,11 @@ jobs:
         with:
           ref: ${{ steps.resolve_ref.outputs.build_ref }}
 
-      - name: Read Copilot version
-        id: copilot
+      - name: Read Opencode version
+        id: opencode
         run: |
-          COPILOT_VERSION=$(sed -n '1p' .copilot-version)
-          COPILOT_INTEGRITY=$(sed -n '2p' .copilot-version)
-          echo "copilot_version=${COPILOT_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "copilot_integrity=${COPILOT_INTEGRITY}" >> "$GITHUB_OUTPUT"
+          OPENCODE_VERSION=$(cat .opencode-version)
+          echo "opencode_version=${OPENCODE_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Derive VERSION
         id: version
@@ -88,8 +86,7 @@ jobs:
           push: true
           tags: ghcr.io/rob-broadley/ai-airbase/revetment:latest
           build-args: |
-            COPILOT_VERSION=${{ steps.copilot.outputs.copilot_version }}
-            COPILOT_INTEGRITY=${{ steps.copilot.outputs.copilot_integrity }}
+            OPENCODE_VERSION=${{ steps.opencode.outputs.opencode_version }}
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
             org.opencontainers.image.revision=${{ steps.revision.outputs.revision }}

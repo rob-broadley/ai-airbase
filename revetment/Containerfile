@@ -16,12 +16,22 @@ dnf install -y --setopt=install_weak_deps=False --nodocs \
     make \
     nix-core \
     nix-filesystem \
+    nodejs \
+    npm \
     ripgrep \
     ShellCheck \
     trivy \
     uv
 rm -rf /var/lib/dnf /var/log/dnf.* /var/log/hawkey.log
 DNF_INSTALL
+
+ARG OPENCODE_VERSION
+RUN --mount=type=cache,target=/root/.npm <<NPM_INSTALL
+set -euo pipefail
+test -n "${OPENCODE_VERSION}" || { echo "ERROR: --build-arg OPENCODE_VERSION is required"; exit 1; }
+npm install -g "opencode-ai@${OPENCODE_VERSION}"
+npm cache clean --force
+NPM_INSTALL
 
 # Install extra tools via uv
 ENV UV_TOOL_BIN_DIR=/usr/local/bin
@@ -38,11 +48,11 @@ ENV NIX_CONF_DIR=/etc/nix
 # System-level configuration — nix, git, etc.
 COPY revetment/etc/ /etc/
 
-# Create home directory for the copilot user (any host UID can write to it via
+# Create home directory for the opencode user (any host UID can write to it via
 # --passwd-entry at runtime) and the /workspace mount point. Allow any user
-# (including the dynamic copilot UID) to write to the nix store; the container
+# (including the dynamic opencode UID) to write to the nix store; the container
 # boundary is the security perimeter and sticky bit prevents deletion by others.
-ENV HOME=/home/copilot
+ENV HOME=/home/opencode
 ENV WORKSPACE=/workspace
 ENV NIX_DIR=/nix
 ENV NIX_STORE=$NIX_DIR/store
@@ -50,7 +60,7 @@ RUN <<PERMISSIONS
 mkdir -p \
     $HOME \
     $HOME/.config \
-    $HOME/.copilot \
+    $HOME/.opencode \
     $HOME/.local/share \
     $WORKSPACE \
     $NIX_DIR/store \
@@ -77,32 +87,6 @@ chmod -R 1777 \
     $NIX_DIR
 PERMISSIONS
 
-# Install GitHub Copilot CLI.
-# Version and integrity are supplied via build args (see .copilot-version and
-# Makefile). Running podman build directly requires passing them explicitly.
-ENV COPILOT_BIN=/opt/copilot/bin
-ARG COPILOT_VERSION
-ARG COPILOT_INTEGRITY
-RUN <<COPILOT_INSTALL
-#!/bin/bash
-set -euo pipefail
-
-test -n "${COPILOT_VERSION}" || { echo "ERROR: --build-arg COPILOT_VERSION is required"; exit 1; }
-test -n "${COPILOT_INTEGRITY}" || { echo "ERROR: --build-arg COPILOT_INTEGRITY is required"; exit 1; }
-
-install -d "${COPILOT_BIN}"
-tarball=/tmp/copilot.tgz
-curl -fsSL "https://registry.npmjs.org/@github/copilot-linux-x64/-/copilot-linux-x64-${COPILOT_VERSION}.tgz" -o "${tarball}"
-actual="$(openssl dgst -sha512 -binary "${tarball}" | openssl base64 -A)"
-expected="$(printf '%s' "${COPILOT_INTEGRITY}" | sed 's/^sha512-//')"
-[ "${actual}" = "${expected}" ] || { echo "ERROR: integrity check failed"; rm -f "${tarball}"; exit 1; }
-tar -xzf "${tarball}" -C "${COPILOT_BIN}" --strip-components=1 package/copilot
-chmod +x "${COPILOT_BIN}/copilot"
-rm -f "${tarball}"
-COPILOT_INSTALL
-# Disable copilot auto updates.
-ENV COPILOT_AUTO_UPDATE=false
-
 # Ensure tools installed by the runtime user via `uv tool install`
 # are installed to a dedicated directory under $XDG_DATA_HOME/uv so that
 # both tool data and binaries share a single volume mount point.
@@ -113,7 +97,7 @@ ENV UV_TOOL_DIR=$XDG_DATA_HOME/uv/tools
 ENV NPM_CONFIG_PREFIX=$XDG_DATA_HOME/npm
 ENV GOPATH=$XDG_DATA_HOME/go
 ENV CARGO_HOME=$XDG_DATA_HOME/cargo
-ENV PATH=$COPILOT_BIN:$UV_TOOL_BIN_DIR:$HOME/.nix-profile/bin:$NPM_CONFIG_PREFIX/bin:$GOPATH/bin:$CARGO_HOME/bin:$PATH
+ENV PATH=$UV_TOOL_BIN_DIR:$HOME/.nix-profile/bin:$NPM_CONFIG_PREFIX/bin:$GOPATH/bin:$CARGO_HOME/bin:$PATH
 # Redirect all ecosystem cache directories to XDG paths so that agents and
 # build tools never write caches inside the project workspace directory.
 ENV XDG_CACHE_HOME=$HOME/.cache
@@ -137,27 +121,27 @@ ENV VCPKG_DEFAULT_BINARY_CACHE=$XDG_DATA_HOME/vcpkg
 # io.ai-airbase.volume.* labels below use ENV vars and are the authoritative
 # source — update both if these paths ever change.
 VOLUME /nix/store
-VOLUME /home/copilot/.local/state/nix
-VOLUME /home/copilot/.local/share/uv
+VOLUME /home/opencode/.local/state/nix
+VOLUME /home/opencode/.local/share/uv
 
 
-# Bundle cadre agents and skills so they are available to Copilot CLI out of the box.
-COPY cadre/ $HOME/.copilot/
+# Bundle cadre agents and skills so they are available to OpenCode out of the box.
+COPY cadre/ $HOME/.opencode/
 
 WORKDIR $WORKSPACE
 
 # Static labels are set here. Version and revision are applied via --label CLI
 # flags at build time so they never cause cache misses on the layers above.
 LABEL org.opencontainers.image.title="revetment" \
-      org.opencontainers.image.description="AI-Airbase revetment: isolated container environment for GitHub Copilot agents" \
+      org.opencontainers.image.description="AI-Airbase revetment: isolated container environment for opencode agents" \
       org.opencontainers.image.source="https://github.com/rob-broadley/ai-airbase" \
       org.opencontainers.image.url="https://github.com/rob-broadley/ai-airbase" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later" \
       org.opencontainers.image.vendor="Rob Broadley" \
       io.ai-airbase.component="revetment" \
-      io.ai-airbase.copilot-version="${COPILOT_VERSION}" \
+      io.ai-airbase.opencode-version="${OPENCODE_VERSION}" \
       io.ai-airbase.volume.nix-store=$NIX_STORE \
       io.ai-airbase.volume.nix-profile=$HOME/.local/state/nix \
       io.ai-airbase.volume.uv-tools=$XDG_DATA_HOME/uv
 
-CMD ["copilot", "--agent=mission-control"]
+CMD ["opencode", "web", "--port=4096", "--hostname=0.0.0.0"]

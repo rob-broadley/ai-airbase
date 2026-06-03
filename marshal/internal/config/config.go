@@ -234,7 +234,7 @@ func ensureSharedDir(pathFn func(string) string, kind, envVar, subdir string) (s
 // ---------------------------------------------------------------------------
 
 // sharedConfigPath returns the filesystem path $XDG_CONFIG_HOME/marshal/<subdir>.
-// subdir may contain path separators (e.g. "copilot/settings.json").
+// subdir may contain path separators (e.g. "opencode/settings.json").
 func sharedConfigPath(subdir string) string {
 	return filepath.Join(xdgConfigHome(), "marshal", subdir)
 }

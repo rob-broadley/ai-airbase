@@ -265,7 +265,7 @@ func prepareContainer(cmd *cobra.Command, deps Deps, p containerParams) (contain
 // ensureContainerAndStart ensures the container exists then connects to PID 1.
 // For a new or stopped container it calls ExecFn with
 // ["podman", "start", "--attach", "--interactive", containerName] so the
-// current process is replaced by the attached start and the copilot process
+// current process is replaced by the attached start and the opencode process
 // running as PID 1 receives stdin/stdout directly.
 // For an already-running container it calls ExecFn with
 // ["podman", "attach", containerName] to join the existing PID 1 session.

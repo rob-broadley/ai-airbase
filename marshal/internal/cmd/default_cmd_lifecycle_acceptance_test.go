@@ -86,7 +86,7 @@ func TestDefaultCmd_ReuseRunning(t *testing.T) {
 	if !fe.called {
 		t.Fatal("expected exec to be called")
 	}
-	// Running container → attach to existing PID 1 (not exec + copilot)
+	// Running container → attach to existing PID 1 (not exec + opencode)
 	if !sliceContains(fe.argv, "attach") {
 		t.Errorf("expected 'attach' in exec argv for running container, got %v", fe.argv)
 	}
@@ -519,7 +519,7 @@ func TestDefaultCmd_ErrorMessageContainsContext(t *testing.T) {
 }
 
 // TestDefaultCmd_CreatePassesCmd verifies that when marshal creates a container
-// the default command ["copilot", "--agent=mission-control"] is forwarded to
+// the default command ["opencode", "web", "--port=4096", "--hostname=0.0.0.0"] is forwarded to
 // `podman create` as trailing arguments after the image name, so the agent is
 // configured at the container level rather than relying solely on the image CMD.
 func TestDefaultCmd_CreatePassesCmd(t *testing.T) {
@@ -545,11 +545,17 @@ func TestDefaultCmd_CreatePassesCmd(t *testing.T) {
 	if createArgs == nil {
 		t.Fatal("expected 'podman create' to be called but it was not")
 	}
-	if !runner.createArgsContain("copilot") {
-		t.Errorf("expected 'copilot' in create args; full create args: %v", createArgs)
+	if !runner.createArgsContain("opencode") {
+		t.Errorf("expected 'opencode' in create args; full create args: %v", createArgs)
 	}
-	if !runner.createArgsContain("--agent=mission-control") {
-		t.Errorf("expected '--agent=mission-control' in create args; full create args: %v", createArgs)
+	if !runner.createArgsContain("web") {
+		t.Errorf("expected 'web' in create args; full create args: %v", createArgs)
+	}
+	if !runner.createArgsContain("--port=4096") {
+		t.Errorf("expected '--port=4096' in create args; full create args: %v", createArgs)
+	}
+	if !runner.createArgsContain("--hostname=0.0.0.0") {
+		t.Errorf("expected '--hostname=0.0.0.0' in create args; full create args: %v", createArgs)
 	}
 }
 

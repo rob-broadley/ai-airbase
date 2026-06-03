@@ -472,7 +472,7 @@ func TestCreate_InvokesCorrectPodmanArgs(t *testing.T) {
 	}
 	namedVols := []container.NamedVolumeMount{
 		{Name: "mycontainer-nix-store", ContainerPath: "/nix/store"},
-		{Name: "mycontainer-nix-profile", ContainerPath: "/home/copilot/.local/state/nix"},
+		{Name: "mycontainer-nix-profile", ContainerPath: "/home/opencode/.local/state/nix"},
 	}
 
 	// When Create is called with workdir matching the mount path
@@ -489,9 +489,10 @@ func TestCreate_InvokesCorrectPodmanArgs(t *testing.T) {
 
 	for _, want := range []string{"create", "--name", "mycontainer",
 		"--userns=keep-id", "--tty", "--interactive", "--passwd-entry",
+		"-p", "127.0.0.1:4096:4096",
 		"-v", "/host/src:/workspace/src:Z",
 		"-v", "mycontainer-nix-store:/nix/store",
-		"-v", "mycontainer-nix-profile:/home/copilot/.local/state/nix",
+		"-v", "mycontainer-nix-profile:/home/opencode/.local/state/nix",
 		"-w", "/workspace/src", "myimage:latest"} {
 		if !hasArg(args, want) {
 			t.Errorf("args missing %q; full args: %v", want, args)
@@ -596,7 +597,7 @@ func TestCreate_AllMountsHaveZSELinuxSuffix(t *testing.T) {
 func TestCreate_AppendsCmdAfterImage(t *testing.T) {
 	// Given a runner that succeeds and a cmd to forward
 	r := newFake(okEmpty())
-	cmd := []string{"copilot", "--agent=mission-control"}
+	cmd := []string{"opencode", "--agent=mission-control"}
 
 	// When Create is called with the cmd slice
 	err := container.Create(r, "mycontainer", "myimage:latest", nil, nil, container.UserConfig{}, "/workspace", cmd)
@@ -725,8 +726,8 @@ func TestImageVolumeSpecs_NoVolumes_ReturnsEmpty(t *testing.T) {
 func TestImageVolumeSpecs_ResultsAreSorted(t *testing.T) {
 	// Given an image with two labelled volumes
 	r := newFake(
-		okOut(`{"/nix/store":{},"/home/copilot/.local/state/nix":{}}`),
-		okOut(`{"io.ai-airbase.volume.nix-store":"/nix/store","io.ai-airbase.volume.nix-profile":"/home/copilot/.local/state/nix"}`),
+		okOut(`{"/nix/store":{},"/home/opencode/.local/state/nix":{}}`),
+		okOut(`{"io.ai-airbase.volume.nix-store":"/nix/store","io.ai-airbase.volume.nix-profile":"/home/opencode/.local/state/nix"}`),
 	)
 
 	// When ImageVolumeSpecs is called
@@ -881,7 +882,7 @@ func TestCreate_NamedVolumesAppearInArgs(t *testing.T) {
 	r := newFake(okEmpty())
 	namedVols := []container.NamedVolumeMount{
 		{Name: "c-nix-store", ContainerPath: "/nix/store"},
-		{Name: "c-nix-profile", ContainerPath: "/home/copilot/.local/state/nix"},
+		{Name: "c-nix-profile", ContainerPath: "/home/opencode/.local/state/nix"},
 	}
 
 	// When Create is called
@@ -892,8 +893,8 @@ func TestCreate_NamedVolumesAppearInArgs(t *testing.T) {
 	if !hasConsecutiveArgs(args, "-v", "c-nix-store:/nix/store") {
 		t.Errorf("expected \"-v\" \"c-nix-store:/nix/store\"; full args: %v", args)
 	}
-	if !hasConsecutiveArgs(args, "-v", "c-nix-profile:/home/copilot/.local/state/nix") {
-		t.Errorf("expected \"-v\" \"c-nix-profile:/home/copilot/.local/state/nix\"; full args: %v", args)
+	if !hasConsecutiveArgs(args, "-v", "c-nix-profile:/home/opencode/.local/state/nix") {
+		t.Errorf("expected \"-v\" \"c-nix-profile:/home/opencode/.local/state/nix\"; full args: %v", args)
 	}
 }
 
@@ -1050,6 +1051,22 @@ func TestCreate_HasNoNewPrivileges(t *testing.T) {
 	// Then --security-opt no-new-privileges is present as a consecutive pair
 	if !hasConsecutiveArgs(args, "--security-opt", "no-new-privileges") {
 		t.Errorf("expected --security-opt no-new-privileges in args; got %v", args)
+	}
+}
+
+// TestCreate_HasPortMapping verifies that podman create includes
+// -p 127.0.0.1:4096:4096 to bind the web interface to host loopback.
+func TestCreate_HasPortMapping(t *testing.T) {
+	// Given a runner that succeeds
+	r := newFake(okEmpty())
+
+	// When Create is called
+	_ = container.Create(r, "c", "img", nil, nil, container.UserConfig{}, "/workspace", nil)
+
+	args := r.calls[0].args
+	// Then -p 127.0.0.1:4096:4096 is present as a consecutive pair
+	if !hasConsecutiveArgs(args, "-p", "127.0.0.1:4096:4096") {
+		t.Errorf("expected -p 127.0.0.1:4096:4096 in args; got %v", args)
 	}
 }
 
@@ -1633,24 +1650,24 @@ func TestPodmanRunner_Run_SuccessReturnsOutput(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestUserIdentityArgs_IncludesPasswdEntry verifies that Create includes
-// --passwd-entry with the correct copilot user mapping when building the
+// --passwd-entry with the correct opencode user mapping when building the
 // podman create arguments.
 func TestUserIdentityArgs_IncludesPasswdEntry(t *testing.T) {
-	// Given a fakeRunner and a UserConfig with UID 1001, GID 1002, and home /home/copilot
+	// Given a fakeRunner and a UserConfig with UID 1001, GID 1002, and home /home/opencode
 	runner := &fakeRunner{}
-	uc := container.UserConfig{UID: 1001, GID: 1002, HomeDir: "/home/copilot"}
+	uc := container.UserConfig{UID: 1001, GID: 1002, HomeDir: "/home/opencode"}
 
 	// When Create is called
 	_ = container.Create(runner, "marshal-myapp", "img", nil, nil, uc, "/workspace", nil)
 
-	// Then --passwd-entry with copilot:x:1001:1002 is included in the args
+	// Then --passwd-entry with opencode:x:1001:1002 is included in the args
 	args := runner.lastCreateArgs()
 	// Must include --passwd-entry flag
 	if !hasArg(args, "--passwd-entry") {
 		t.Errorf("expected --passwd-entry in args\ngot: %v", args)
 	}
-	// Entry must map to copilot user with correct UID:GID and home
-	wantSubstr := "copilot:x:1001:1002"
+	// Entry must map to opencode user with correct UID:GID and home
+	wantSubstr := "opencode:x:1001:1002"
 	found := false
 	for _, a := range args {
 		if strings.Contains(a, wantSubstr) {
@@ -1666,9 +1683,9 @@ func TestUserIdentityArgs_IncludesPasswdEntry(t *testing.T) {
 // TestUserIdentityArgs_HomeInPasswdEntry verifies that Create embeds the correct
 // home directory and UID:GID in the passwd entry value.
 func TestUserIdentityArgs_HomeInPasswdEntry(t *testing.T) {
-	// Given a fakeRunner and a UserConfig with UID 500, GID 500, and home /home/copilot
+	// Given a fakeRunner and a UserConfig with UID 500, GID 500, and home /home/opencode
 	runner := &fakeRunner{}
-	uc := container.UserConfig{UID: 500, GID: 500, HomeDir: "/home/copilot"}
+	uc := container.UserConfig{UID: 500, GID: 500, HomeDir: "/home/opencode"}
 
 	// When Create is called
 	_ = container.Create(runner, "marshal-myapp", "img", nil, nil, uc, "/workspace", nil)
@@ -1677,13 +1694,13 @@ func TestUserIdentityArgs_HomeInPasswdEntry(t *testing.T) {
 	args := runner.lastCreateArgs()
 	found := false
 	for _, a := range args {
-		if strings.Contains(a, "/home/copilot") && strings.Contains(a, "copilot:x:500:500") {
+		if strings.Contains(a, "/home/opencode") && strings.Contains(a, "opencode:x:500:500") {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("expected passwd entry with home /home/copilot for UID 500:500\ngot: %v", args)
+		t.Errorf("expected passwd entry with home /home/opencode for UID 500:500\ngot: %v", args)
 	}
 }
 

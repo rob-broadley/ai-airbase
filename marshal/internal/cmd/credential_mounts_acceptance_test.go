@@ -15,8 +15,8 @@ import (
 // Credential mount location tests — XDG config/data split
 // ---------------------------------------------------------------------------
 
-// TestDefaultCmd_ConfigFilesFromXDGConfig verifies that user-editable Copilot
-// config files are bind-mounted from XDG_CONFIG_HOME/marshal/copilot/, not
+// TestDefaultCmd_ConfigFilesFromXDGConfig verifies that user-editable Opencode
+// config files are bind-mounted from XDG_CONFIG_HOME/marshal/opencode/, not
 // from XDG_DATA_HOME, so backup tools and dotfile managers handle them correctly.
 func TestDefaultCmd_ConfigFilesFromXDGConfig(t *testing.T) {
 	// Given marshal is run with separate config and data fakes
@@ -47,11 +47,11 @@ func TestDefaultCmd_ConfigFilesFromXDGConfig(t *testing.T) {
 		file          string
 		containerPath string
 	}{
-		{"copilot/settings.json", container.ContainerCopilotDir + "/settings.json"},
-		{"copilot/mcp-config.json", container.ContainerCopilotDir + "/mcp-config.json"},
-		{"copilot/copilot-instructions.md", container.ContainerCopilotDir + "/copilot-instructions.md"},
-		{"copilot/permissions-config.json", container.ContainerCopilotDir + "/permissions-config.json"},
-		{"copilot/config.json", container.ContainerCopilotDir + "/config.json"},
+		{"opencode/settings.json", container.ContainerOpencodeConfigDir + "/settings.json"},
+		{"opencode/mcp-config.json", container.ContainerOpencodeConfigDir + "/mcp-config.json"},
+		{"opencode/opencode-instructions.md", container.ContainerOpencodeConfigDir + "/opencode-instructions.md"},
+		{"opencode/permissions-config.json", container.ContainerOpencodeConfigDir + "/permissions-config.json"},
+		{"opencode/config.json", container.ContainerOpencodeConfigDir + "/opencode.json"},
 	} {
 		want := cf.expectedConfigMount(tc.file, tc.containerPath)
 		if !sliceContains(args, want) {
@@ -208,7 +208,7 @@ func TestDefaultCmd_SessionStoreMounted(t *testing.T) {
 
 	// Then session-store.db is mounted from the per-project data directory
 	args := runner.createArgs()
-	want := cf.expectedDataMount("projects/myapp/session-store.db", container.ContainerCopilotDir+"/session-store.db")
+	want := cf.expectedDataMount("projects/myapp/session-store.db", container.ContainerOpencodeDataFile)
 	if !sliceContains(args, want) {
 		t.Errorf("expected session-store mount %q in create args\ngot: %v", want, args)
 	}
@@ -241,7 +241,7 @@ func TestDefaultCmd_SessionStateMountedPerProject(t *testing.T) {
 
 	// Then session-state is mounted from a per-project path under XDG_DATA_HOME
 	args := runner.createArgs()
-	want := cf.expectedDataMount("projects/myapp/session-state", container.ContainerCopilotDir+"/session-state")
+	want := cf.expectedDataMount("projects/myapp/session-state", container.ContainerOpencodeStateDir)
 	if !sliceContains(args, want) {
 		t.Errorf("expected per-project session-state mount %q in create args\ngot: %v", want, args)
 	}
@@ -285,8 +285,8 @@ func TestCredentialMounts_SessionStateIsolatedByProject(t *testing.T) {
 		betaSubdir    string
 		containerPath string
 	}{
-		{"projects/alpha/session-state", "projects/beta/session-state", container.ContainerCopilotDir + "/session-state"},
-		{"projects/alpha/session-store.db", "projects/beta/session-store.db", container.ContainerCopilotDir + "/session-store.db"},
+		{"projects/alpha/session-state", "projects/beta/session-state", container.ContainerOpencodeStateDir},
+		{"projects/alpha/session-store.db", "projects/beta/session-store.db", container.ContainerOpencodeDataFile},
 	} {
 		alphaMount := cf.expectedDataMount(tc.alphaSubdir, tc.containerPath)
 		betaMount := cf.expectedDataMount(tc.betaSubdir, tc.containerPath)
@@ -342,9 +342,9 @@ func TestCredentialMounts_ConfigSharedAcrossProjects(t *testing.T) {
 		subdir        string
 		containerPath string
 	}{
-		{"copilot/settings.json", container.ContainerCopilotDir + "/settings.json"},
-		{"copilot/mcp-config.json", container.ContainerCopilotDir + "/mcp-config.json"},
-		{"copilot/copilot-instructions.md", container.ContainerCopilotDir + "/copilot-instructions.md"},
+		{"opencode/settings.json", container.ContainerOpencodeConfigDir + "/settings.json"},
+		{"opencode/mcp-config.json", container.ContainerOpencodeConfigDir + "/mcp-config.json"},
+		{"opencode/opencode-instructions.md", container.ContainerOpencodeConfigDir + "/opencode-instructions.md"},
 	}
 
 	for _, tc := range shared {
@@ -389,8 +389,8 @@ func TestRecreate_CredentialMountsIncluded(t *testing.T) {
 
 	// Then credential mounts (settings and session-store) are included
 	args := runner.createArgs()
-	settingsMount := cf.expectedConfigMount("copilot/settings.json", container.ContainerCopilotDir+"/settings.json")
-	sessionMount := cf.expectedDataMount("projects/myapp/session-store.db", container.ContainerCopilotDir+"/session-store.db")
+	settingsMount := cf.expectedConfigMount("opencode/settings.json", container.ContainerOpencodeConfigDir+"/settings.json")
+	sessionMount := cf.expectedDataMount("projects/myapp/session-store.db", container.ContainerOpencodeDataFile)
 
 	if !sliceContains(args, settingsMount) {
 		t.Errorf("recreate: expected settings mount %q\ngot: %v", settingsMount, args)

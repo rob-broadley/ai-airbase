@@ -55,13 +55,13 @@ func TestEnsureSharedConfigDir_FallsBackToHomeConfig(t *testing.T) {
 	t.Setenv("HOME", tmp)
 
 	// When EnsureSharedConfigDir is called
-	got, err := EnsureSharedConfigDir("copilot")
+	got, err := EnsureSharedConfigDir("opencode")
 
-	// Then no error occurs and the path is rooted under $HOME/.config/marshal
+	// Then no error occurs and the path is rooted under $HOME/.config/marshal/opencode
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	want := filepath.Join(tmp, ".config", "marshal", "copilot")
+	want := filepath.Join(tmp, ".config", "marshal", "opencode")
 	if got != want {
 		t.Errorf("expected path %q, got %q", want, got)
 	}
@@ -105,13 +105,13 @@ func TestEnsureSharedConfigDir_Idempotent(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 
-	if _, err := EnsureSharedConfigDir("copilot"); err != nil {
+	if _, err := EnsureSharedConfigDir("opencode"); err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
 
 	// When EnsureSharedConfigDir is called a second time on the same subdir
 	// Then no error is returned
-	if _, err := EnsureSharedConfigDir("copilot"); err != nil {
+	if _, err := EnsureSharedConfigDir("opencode"); err != nil {
 		t.Fatalf("second call failed (not idempotent): %v", err)
 	}
 }

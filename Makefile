@@ -8,14 +8,12 @@ MARSHAL_VERSION   := $(subst marshal/,,$(_MARSHAL_TAG))
 _REVETMENT_TAG    := $(shell git describe --tags --always --dirty --match 'revetment/v*' 2>/dev/null || echo dev)
 REVETMENT_VERSION := $(subst revetment/,,$(_REVETMENT_TAG))
 REVISION          := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
-COPILOT_VERSION   ?= $(shell sed -n '1p' .copilot-version)
-COPILOT_INTEGRITY ?= $(shell sed -n '2p' .copilot-version)
+OPENCODE_VERSION   ?= $(shell cat .opencode-version 2>/dev/null)
 
 SAPPER_BUILD_ARGS    := --label "org.opencontainers.image.version=$(REVISION)" \
                         --label "org.opencontainers.image.revision=$(REVISION)"
 
-REVETMENT_BUILD_ARGS := --build-arg COPILOT_VERSION=$(COPILOT_VERSION) \
-                        --build-arg COPILOT_INTEGRITY=$(COPILOT_INTEGRITY) \
+REVETMENT_BUILD_ARGS := --build-arg OPENCODE_VERSION=$(OPENCODE_VERSION) \
                         --label "org.opencontainers.image.version=$(REVETMENT_VERSION)" \
                         --label "org.opencontainers.image.revision=$(REVISION)"
 
@@ -37,17 +35,15 @@ endif
 
 .DEFAULT_GOAL := build
 
-.PHONY: dev-image image build test coverage fmt fmt-check fmt-md fmt-md-check vet lint check tidy install clean cache-clean update-copilot-version
+.PHONY: dev-image image build test coverage fmt fmt-check fmt-md fmt-md-check vet lint check tidy install clean cache-clean update-opencode-version
 
 dev-image:
 	podman build $(SAPPER_BUILD_ARGS) -t $(DEV_IMAGE) -f dev/Containerfile .
 
-update-copilot-version:
-	@version="$$(curl -sf https://registry.npmjs.org/@github/copilot/latest | jq -r .version)" && \
-	integrity="$$(curl -sf https://registry.npmjs.org/@github/copilot-linux-x64/$$version | jq -r .dist.integrity)" && \
-	printf "%s\n%s\n" "$$version" "$$integrity" > .copilot-version && \
-	echo "COPILOT_VERSION updated to $$version" && \
-	echo "COPILOT_INTEGRITY updated to $$integrity"
+update-opencode-version:
+	@version="$$(curl -sf https://registry.npmjs.org/opencode-ai/latest | jq -r .version)" && \
+	printf "%s\n" "$$version" > .opencode-version && \
+	echo "OPENCODE_VERSION updated to $$version"
 
 image:
 	podman build $(REVETMENT_BUILD_ARGS) -t $(IMAGE) -f revetment/Containerfile .

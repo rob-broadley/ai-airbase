@@ -9,7 +9,7 @@ import (
 )
 
 // TestDefaultCmd_UserConfigSet verifies that the default command passes the
-// host UID:GID and HOME=/home/copilot when creating the container.
+// host UID:GID and HOME=/home/opencode when creating the container.
 func TestDefaultCmd_UserConfigSet(t *testing.T) {
 	// Given credential fakes with specific UID and GID
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -34,19 +34,19 @@ func TestDefaultCmd_UserConfigSet(t *testing.T) {
 	if !runner.createArgsContain("1001:1002") {
 		t.Errorf("expected '--user 1001:1002' in create args\ngot: %v", runner.createArgs())
 	}
-	if !runner.createArgsContain("HOME=/home/copilot") {
-		t.Errorf("expected '-e HOME=/home/copilot' in create args\ngot: %v", runner.createArgs())
+	if !runner.createArgsContain("HOME=/home/opencode") {
+		t.Errorf("expected '-e HOME=/home/opencode' in create args\ngot: %v", runner.createArgs())
 	}
 	if !runner.createArgsContain("--passwd-entry") {
 		t.Errorf("expected --passwd-entry in create args\ngot: %v", runner.createArgs())
 	}
-	if !runner.createArgsContain("copilot:x:1001:1002::/home/copilot:/bin/bash") {
-		t.Errorf("expected copilot:x:1001:1002::/home/copilot:/bin/bash in passwd-entry\ngot: %v", runner.createArgs())
+	if !runner.createArgsContain("opencode:x:1001:1002::/home/opencode:/bin/bash") {
+		t.Errorf("expected opencode:x:1001:1002::/home/opencode:/bin/bash in passwd-entry\ngot: %v", runner.createArgs())
 	}
 }
 
 // TestDefaultCmd_PasswdEntrySet verifies that --passwd-entry is passed to
-// podman create, mapping the host UID:GID to the copilot username.
+// podman create, mapping the host UID:GID to the opencode username.
 func TestDefaultCmd_PasswdEntrySet(t *testing.T) {
 	// Given a runner with no existing container and UID 1001 / GID 1002
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -66,13 +66,13 @@ func TestDefaultCmd_PasswdEntrySet(t *testing.T) {
 	root.SetArgs([]string{"--project", "myapp"})
 	assertNoError(t, root.Execute())
 
-	// Then --passwd-entry is passed to podman create with the correct copilot user mapping
+	// Then --passwd-entry is passed to podman create with the correct opencode user mapping
 	if !runner.createArgsContain("--passwd-entry") {
 		t.Errorf("expected --passwd-entry in create args\ngot: %v", runner.createArgs())
 	}
-	// The entry should name the user copilot with UID 1001, GID 1002 and correct home
-	if !runner.createArgsContain("copilot:x:1001:1002::/home/copilot:/bin/bash") {
-		t.Errorf("expected copilot:x:1001:1002::/home/copilot:/bin/bash in passwd-entry value\ngot: %v", runner.createArgs())
+	// The entry should name the user opencode with UID 1001, GID 1002 and correct home
+	if !runner.createArgsContain("opencode:x:1001:1002::/home/opencode:/bin/bash") {
+		t.Errorf("expected opencode:x:1001:1002::/home/opencode:/bin/bash in passwd-entry value\ngot: %v", runner.createArgs())
 	}
 }
 
@@ -106,8 +106,8 @@ func TestDefaultCmd_TtyAllocated(t *testing.T) {
 // TestDefaultCmd_StdinOpen verifies that podman create is called with --interactive
 // so that stdin is connected to the PTY when the container starts.
 // Without --interactive (OpenStdin=false), podman start --attach --interactive
-// does not properly connect stdin to the container PTY; the copilot CLI then
-// detects no interactive terminal and exits with "No prompt provided."
+// does not properly connect stdin to the container PTY; the opencode process then
+// detects no interactive terminal and exits.
 func TestDefaultCmd_StdinOpen(t *testing.T) {
 	// Given a runner with no existing container and credential fakes
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -134,7 +134,7 @@ func TestDefaultCmd_StdinOpen(t *testing.T) {
 }
 
 // TestRecreate_UserConfigSet verifies that the recreate command also passes the
-// host UID:GID and HOME=/home/copilot when creating the container.
+// host UID:GID and HOME=/home/opencode when creating the container.
 func TestRecreate_UserConfigSet(t *testing.T) {
 	// Given credential fakes with specific UID and GID
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -160,13 +160,13 @@ func TestRecreate_UserConfigSet(t *testing.T) {
 	if !runner.createArgsContain("1001:1002") {
 		t.Errorf("expected '--user 1001:1002' in recreate create args\ngot: %v", runner.createArgs())
 	}
-	if !runner.createArgsContain("HOME=/home/copilot") {
-		t.Errorf("expected '-e HOME=/home/copilot' in recreate create args\ngot: %v", runner.createArgs())
+	if !runner.createArgsContain("HOME=/home/opencode") {
+		t.Errorf("expected '-e HOME=/home/opencode' in recreate create args\ngot: %v", runner.createArgs())
 	}
 	if !runner.createArgsContain("--passwd-entry") {
 		t.Errorf("expected --passwd-entry in recreate create args\ngot: %v", runner.createArgs())
 	}
-	if !runner.createArgsContain("copilot:x:1001:1002::/home/copilot:/bin/bash") {
-		t.Errorf("expected copilot:x:1001:1002::/home/copilot:/bin/bash in passwd-entry\ngot: %v", runner.createArgs())
+	if !runner.createArgsContain("opencode:x:1001:1002::/home/opencode:/bin/bash") {
+		t.Errorf("expected opencode:x:1001:1002::/home/opencode:/bin/bash in passwd-entry\ngot: %v", runner.createArgs())
 	}
 }

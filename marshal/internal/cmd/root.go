@@ -149,7 +149,7 @@ func NewRootCmd(deps Deps) *cobra.Command {
 
 	root := &cobra.Command{
 		Use:   "marshal",
-		Short: "A sandbox for running GitHub Copilot CLI — one container per project, managed for you.",
+		Short: "A sandbox for running OpenCode — one container per project, managed for you.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return ensureContainerAndStart(cmd, deps, projectFlag)
 		},

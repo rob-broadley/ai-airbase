@@ -446,13 +446,13 @@ func TestEnsureSharedConfigDir_XDGOverride_ReturnsExpectedPath(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 
 	// When EnsureSharedConfigDir is called
-	got, err := EnsureSharedConfigDir("copilot")
+	got, err := EnsureSharedConfigDir("opencode")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Then the path is under the XDG_CONFIG_HOME directory
-	want := filepath.Join(tmp, "marshal", "copilot")
+	want := filepath.Join(tmp, "marshal", "opencode")
 	if got != want {
 		t.Errorf("expected %q, got %q", want, got)
 	}
@@ -471,13 +471,13 @@ func TestEnsureSharedConfigDir_DefaultXDG_UsesHomeConfig(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	// When EnsureSharedConfigDir is called
-	got, err := EnsureSharedConfigDir("copilot")
+	got, err := EnsureSharedConfigDir("opencode")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Then the path falls back to ~/.config/marshal/<subdir>
-	want := filepath.Join(home, ".config", "marshal", "copilot")
+	want := filepath.Join(home, ".config", "marshal", "opencode")
 	if got != want {
 		t.Errorf("expected %q, got %q", want, got)
 	}
@@ -520,13 +520,13 @@ func TestEnsureSharedConfigDir_SucceedsWhenDirAlreadyExists(t *testing.T) {
 	// Given XDG_CONFIG_HOME is set and the target directory already exists
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
-	target := filepath.Join(tmp, "marshal", "copilot")
+	target := filepath.Join(tmp, "marshal", "opencode")
 	if err := os.MkdirAll(target, 0o700); err != nil {
 		t.Fatal(err)
 	}
 
 	// When EnsureSharedConfigDir is called
-	got, err := EnsureSharedConfigDir("copilot")
+	got, err := EnsureSharedConfigDir("opencode")
 
 	// Then no error is returned and the existing directory path is returned
 	if err != nil {
@@ -546,13 +546,13 @@ func TestEnsureSharedConfigDir_FileAtTargetPath_ReturnsCreateError(t *testing.T)
 	if err := os.MkdirAll(filepath.Join(tmp, "marshal"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	target := filepath.Join(tmp, "marshal", "copilot")
+	target := filepath.Join(tmp, "marshal", "opencode")
 	if err := os.WriteFile(target, []byte("not a directory"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
 	// When EnsureSharedConfigDir is called
-	_, err := EnsureSharedConfigDir("copilot")
+	_, err := EnsureSharedConfigDir("opencode")
 
 	// Then an error is returned
 	if err == nil {
@@ -575,8 +575,8 @@ func TestSharedDataPath_XDGOverride(t *testing.T) {
 	setenv(t, "XDG_DATA_HOME", tmp)
 
 	// When SharedDataPath is called
-	got := sharedDataPath("copilot")
-	want := filepath.Join(tmp, "marshal", "copilot")
+	got := sharedDataPath("opencode")
+	want := filepath.Join(tmp, "marshal", "opencode")
 
 	// Then the path is under the XDG_DATA_HOME directory
 	if got != want {
@@ -592,8 +592,8 @@ func TestSharedDataPath_XDGOverride_MultiSegment(t *testing.T) {
 	setenv(t, "XDG_DATA_HOME", tmp)
 
 	// When SharedDataPath is called with a multi-segment subdir
-	got := sharedDataPath("config/github-copilot")
-	want := filepath.Join(tmp, "marshal", "config", "github-copilot")
+	got := sharedDataPath("config/opencode")
+	want := filepath.Join(tmp, "marshal", "config", "opencode")
 
 	// Then all path segments are correctly joined
 	if got != want {
@@ -613,10 +613,10 @@ func TestSharedDataPath_DefaultXDG(t *testing.T) {
 	}
 
 	// When SharedDataPath is called
-	got := sharedDataPath("copilot")
-	want := filepath.Join(home, ".local", "share", "marshal", "copilot")
+	got := sharedDataPath("opencode")
+	want := filepath.Join(home, ".local", "share", "marshal", "opencode")
 
-	// Then the path falls back to ~/.local/share/marshal/copilot
+	// Then the path falls back to ~/.local/share/marshal/opencode
 	if got != want {
 		t.Errorf("expected %q, got %q", want, got)
 	}
@@ -634,13 +634,13 @@ func TestEnsureSharedDataDir_CreatesDir(t *testing.T) {
 	setenv(t, "XDG_DATA_HOME", tmp)
 
 	// When EnsureSharedDataDir is called
-	got, err := EnsureSharedDataDir("copilot")
+	got, err := EnsureSharedDataDir("opencode")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Then the directory is created with mode 0o700 and its path is returned
-	want := filepath.Join(tmp, "marshal", "copilot")
+	want := filepath.Join(tmp, "marshal", "opencode")
 	if got != want {
 		t.Errorf("expected path %q, got %q", want, got)
 	}
@@ -665,13 +665,13 @@ func TestEnsureSharedDataDir_Idempotent(t *testing.T) {
 	tmp := t.TempDir()
 	setenv(t, "XDG_DATA_HOME", tmp)
 
-	if _, err := EnsureSharedDataDir("copilot"); err != nil {
+	if _, err := EnsureSharedDataDir("opencode"); err != nil {
 		t.Fatalf("first call failed: %v", err)
 	}
 
 	// When EnsureSharedDataDir is called a second time
 	// Then no error is returned
-	if _, err := EnsureSharedDataDir("copilot"); err != nil {
+	if _, err := EnsureSharedDataDir("opencode"); err != nil {
 		t.Fatalf("second call failed (not idempotent): %v", err)
 	}
 }
@@ -684,7 +684,7 @@ func TestEnsureSharedDataDir_CreatesNestedDirs(t *testing.T) {
 	setenv(t, "XDG_DATA_HOME", tmp)
 
 	// When EnsureSharedDataDir is called with a nested subdir path
-	got, err := EnsureSharedDataDir("config/github-copilot")
+	got, err := EnsureSharedDataDir("config/opencode")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
