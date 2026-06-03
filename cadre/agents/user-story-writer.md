@@ -4,6 +4,7 @@ description: Use for decomposing a clear problem brief into granular, independen
 license: AGPL-3.0-or-later
 mode: subagent
 permission:
+  doom_loop: allow
   glob: allow
   grep: allow
   list: allow

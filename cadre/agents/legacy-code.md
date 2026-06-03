@@ -5,10 +5,12 @@ license: AGPL-3.0-or-later
 mode: subagent
 permission:
   bash: allow
+  doom_loop: allow
   edit: allow
   glob: allow
   grep: allow
   list: allow
+  lsp: allow
   read: allow
   skill: allow
   task: allow

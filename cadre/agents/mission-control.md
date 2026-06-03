@@ -5,6 +5,7 @@ license: AGPL-3.0-or-later
 mode: primary
 permission:
   bash: allow
+  doom_loop: allow
   edit: allow
   glob: allow
   grep: allow

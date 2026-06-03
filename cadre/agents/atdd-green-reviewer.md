@@ -9,6 +9,7 @@ permission:
   glob: allow
   grep: allow
   list: allow
+  lsp: allow
   read: allow
   skill: allow
 ---
