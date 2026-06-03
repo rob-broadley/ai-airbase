@@ -28,11 +28,11 @@ const containerWorkspaceDir = "/workspace"
 // Config files (settings, mcp-config, git config, etc.) come from XDG_CONFIG_HOME
 // so backup tools and dotfile managers handle them.
 //
-// Session-store.db and session-state/ are both per-project under XDG_DATA_HOME
+// The share/ (containing opencode.db) and state/ directories are both per-project under XDG_DATA_HOME
 // so conversation history and checkpoints survive container recreates.
 //
 // The agents/ and skills/ directories baked into the container image are left
-// untouched — no whole-directory ~/.opencode mount is used.
+// untouched — no whole-directory /opt/cadre mount is used.
 func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, error) {
 	specs := make([]container.MountSpec, 0, 8)
 	ensureConfigDir := deps.ensureSharedConfigDirFn()
@@ -57,71 +57,27 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 	if err != nil {
 		return nil, fmt.Errorf("ensuring config dir opencode: %w", err)
 	}
-
-	type configFile struct {
-		name           string
-		containerPath  string
-		defaultContent []byte
-	}
-	configFiles := []configFile{
-		{
-			name:           "settings.json",
-			containerPath:  container.ContainerOpencodeConfigDir + "/settings.json",
-			defaultContent: []byte("{}\n"),
-		},
-		{
-			name:           "mcp-config.json",
-			containerPath:  container.ContainerOpencodeConfigDir + "/mcp-config.json",
-			defaultContent: []byte(`{"mcpServers":{}}` + "\n"),
-		},
-		{
-			name:           "opencode-instructions.md",
-			containerPath:  container.ContainerOpencodeConfigDir + "/opencode-instructions.md",
-			defaultContent: []byte{},
-		},
-		{
-			name:           "permissions-config.json",
-			containerPath:  container.ContainerOpencodeConfigDir + "/permissions-config.json",
-			defaultContent: []byte("{}\n"),
-		},
-		{
-			name:           "config.json",
-			containerPath:  container.ContainerOpencodeConfigDir + "/opencode.json",
-			defaultContent: []byte("{}\n"),
-		},
-	}
-
-	for _, f := range configFiles {
-		hostPath := filepath.Join(configDir, f.name)
-		if err := ensureConfigFile(hostPath, f.defaultContent); err != nil {
-			return nil, fmt.Errorf("ensuring config file %s: %w", f.name, err)
-		}
-		specs = append(specs, container.MountSpec{
-			HostPath:      hostPath,
-			ContainerPath: f.containerPath,
-		})
-	}
-
-	// Per-project session store and session state — both isolated by project.
-	projectDataDir, err := deps.ensureSharedDataDir()("projects/" + project)
-	if err != nil {
-		return nil, fmt.Errorf("ensuring project data dir for %s: %w", project, err)
-	}
-	sessionStorePath := filepath.Join(projectDataDir, "session-store.db")
-	if err := ensureConfigFile(sessionStorePath, []byte{}); err != nil {
-		return nil, fmt.Errorf("ensuring session-store.db: %w", err)
-	}
 	specs = append(specs, container.MountSpec{
-		HostPath:      sessionStorePath,
-		ContainerPath: container.ContainerOpencodeDataFile,
+		HostPath:      configDir,
+		ContainerPath: container.ContainerOpencodeConfigDir,
 	})
 
-	sessionStateDir, err := deps.ensureSharedDataDir()("projects/" + project + "/session-state")
+	// Per-project session store and session state — both isolated by project.
+	projectShareDir, err := deps.ensureSharedDataDir()("projects/" + project + "/share")
 	if err != nil {
-		return nil, fmt.Errorf("ensuring session-state dir for project %s: %w", project, err)
+		return nil, fmt.Errorf("ensuring project share dir for %s: %w", project, err)
 	}
 	specs = append(specs, container.MountSpec{
-		HostPath:      sessionStateDir,
+		HostPath:      projectShareDir,
+		ContainerPath: container.ContainerOpencodeDataDir,
+	})
+
+	projectStateDir, err := deps.ensureSharedDataDir()("projects/" + project + "/state")
+	if err != nil {
+		return nil, fmt.Errorf("ensuring project state dir for project %s: %w", project, err)
+	}
+	specs = append(specs, container.MountSpec{
+		HostPath:      projectStateDir,
 		ContainerPath: container.ContainerOpencodeStateDir,
 	})
 

@@ -42,25 +42,26 @@ func TestDefaultCmd_ConfigFilesFromXDGConfig(t *testing.T) {
 
 	args := runner.createArgs()
 
-	// Then each config file is mounted from XDG_CONFIG, not XDG_DATA
-	for _, tc := range []struct {
-		file          string
-		containerPath string
-	}{
-		{"opencode/settings.json", container.ContainerOpencodeConfigDir + "/settings.json"},
-		{"opencode/mcp-config.json", container.ContainerOpencodeConfigDir + "/mcp-config.json"},
-		{"opencode/opencode-instructions.md", container.ContainerOpencodeConfigDir + "/opencode-instructions.md"},
-		{"opencode/permissions-config.json", container.ContainerOpencodeConfigDir + "/permissions-config.json"},
-		{"opencode/config.json", container.ContainerOpencodeConfigDir + "/opencode.json"},
+	// Then the opencode config directory is mounted from XDG_CONFIG, not XDG_DATA
+	want := cf.expectedConfigMount("opencode", container.ContainerOpencodeConfigDir)
+	if !sliceContains(args, want) {
+		t.Errorf("expected config directory mount %q in create args\ngot: %v", want, args)
+	}
+
+	// And NOT from XDG_DATA
+	notWant := cf.expectedDataMount("opencode", container.ContainerOpencodeConfigDir)
+	if sliceContains(args, notWant) {
+		t.Errorf("config directory must not be mounted from XDG_DATA; found %q in create args", notWant)
+	}
+
+	// Verify that individual config files are NOT mounted separately
+	for _, file := range []string{
+		"settings.json",
+		"mcp-config.json",
 	} {
-		want := cf.expectedConfigMount(tc.file, tc.containerPath)
-		if !sliceContains(args, want) {
-			t.Errorf("expected config-side mount %q in create args\ngot: %v", want, args)
-		}
-		// And NOT from XDG_DATA
-		notWant := cf.expectedDataMount(tc.file, tc.containerPath)
-		if sliceContains(args, notWant) {
-			t.Errorf("config file %s must not be mounted from XDG_DATA; found %q in create args", tc.file, notWant)
+		notWantFile := cf.expectedConfigMount("opencode/"+file, container.ContainerOpencodeConfigDir+"/"+file)
+		if sliceContains(args, notWantFile) {
+			t.Errorf("config file %s must not be mounted individually; found %q in create args", file, notWantFile)
 		}
 	}
 }
@@ -181,8 +182,8 @@ func TestDefaultCmd_GitConfigNotOverwrittenIfExists(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_SessionStoreMounted verifies that session-store.db is
-// bind-mounted from the per-project XDG_DATA_HOME/marshal/projects/<project>/
+// TestDefaultCmd_SessionStoreMounted verifies that the share/ directory is
+// bind-mounted from the per-project XDG_DATA_HOME/marshal/projects/<project>/share/
 // path so conversation history is preserved across container recreates.
 func TestDefaultCmd_SessionStoreMounted(t *testing.T) {
 	// Given deps configured for project "myapp"
@@ -206,15 +207,15 @@ func TestDefaultCmd_SessionStoreMounted(t *testing.T) {
 	// When the default command is executed
 	assertNoError(t, root.Execute())
 
-	// Then session-store.db is mounted from the per-project data directory
+	// Then the share/ directory is mounted from the per-project data directory
 	args := runner.createArgs()
-	want := cf.expectedDataMount("projects/myapp/session-store.db", container.ContainerOpencodeDataFile)
+	want := cf.expectedDataMount("projects/myapp/share", container.ContainerOpencodeDataDir)
 	if !sliceContains(args, want) {
-		t.Errorf("expected session-store mount %q in create args\ngot: %v", want, args)
+		t.Errorf("expected share/ directory mount %q in create args\ngot: %v", want, args)
 	}
 }
 
-// TestDefaultCmd_SessionStateMountedPerProject verifies that the session-state
+// TestDefaultCmd_SessionStateMountedPerProject verifies that the state/
 // directory is bind-mounted from a per-project path under XDG_DATA_HOME so
 // checkpoint history survives container recreates.
 func TestDefaultCmd_SessionStateMountedPerProject(t *testing.T) {
@@ -239,16 +240,16 @@ func TestDefaultCmd_SessionStateMountedPerProject(t *testing.T) {
 	// When the default command is executed
 	assertNoError(t, root.Execute())
 
-	// Then session-state is mounted from a per-project path under XDG_DATA_HOME
+	// Then state/ directory is mounted from a per-project path under XDG_DATA_HOME
 	args := runner.createArgs()
-	want := cf.expectedDataMount("projects/myapp/session-state", container.ContainerOpencodeStateDir)
+	want := cf.expectedDataMount("projects/myapp/state", container.ContainerOpencodeStateDir)
 	if !sliceContains(args, want) {
-		t.Errorf("expected per-project session-state mount %q in create args\ngot: %v", want, args)
+		t.Errorf("expected per-project state/ directory mount %q in create args\ngot: %v", want, args)
 	}
 }
 
 // TestCredentialMounts_SessionStateIsolatedByProject verifies that two
-// different projects receive different session-state and session-store.db
+// different projects receive different state/ and share/
 // host paths.
 func TestCredentialMounts_SessionStateIsolatedByProject(t *testing.T) {
 	// Given two separate projects "alpha" and "beta" sharing the same config fakes
@@ -285,8 +286,8 @@ func TestCredentialMounts_SessionStateIsolatedByProject(t *testing.T) {
 		betaSubdir    string
 		containerPath string
 	}{
-		{"projects/alpha/session-state", "projects/beta/session-state", container.ContainerOpencodeStateDir},
-		{"projects/alpha/session-store.db", "projects/beta/session-store.db", container.ContainerOpencodeDataFile},
+		{"projects/alpha/state", "projects/beta/state", container.ContainerOpencodeStateDir},
+		{"projects/alpha/share", "projects/beta/share", container.ContainerOpencodeDataDir},
 	} {
 		alphaMount := cf.expectedDataMount(tc.alphaSubdir, tc.containerPath)
 		betaMount := cf.expectedDataMount(tc.betaSubdir, tc.containerPath)
@@ -342,9 +343,7 @@ func TestCredentialMounts_ConfigSharedAcrossProjects(t *testing.T) {
 		subdir        string
 		containerPath string
 	}{
-		{"opencode/settings.json", container.ContainerOpencodeConfigDir + "/settings.json"},
-		{"opencode/mcp-config.json", container.ContainerOpencodeConfigDir + "/mcp-config.json"},
-		{"opencode/opencode-instructions.md", container.ContainerOpencodeConfigDir + "/opencode-instructions.md"},
+		{"opencode", container.ContainerOpencodeConfigDir},
 	}
 
 	for _, tc := range shared {
@@ -387,15 +386,15 @@ func TestRecreate_CredentialMountsIncluded(t *testing.T) {
 	// When recreate is executed
 	assertNoError(t, root.Execute())
 
-	// Then credential mounts (settings and session-store) are included
+	// Then credential mounts (config and share directories) are included
 	args := runner.createArgs()
-	settingsMount := cf.expectedConfigMount("opencode/settings.json", container.ContainerOpencodeConfigDir+"/settings.json")
-	sessionMount := cf.expectedDataMount("projects/myapp/session-store.db", container.ContainerOpencodeDataFile)
+	opencodeConfigMount := cf.expectedConfigMount("opencode", container.ContainerOpencodeConfigDir)
+	sessionMount := cf.expectedDataMount("projects/myapp/share", container.ContainerOpencodeDataDir)
 
-	if !sliceContains(args, settingsMount) {
-		t.Errorf("recreate: expected settings mount %q\ngot: %v", settingsMount, args)
+	if !sliceContains(args, opencodeConfigMount) {
+		t.Errorf("recreate: expected settings mount %q\ngot: %v", opencodeConfigMount, args)
 	}
 	if !sliceContains(args, sessionMount) {
-		t.Errorf("recreate: expected session-store mount %q\ngot: %v", sessionMount, args)
+		t.Errorf("recreate: expected share mount %q\ngot: %v", sessionMount, args)
 	}
 }

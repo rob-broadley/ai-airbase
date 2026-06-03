@@ -185,7 +185,7 @@ ai-airbase/
 
 `marshal/internal/config` handles all persistence: per-project TOML files under `$XDG_CONFIG_HOME/marshal/`.
 
-`cadre/` files are bundled into the revetment image at build time via `COPY cadre/ $HOME/.opencode/` in `revetment/Containerfile`.
+`cadre/` files are bundled into the revetment image at build time via `COPY cadre/ /opt/cadre/` in `revetment/Containerfile`.
 
 ## Extending the cadre
 
@@ -238,7 +238,7 @@ Skills are loaded on demand by agents via the `skill` tool. They are not invoked
 The Containerfile copies the entire `cadre/` directory into the image:
 
 ```dockerfile
-COPY cadre/ $HOME/.opencode/
+COPY cadre/ /opt/cadre/
 ```
 
 Changes to agents or skills take effect on the next `make image` build. To test a locally built image without pushing:

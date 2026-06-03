@@ -58,11 +58,11 @@ const (
 	// All credential mount targets and the HOME environment variable must agree with this value.
 	ContainerUserHome = "/home/opencode"
 
-	// ContainerOpencodeDir is the container-side path for the Opencode extension state directory.
-	ContainerOpencodeDir = ContainerUserHome + "/.opencode"
-
 	// ContainerOpencodeConfigDir is the container-side path for the global opencode config files.
 	ContainerOpencodeConfigDir = ContainerUserHome + "/.config/opencode"
+
+	// ContainerOpencodeDataDir is the container-side path for the opencode session database directory.
+	ContainerOpencodeDataDir = ContainerUserHome + "/.local/share/opencode"
 
 	// ContainerOpencodeDataFile is the container-side path for the opencode session database.
 	ContainerOpencodeDataFile = ContainerUserHome + "/.local/share/opencode/opencode.db"

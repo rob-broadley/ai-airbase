@@ -251,7 +251,7 @@ func EnsureSharedConfigDir(subdir string) (string, error) {
 // ---------------------------------------------------------------------------
 
 // sharedDataPath returns the filesystem path $XDG_DATA_HOME/marshal/<subdir>.
-// subdir may contain path separators (e.g. "projects/myapp/session-state").
+// subdir may contain path separators (e.g. "projects/myapp/state").
 func sharedDataPath(subdir string) string {
 	return filepath.Join(xdgDataHome(), "marshal", subdir)
 }

@@ -59,9 +59,9 @@ ENV NIX_STORE=$NIX_DIR/store
 RUN <<PERMISSIONS
 mkdir -p \
     $HOME \
-    $HOME/.config \
-    $HOME/.opencode \
-    $HOME/.local/share \
+    $HOME/.config/opencode \
+    $HOME/.local/share/opencode \
+    $HOME/.local/state/opencode \
     $WORKSPACE \
     $NIX_DIR/store \
     $NIX_DIR/var/nix/profiles \
@@ -126,7 +126,8 @@ VOLUME /home/opencode/.local/share/uv
 
 
 # Bundle cadre agents and skills so they are available to OpenCode out of the box.
-COPY cadre/ $HOME/.opencode/
+COPY cadre/ /opt/cadre/
+ENV OPENCODE_CONFIG_DIR=/opt/cadre
 
 WORKDIR $WORKSPACE
 
