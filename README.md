@@ -59,17 +59,17 @@ cd ~/work/my-app
 # 2. Create the revetment for this project
 marshal create
 
-# 3. Attach and launch OpenCode
+# 3. Start the container and launch OpenCode
 marshal
 ```
 
-`marshal` starts the OpenCode web server with `mission-control` as the active agent. Open the URL printed by the server (default: `http://127.0.0.1:4096/`) in your host's browser to connect. Describe your task; `mission-control` routes it to the right specialist agents and coordinates the work.
+`marshal` starts the OpenCode web server. Open the URL printed by the server (default: `http://127.0.0.1:4096/`) in your host's browser to connect. Select `mission-control` or another agent to start your session, describe your task, and let the agent coordinate or execute the work.
 
 ```bash
 # 4. Stop the container when you are done
 marshal stop
 
-# 5. Attach again any time — the container and its state are preserved
+# 5. Start again any time — the container and its state are preserved
 marshal
 ```
 

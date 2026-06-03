@@ -14,8 +14,7 @@ import (
 )
 
 // TestDefaultCmd_CreateAndStart verifies that marshal creates the container and
-// connects to PID 1 via podman start --attach --interactive when no container
-// exists. The runner must NOT call podman start (that goes via ExecFn).
+// starts it in the background when no container exists.
 func TestDefaultCmd_CreateAndStart(t *testing.T) {
 	// Given no container exists
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -31,31 +30,43 @@ func TestDefaultCmd_CreateAndStart(t *testing.T) {
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
 	}
 
-	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
-
 	// When the root command is executed
-	assertNoError(t, root.Execute())
+	out, _, err := runCmd(t, deps, "--project", "myapp")
+	assertNoError(t, err)
 
 	// Then create is called via runner
 	if !runner.calledSubcommand("create") {
 		t.Error("expected 'podman create' to be called")
 	}
-	// And start is NOT called via runner (it goes via ExecFn instead)
-	if runner.calledSubcommand("start") {
-		t.Error("expected 'podman start' NOT to be called via runner for new container")
+	// And start IS called via runner
+	if !runner.calledSubcommand("start") {
+		t.Error("expected 'podman start' to be called via runner for new container")
 	}
-	// And ExecFn is called with podman start --attach --interactive (not podman exec)
-	if !fe.called {
-		t.Fatal("expected exec to be called")
+	// And start is called with the expected container name
+	foundStart := false
+	for _, call := range runner.calls {
+		if len(call) >= 3 && call[0] == "podman" && call[1] == "start" && call[2] == "marshal-myapp" {
+			foundStart = true
+			break
+		}
 	}
-	if !sliceContains(fe.argv, "start") || !sliceContains(fe.argv, "--attach") {
-		t.Errorf("expected 'start' and '--attach' in exec argv, got %v", fe.argv)
+	if !foundStart {
+		t.Errorf("expected 'podman start marshal-myapp' call, got %v", runner.calls)
+	}
+	// And ExecFn is NOT called
+	if fe.called {
+		t.Error("expected exec NOT to be called")
+	}
+
+	// And terminal prints the start messages
+	expectedOutput := "container marshal-myapp started\nOpenCode Web is available at http://127.0.0.1:4096/\n"
+	if out.String() != expectedOutput {
+		t.Errorf("expected stdout:\n%q\ngot:\n%q", expectedOutput, out.String())
 	}
 }
 
-// TestDefaultCmd_ReuseRunning verifies that marshal skips create and connects
-// to the existing PID 1 via podman attach when the container is already running.
+// TestDefaultCmd_ReuseRunning verifies that marshal skips create and start
+// and prints informational status when the container is already running.
 func TestDefaultCmd_ReuseRunning(t *testing.T) {
 	// Given the container is already running
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -71,11 +82,9 @@ func TestDefaultCmd_ReuseRunning(t *testing.T) {
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
 	}
 
-	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
-
 	// When the root command is executed
-	assertNoError(t, root.Execute())
+	out, _, err := runCmd(t, deps, "--project", "myapp")
+	assertNoError(t, err)
 
 	// Then create and start are NOT called via runner
 	if runner.calledSubcommand("create") {
@@ -84,21 +93,20 @@ func TestDefaultCmd_ReuseRunning(t *testing.T) {
 	if runner.calledSubcommand("start") {
 		t.Error("expected 'podman start' NOT to be called via runner")
 	}
-	if !fe.called {
-		t.Fatal("expected exec to be called")
+	// And ExecFn is NOT called
+	if fe.called {
+		t.Error("expected exec NOT to be called")
 	}
-	// Running container → attach to existing PID 1 (not exec + opencode)
-	if !sliceContains(fe.argv, "attach") {
-		t.Errorf("expected 'attach' in exec argv for running container, got %v", fe.argv)
-	}
-	if sliceContains(fe.argv, "exec") {
-		t.Errorf("expected 'exec' NOT in exec argv for running container, got %v", fe.argv)
+
+	// And terminal prints the already running messages
+	expectedOutput := "container marshal-myapp is already running\nOpenCode Web is available at http://127.0.0.1:4096/\n"
+	if out.String() != expectedOutput {
+		t.Errorf("expected stdout:\n%q\ngot:\n%q", expectedOutput, out.String())
 	}
 }
 
-// TestDefaultCmd_RestartStopped verifies that marshal connects to PID 1 via
-// podman start --attach --interactive when the container exists but is stopped.
-// The runner must NOT call podman start (that goes via ExecFn).
+// TestDefaultCmd_RestartStopped verifies that marshal starts the container in
+// the background when the container exists but is stopped.
 func TestDefaultCmd_RestartStopped(t *testing.T) {
 	// Given the container exists but is stopped
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -114,103 +122,27 @@ func TestDefaultCmd_RestartStopped(t *testing.T) {
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
 	}
 
-	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
-
 	// When the root command is executed
-	assertNoError(t, root.Execute())
+	out, _, err := runCmd(t, deps, "--project", "myapp")
+	assertNoError(t, err)
 
 	// Then create is NOT called
 	if runner.calledSubcommand("create") {
 		t.Error("expected 'podman create' NOT to be called")
 	}
-	// And start is NOT called via runner (it goes via ExecFn instead)
-	if runner.calledSubcommand("start") {
-		t.Error("expected 'podman start' NOT to be called via runner for stopped container")
+	// And start IS called via runner
+	if !runner.calledSubcommand("start") {
+		t.Error("expected 'podman start' to be called via runner for stopped container")
 	}
-	if !fe.called {
-		t.Fatal("expected exec to be called")
-	}
-	// Stopped container → connect to PID 1 with podman start --attach (not podman exec)
-	if !sliceContains(fe.argv, "start") || !sliceContains(fe.argv, "--attach") {
-		t.Errorf("expected 'start' and '--attach' in exec argv for stopped container, got %v", fe.argv)
-	}
-}
-
-// TestDefaultCmd_ExecArgv verifies that exec is called with the exact expected
-// argument vector when no container exists: podman start --attach --interactive.
-func TestDefaultCmd_ExecArgv(t *testing.T) {
-	// Given no container exists
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
-	runner := &fakeRunner{exists: false, imageExistsResult: true}
-	fe := &fakeExec{}
-	deps := cmd.Deps{
-		Runner:              runner,
-		ExecFn:              fe.exec,
-		Getwd:               func() (string, error) { return "/projects/myapp", nil },
-		Getuid:              stubGetuid,
-		Getgid:              stubGetgid,
-		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	// And ExecFn is NOT called
+	if fe.called {
+		t.Error("expected exec NOT to be called")
 	}
 
-	root := cmd.NewRootCmd(deps)
-	root.SetOut(&bytes.Buffer{})
-	root.SetArgs([]string{"--project", "myapp"})
-
-	// When the root command is executed
-	assertNoError(t, root.Execute())
-
-	// Then exec is called with the expected semantic content: podman start --attach --interactive <name>
-	if !sliceContains(fe.argv, "podman") {
-		t.Errorf("expected 'podman' in exec argv, got %v", fe.argv)
-	}
-	if !sliceContains(fe.argv, "start") {
-		t.Errorf("expected 'start' in exec argv, got %v", fe.argv)
-	}
-	if !sliceContains(fe.argv, "--attach") {
-		t.Errorf("expected '--attach' in exec argv, got %v", fe.argv)
-	}
-	if !sliceContains(fe.argv, "--interactive") {
-		t.Errorf("expected '--interactive' in exec argv, got %v", fe.argv)
-	}
-	if !sliceContains(fe.argv, "marshal-myapp") {
-		t.Errorf("expected 'marshal-myapp' in exec argv, got %v", fe.argv)
-	}
-}
-
-// TestDefaultCmd_AttachArgvWhenRunning verifies that exec is called with the
-// exact argv ["podman", "attach", <containerName>] when the container is running.
-func TestDefaultCmd_AttachArgvWhenRunning(t *testing.T) {
-	// Given the container is already running
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
-	runner := &fakeRunner{exists: true, running: true, imageExistsResult: true}
-	fe := &fakeExec{}
-	deps := cmd.Deps{
-		Runner:              runner,
-		ExecFn:              fe.exec,
-		Getwd:               func() (string, error) { return "/projects/myapp", nil },
-		Getuid:              stubGetuid,
-		Getgid:              stubGetgid,
-		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
-	}
-
-	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
-
-	// When the root command is executed
-	assertNoError(t, root.Execute())
-
-	// Then ExecFn is called with the expected semantic content: podman attach <containerName>
-	if !sliceContains(fe.argv, "podman") {
-		t.Errorf("expected 'podman' in exec argv, got %v", fe.argv)
-	}
-	if !sliceContains(fe.argv, "attach") {
-		t.Errorf("expected 'attach' in exec argv, got %v", fe.argv)
-	}
-	if !sliceContains(fe.argv, "marshal-myapp") {
-		t.Errorf("expected 'marshal-myapp' in exec argv, got %v", fe.argv)
+	// And terminal prints the start messages
+	expectedOutput := "container marshal-myapp started\nOpenCode Web is available at http://127.0.0.1:4096/\n"
+	if out.String() != expectedOutput {
+		t.Errorf("expected stdout:\n%q\ngot:\n%q", expectedOutput, out.String())
 	}
 }
 
@@ -231,25 +163,20 @@ func TestDefaultCmd_ContainerNameConvention(t *testing.T) {
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
 	}
 
-	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "my-app"})
-
 	// When the root command is executed
-	assertNoError(t, root.Execute())
+	_, _, err := runCmd(t, deps, "--project", "my-app")
+	assertNoError(t, err)
 
-	// Then exec argv contains the marshal-my-app container name
-	if !fe.called {
-		t.Fatal("expected exec to be called")
-	}
+	// Then runner start is called with container name 'marshal-my-app'
 	found := false
-	for _, a := range fe.argv {
-		if a == "marshal-my-app" {
+	for _, call := range runner.calls {
+		if len(call) >= 3 && call[0] == "podman" && call[1] == "start" && call[2] == "marshal-my-app" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("expected container name 'marshal-my-app' in exec argv, got %v", fe.argv)
+		t.Errorf("expected container name 'marshal-my-app' in runner start call, got %v", runner.calls)
 	}
 }
 
@@ -309,19 +236,20 @@ func TestDefaultCmd_ContainerCreateFails(t *testing.T) {
 	assertContains(t, err.Error(), "creating container")
 }
 
-// TestDefaultCmd_ExecFnError_OnCreate verifies that an error from ExecFn
-// (podman start --attach) after creating a container is propagated back.
-func TestDefaultCmd_ExecFnError_OnCreate(t *testing.T) {
-	// Given a runner with no existing container and an ExecFn that returns an error
+// TestDefaultCmd_StartError_OnCreate verifies that an error from starting
+// the container after creating it is propagated back.
+func TestDefaultCmd_StartError_OnCreate(t *testing.T) {
+	// Given a runner with no existing container and a start error
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	runner := &fakeRunner{
 		exists:            false,
 		imageExistsResult: true,
+		runErrors:         map[string]error{"start": fmt.Errorf("start failed")},
 	}
 	deps := cmd.Deps{
 		Runner:              runner,
-		ExecFn:              (&fakeExec{err: fmt.Errorf("start failed")}).exec,
+		ExecFn:              (&fakeExec{}).exec,
 		Getwd:               func() (string, error) { return "/projects/myapp", nil },
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
@@ -367,19 +295,20 @@ func TestDefaultCmd_IsRunningCheckFails(t *testing.T) {
 	assertError(t, root.Execute())
 }
 
-// TestDefaultCmd_ExecFnError_WhenStopped verifies that an error from ExecFn
-// (podman start --attach) when the container is stopped is propagated back.
-func TestDefaultCmd_ExecFnError_WhenStopped(t *testing.T) {
-	// Given an existing but stopped container and an ExecFn that returns an error
+// TestDefaultCmd_StartError_WhenStopped verifies that an error from starting
+// the container when it is stopped is propagated back.
+func TestDefaultCmd_StartError_WhenStopped(t *testing.T) {
+	// Given an existing but stopped container and a start error
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	runner := &fakeRunner{
-		exists:  true,
-		running: false,
+		exists:    true,
+		running:   false,
+		runErrors: map[string]error{"start": fmt.Errorf("start failed")},
 	}
 	deps := cmd.Deps{
 		Runner:              runner,
-		ExecFn:              (&fakeExec{err: fmt.Errorf("start failed")}).exec,
+		ExecFn:              (&fakeExec{}).exec,
 		Getwd:               func() (string, error) { return "/projects/myapp", nil },
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,

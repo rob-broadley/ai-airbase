@@ -30,12 +30,9 @@ ______________________________________________________________________
 
 ### marshal
 
-Start or attach to the project container, launching the OpenCode web server.
+Start the project container in the background and launch the OpenCode web server.
 
-If the container does not exist, marshal creates it (pulling the image if needed) and starts it. If the container is stopped, marshal starts it and
-attaches. If the container is already running, marshal attaches to the existing PID 1 session. The web server listens on port 4096 within the container, which is forwarded to port 4096 on the host loopback (`127.0.0.1`) only, keeping the web interface securely isolated to the host machine.
-
-The current process is replaced by the `podman start` or `podman attach` process.
+If the container does not exist, marshal creates it (pulling the image if needed) and starts it. If the container is stopped, marshal starts it. If the container is already running, marshal prints an informational status message with the web server URL. The web server listens within the container and is forwarded to a port on the host loopback (`127.0.0.1`) only (by default `4096`, or a custom configured/allocated port), keeping the web interface securely isolated to the host machine.
 
 **Usage**
 
@@ -50,10 +47,10 @@ Inherits [global flags](#global-flags) only.
 **Examples**
 
 ```bash
-# Start or attach using the current directory as the project name
+# Start the container using the current directory as the project name
 marshal
 
-# Attach to a named project regardless of working directory
+# Start or check status of a named project regardless of working directory
 marshal --project my-app
 ```
 

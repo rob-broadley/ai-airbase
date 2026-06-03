@@ -1,18 +1,16 @@
 # Cadre — Agent Reference
 
-The cadre is the group of AI agents bundled inside every revetment container. Each agent has a specific area of expertise and the tools to match. `mission-control` loads automatically when you attach to a container — all other agents are invoked by `mission-control` or by asking for them directly.
+The cadre is the group of AI agents bundled inside every revetment container. Each agent has a specific area of expertise and the tools to match. `mission-control` can be selected to coordinate complex tasks — all other agents are invoked by `mission-control` or by asking for them directly.
 
 ## Entry point
 
 ### `mission-control`
 
-**Description:** Default agent for all software tasks. Plans and coordinates work, selects the right specialist agents, confirms the approach, then orchestrates delivery. Handles feature work, refactoring, bug fixes, environment setup, and reviews.
+**Description:** Orchestrator agent for all software tasks. Plans and coordinates work, selects the right specialist agents, confirms the approach, then orchestrates delivery. Handles feature work, refactoring, bug fixes, environment setup, and reviews.
 
 `mission-control` is the co-pilot. It reads your project, classifies your request against a routing table, builds a numbered plan scoped to individual agents, and presents it for approval before executing. It does not write code itself — it delegates to specialists and passes context between them.
 
-**Auto-loads:** OpenCode inside the revetment starts with `mission-control` as the active agent. Describe what you want; `mission-control` takes it from there.
-
-**When to use:** Start here for any task — especially complex or multi-step ones, or when you are unsure which specialist to invoke.
+**When to use:** Use this agent for any multi-step task — especially complex ones, or when you are unsure which specialist to invoke.
 
 ## Specialist agents
 

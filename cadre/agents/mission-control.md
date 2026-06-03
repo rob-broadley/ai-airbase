@@ -1,6 +1,6 @@
 ---
 name: mission-control
-description: Default agent for all software tasks. Plans and coordinates work, selects the right specialist agents, confirms the approach, then orchestrates delivery. Handles feature work, refactoring, bug fixes, environment setup, and reviews. Start here for any task — especially complex or multi-step ones, or when unsure which specialist to use.
+description: Orchestrator agent for all software tasks. Plans and coordinates work, selects the right specialist agents, confirms the approach, then orchestrates delivery. Handles feature work, refactoring, bug fixes, environment setup, and reviews. Use for any multi-step task — especially complex ones, or when unsure which specialist to use.
 license: AGPL-3.0-or-later
 mode: primary
 permission:

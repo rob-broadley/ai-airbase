@@ -236,7 +236,7 @@ func removeAndRecreateContainer(mkdirAll func(string, fs.FileMode) error, runner
 // prepareContainer ensures the container exists (creating it when absent),
 // pulling the image if needed. It returns the container name and whether the
 // container is currently running. Callers use the returned state to decide
-// between start-and-attach vs attach (for the default command) or
+// whether they can reuse the running container (for the default command), or
 // start-then-exec (for the shell command).
 func prepareContainer(cmd *cobra.Command, deps Deps, p containerParams) (containerName string, running bool, err error) {
 	exists, err := container.Exists(deps.Runner, p.containerName)
@@ -262,13 +262,8 @@ func prepareContainer(cmd *cobra.Command, deps Deps, p containerParams) (contain
 	return p.containerName, isRunning, nil
 }
 
-// ensureContainerAndStart ensures the container exists then connects to PID 1.
-// For a new or stopped container it calls ExecFn with
-// ["podman", "start", "--attach", "--interactive", containerName] so the
-// current process is replaced by the attached start and the opencode process
-// running as PID 1 receives stdin/stdout directly.
-// For an already-running container it calls ExecFn with
-// ["podman", "attach", containerName] to join the existing PID 1 session.
+// ensureContainerAndStart ensures the container exists then starts it in the background
+// if it is stopped or non-existent, or prints informational status if it is already running.
 func ensureContainerAndStart(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	p, err := resolveContainerParams(deps, projectFlag)
 	if err != nil {
@@ -279,9 +274,14 @@ func ensureContainerAndStart(cmd *cobra.Command, deps Deps, projectFlag string) 
 		return err
 	}
 	if running {
-		return deps.ExecFn([]string{"podman", "attach", containerName})
+		fmt.Fprintf(cmd.OutOrStdout(), "container %s is already running\nOpenCode Web is available at http://127.0.0.1:4096/\n", containerName)
+		return nil
 	}
-	return deps.ExecFn([]string{"podman", "start", "--attach", "--interactive", containerName})
+	if err := container.Start(deps.Runner, containerName); err != nil {
+		return fmt.Errorf("starting container: %w", err)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "container %s started\nOpenCode Web is available at http://127.0.0.1:4096/\n", containerName)
+	return nil
 }
 
 // ensureContainerAndExec ensures the container exists and is running, then
