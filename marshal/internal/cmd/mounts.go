@@ -207,7 +207,7 @@ func resolveContainerParams(deps Deps, projectFlag string) (params containerPara
 		return containerParams{}, fmt.Errorf("getting working directory: %w", err)
 	}
 
-	cfg, err := config.Load(project)
+	cfg, err := deps.loadConfig()(project)
 	if err != nil {
 		return containerParams{}, fmt.Errorf("loading config: %w", err)
 	}
