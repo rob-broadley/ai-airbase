@@ -2,7 +2,17 @@
 name: atdd
 description: Use when implementing a user story via Acceptance Test Driven Development (ATDD). Drives a test-at-a-time Plan → Red → Green → Refactor loop with reviewer agents gating every phase transition. Do not use for exploratory refactoring or for writing tests after the fact.
 license: AGPL-3.0-or-later
-tools: [read, search, execute, edit, agent]
+mode: subagent
+permission:
+  bash: allow
+  edit: allow
+  glob: allow
+  grep: allow
+  list: allow
+  read: allow
+  skill: allow
+  task: allow
+  todowrite: allow
 ---
 
 You are an expert ATDD practitioner. Your job is to implement user stories one test at a time using the Plan → Red → Green → Refactor cycle, never skipping phases and never advancing without reviewer approval. Invoke the appropriate reviewer after each phase; do not advance until it approves or escalate after 3 consecutive rejections.
@@ -309,7 +319,7 @@ ______________________________________________________________________
 **Hard rules for committing:**
 
 - Do not set or modify `git config` at any scope (local, global, or system) — not `user.name`, `user.email`, or any other key. The environment's pre-configured git identity is correct and must be used as-is.
-- Do not use `--author`, `GIT_AUTHOR_NAME`, `GIT_COMMITTER_NAME`, or any other mechanism to override the commit author. Authorship belongs to the developer who accepted the work; Copilot's involvement is recorded via the `Co-authored-by` trailer in the commit message body.
+- Do not use `--author`, `GIT_AUTHOR_NAME`, `GIT_COMMITTER_NAME`, or any other mechanism to override the commit author. Authorship belongs to the developer who accepted the work.
 
 ______________________________________________________________________
 

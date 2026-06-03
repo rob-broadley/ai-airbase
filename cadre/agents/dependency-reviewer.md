@@ -2,7 +2,16 @@
 name: dependency-reviewer
 description: Reviews changes to dependency manifest files. Runs language-appropriate audit tools and checks for vulnerabilities, abandonment, licence issues, and supply chain signals. Not applicable when no manifest files changed.
 license: AGPL-3.0-or-later
-tools: [read, search, execute, web]
+mode: subagent
+permission:
+  bash: allow
+  glob: allow
+  grep: allow
+  list: allow
+  read: allow
+  skill: allow
+  webfetch: allow
+  websearch: allow
 ---
 
 **First action — required:** Invoke the skill tool to load `dependency-review` now. Do not begin any work until the skill is loaded — every finding must be grounded in those patterns. Also load `tool-install` if any audit tool needs installing before you can proceed.

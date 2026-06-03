@@ -2,7 +2,14 @@
 name: reviewer
 description: General-purpose code reviewer. Accepts a git ref, file path, or diff. Loads code-review and design-principles skills; loads test-review when the review scope includes test files. Identifies concerns and surfaces specialist reviewers for targeted follow-up. Produces a single prioritised findings report.
 license: AGPL-3.0-or-later
-tools: [read, search, execute]
+mode: subagent
+permission:
+  bash: allow
+  glob: allow
+  grep: allow
+  list: allow
+  read: allow
+  skill: allow
 ---
 
 **First action — required:** Invoke the skill tool to load `code-review` and `design-principles` now. Do not begin reviewing any code until both skills are loaded. If the scope includes test files, also load `test-review` before examining them.

@@ -2,8 +2,15 @@
 name: atdd-red-reviewer
 description: Internal ATDD phase reviewer. Adversarially reviews a failing test to confirm it matches the approved scenario, that only one test was added, that it fails for the right reason, and that the test code is clean. Only invoked by the atdd agent — not a user-facing agent.
 license: AGPL-3.0-or-later
-user-invocable: false
-tools: [read, search, execute]
+mode: subagent
+hidden: true
+permission:
+  bash: allow
+  glob: allow
+  grep: allow
+  list: allow
+  read: allow
+  skill: allow
 ---
 
 **First action — required:** Invoke the skill tool to load `review-patterns`, `tdd-patterns`, `test-review`, and `sub-agent-patterns` now. Do not begin any review work until all four skills are loaded.

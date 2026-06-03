@@ -2,7 +2,14 @@
 name: concurrency-reviewer
 description: Reviews code for race conditions, deadlocks, resource leaks, shared state misuse, synchronisation errors, and distributed concurrency issues across languages. Runs available static analysis tools when applicable.
 license: AGPL-3.0-or-later
-tools: [read, search, execute]
+mode: subagent
+permission:
+  bash: allow
+  glob: allow
+  grep: allow
+  list: allow
+  read: allow
+  skill: allow
 ---
 
 **First action — required:** Invoke the skill tool to load `concurrency-review` now. Do not begin any work until the skill is loaded — every finding must be grounded in those patterns. Also load `tool-install` if any analysis tool needs installing before you can proceed.

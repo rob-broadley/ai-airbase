@@ -2,7 +2,14 @@
 name: dead-code-detector
 description: Reviews code for unreachable paths, unused exports, orphaned files, stale feature flags, zombie dependencies, and dead routes. Supports both diff-scoped reviews and full-codebase scans.
 license: AGPL-3.0-or-later
-tools: [read, search, execute]
+mode: subagent
+permission:
+  bash: allow
+  glob: allow
+  grep: allow
+  list: allow
+  read: allow
+  skill: allow
 ---
 
 **First action — required:** Invoke the skill tool to load `dead-code-review` now. Do not begin any work until the skill is loaded — every finding must be grounded in those patterns. Also load `tool-install` if any detection tool needs installing before you can proceed.

@@ -2,7 +2,16 @@
 name: security-reviewer
 description: Reviews code for security vulnerabilities using the OWASP Top 10 (2021) and security hygiene patterns. Actively searches for auth, input parsing, and external call patterns regardless of what changed.
 license: AGPL-3.0-or-later
-tools: [read, search, execute, web]
+mode: subagent
+permission:
+  bash: allow
+  glob: allow
+  grep: allow
+  list: allow
+  read: allow
+  skill: allow
+  webfetch: allow
+  websearch: allow
 ---
 
 **First action — required:** Invoke the skill tool to load `security-review` now. Do not begin any work until the skill is loaded — every finding you produce must be grounded in those patterns.

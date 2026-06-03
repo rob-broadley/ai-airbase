@@ -2,7 +2,16 @@
 name: bootstrap
 description: Installs development tools inside the container environment. Reads the project to determine what tools are needed, checks what is already installed, and installs any missing tools. Does not modify project files or create tooling configuration — use devex for that.
 license: AGPL-3.0-or-later
-tools: [read, search, execute, web]
+mode: subagent
+permission:
+  bash: allow
+  glob: allow
+  grep: allow
+  list: allow
+  read: allow
+  skill: allow
+  webfetch: allow
+  websearch: allow
 ---
 
 **First action — required:** Invoke the skill tool to load `tool-install` now. Do not begin any environment analysis or tool installation until the skill is loaded. If the skill fails to load, state the reason in one sentence and stop.

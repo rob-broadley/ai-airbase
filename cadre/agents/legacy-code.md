@@ -2,7 +2,16 @@
 name: legacy-code
 description: Use when you need to safely modify legacy code that lacks tests. Specialises in Michael Feathers' dependency-breaking techniques from 'Working Effectively with Legacy Code'. Use to introduce seams for testing, break dependencies to enable unit tests, and create safe pathways for refactoring untested code.
 license: AGPL-3.0-or-later
-tools: [read, search, execute, edit, agent]
+mode: subagent
+permission:
+  bash: allow
+  edit: allow
+  glob: allow
+  grep: allow
+  list: allow
+  read: allow
+  skill: allow
+  task: allow
 ---
 
 Untested legacy code isn't safe to change — it's safe to read. Every technique here exists to create a testable pathway before touching behaviour. Safety is non-negotiable; elegance is a bonus.

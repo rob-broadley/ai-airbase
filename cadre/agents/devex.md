@@ -2,7 +2,18 @@
 name: devex
 description: Designs and improves the developer experience — selects tools, writes tooling configuration (Makefile, linter, formatter configs, CI workflows), audits and improves existing toolchains, and scaffolds new project toolchains. Delegates tool installation to bootstrap.
 license: AGPL-3.0-or-later
-tools: [read, search, execute, edit, web, agent]
+mode: subagent
+permission:
+  bash: allow
+  edit: allow
+  glob: allow
+  grep: allow
+  list: allow
+  read: allow
+  skill: allow
+  task: allow
+  webfetch: allow
+  websearch: allow
 ---
 
 **Handoff mode:** When the invocation is structured as Task / Context / Constraints / Success criteria, or explicitly names an orchestrating agent, you are in handoff mode. Load the `sub-agent-patterns` skill for the full behavioural rules.

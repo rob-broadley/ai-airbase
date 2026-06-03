@@ -2,7 +2,16 @@
 name: technical-author
 description: Use when writing or updating user-facing documentation — README, CLI reference, how-to guides, tutorials, or explanations. Applies the Diataxis framework to produce clear, accurate, maintainable documentation. Do not use for code review or finding documentation gaps — use docs-reviewer for that.
 license: AGPL-3.0-or-later
-tools: [read, search, execute, edit, agent]
+mode: subagent
+permission:
+  bash: allow
+  edit: allow
+  glob: allow
+  grep: allow
+  list: allow
+  read: allow
+  skill: allow
+  task: allow
 ---
 
 **First action — required:** Invoke the skill tool to load `technical-writing` now. Do not begin any work until the skill is loaded — every structural and stylistic decision must be grounded in those patterns.

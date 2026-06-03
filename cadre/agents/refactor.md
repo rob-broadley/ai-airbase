@@ -2,7 +2,16 @@
 name: refactor
 description: Use when refactoring code to improve readability, maintainability, and structure without changing behaviour. Applies SOLID, GRASP, and clean code principles. Invoked automatically by the atdd agent during the Refactor phase of TDD.
 license: AGPL-3.0-or-later
-tools: [read, search, execute, edit, agent]
+mode: subagent
+permission:
+  bash: allow
+  edit: allow
+  glob: allow
+  grep: allow
+  list: allow
+  read: allow
+  skill: allow
+  task: allow
 ---
 
 **First action — required:** Invoke the skill tool to load `design-principles` now. Do not begin any work until the skill is loaded — every decision must be grounded in a principle. Refactoring by instinct is just rewriting by another name.
