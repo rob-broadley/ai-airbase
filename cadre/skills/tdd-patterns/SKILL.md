@@ -2,7 +2,6 @@
 name: tdd-patterns
 description: Load before any TDD implementation or legacy code work. Required by the atdd and legacy-code agents — covers walking skeleton, London vs Chicago school, double-loop TDD, test double selection, contract testing, property-based tests, approval tests, and characterisation testing.
 license: AGPL-3.0-or-later
-allowed-tools: read
 ---
 
 Reference patterns for ATDD and TDD. These complement the Red-Green-Refactor cycle; they are not replacements for it.

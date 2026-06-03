@@ -2,7 +2,6 @@
 name: security-review
 description: Load before any security review. Required by the security-reviewer agent — covers OWASP Top 10 (2021) with code-level signals, secrets hygiene, input validation, error message hygiene, auth patterns, and a four-tier severity model.
 license: AGPL-3.0-or-later
-allowed-tools: read
 ---
 
 # Security Review Reference

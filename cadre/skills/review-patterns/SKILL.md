@@ -2,7 +2,6 @@
 name: review-patterns
 description: Load before reviewing any phase. Required by all internal reviewer agents — covers adversarial review philosophy, the approve/reject verdict contract, and escalation policy.
 license: AGPL-3.0-or-later
-allowed-tools: read
 ---
 
 Reference patterns for internal reviewer agents — covers adversarial review philosophy, the approve/reject verdict contract, and escalation policy.

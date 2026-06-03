@@ -32,7 +32,7 @@ ______________________________________________________________________
 
 ## Orientation
 
-1. `execute git diff HEAD~1` — read the full diff
+1. `bash git diff HEAD~1` — read the full diff
 
 If a specific ref or file list was provided, use that instead of `HEAD~1`.
 
@@ -40,14 +40,14 @@ If a specific ref or file list was provided, use that instead of `HEAD~1`.
 
 **Language-specific tooling:**
 
-- **JavaScript and TypeScript:** `search` for ESLint configuration (`.eslintrc*`, `eslint.config.*`). Check whether promise-handling rules such as `eslint-plugin-promise` and `@typescript-eslint/no-floating-promises` are configured; if so, run ESLint on the changed files and capture the output.
-- **Python:** `search` for `ruff` configuration (`ruff.toml`, `pyproject.toml [tool.ruff]`). Run `ruff check <files>` on the changed files and extract async- or concurrency-related findings.
-- **Java:** if SpotBugs is configured, `execute mvn spotbugs:check` or `execute gradle spotbugsMain`; if not, note the gap and proceed with static review.
-- **C#:** if Roslyn analyser packages or rulesets are configured, `execute dotnet build` and capture analyser output relevant to async or threading issues.
-- **C++:** `search` for `clang-tidy`, ThreadSanitizer, or compiler sanitiser configuration. Run the configured check where available; otherwise note that manual review is required.
-- **Go:** `execute go test -race ./...` — include full output; any race detector finding is an automatic Blocking result.
-- **Rust:** `search` for Clippy configuration; if present, `execute cargo clippy -- -W clippy::await_holding_lock` and capture any relevant findings.
-- **Other languages:** `search` for static analysis configuration files and identify any concurrency or thread-safety analysers already configured. Apply universal concurrency principles from the `concurrency-review` skill alongside tool output.
+- **JavaScript and TypeScript:** use `glob` or `grep` to find ESLint configuration (`.eslintrc*`, `eslint.config.*`). Check whether promise-handling rules such as `eslint-plugin-promise` and `@typescript-eslint/no-floating-promises` are configured; if so, run ESLint on the changed files and capture the output.
+- **Python:** use `glob` or `grep` to find `ruff` configuration (`ruff.toml`, `pyproject.toml [tool.ruff]`). Run `ruff check <files>` on the changed files and extract async- or concurrency-related findings.
+- **Java:** if SpotBugs is configured, `bash mvn spotbugs:check` or `bash gradle spotbugsMain`; if not, note the gap and proceed with static review.
+- **C#:** if Roslyn analyser packages or rulesets are configured, `bash dotnet build` and capture analyser output relevant to async or threading issues.
+- **C++:** use `glob` or `grep` to find `clang-tidy`, ThreadSanitizer, or compiler sanitiser configuration. Run the configured check where available; otherwise note that manual review is required.
+- **Go:** `bash go test -race ./...` — include full output; any race detector finding is an automatic Blocking result.
+- **Rust:** use `glob` or `grep` to find Clippy configuration; if present, `bash cargo clippy -- -W clippy::await_holding_lock` and capture any relevant findings.
+- **Other languages:** use `glob` or `grep` to find static analysis configuration files and identify any concurrency or thread-safety analysers already configured. Apply universal concurrency principles from the `concurrency-review` skill alongside tool output.
 
 **If a file list was provided in your context** (full-codebase review rather than a diff-based review): use the `read` tool to examine each listed file directly before applying any review checks. Do not use `git diff` as your primary source of code in this case — the diff only covers recent commits and will cause you to miss issues in unchanged files. Read the actual files, then apply your full review process to their contents.
 

@@ -2,7 +2,6 @@
 name: dead-code-review
 description: Load before any dead-code scan. Required by the dead-code-detector agent — covers unreachable code, unused exports, orphaned files, stale feature flags, and zombie dependencies.
 license: AGPL-3.0-or-later
-allowed-tools: read
 ---
 
 Dead code increases maintenance burden, inflates cognitive load, introduces false confidence in test coverage, and can conceal security-relevant code paths. Every category below is a distinct detection target.

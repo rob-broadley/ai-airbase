@@ -2,7 +2,6 @@
 name: technical-writing
 description: Load before writing or updating any documentation. Required by the technical-author agent — covers the Diataxis document-type framework, writing principles, interface-element reference template, README structure, working examples, voice and tone, and coverage standards.
 license: AGPL-3.0-or-later
-allowed-tools: read
 ---
 
 # Technical Writing Reference

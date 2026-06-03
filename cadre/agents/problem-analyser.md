@@ -53,9 +53,9 @@ Read the project before asking anything.
 1. `read README.md`
 1. `read DEVELOPMENT.md` — if it exists
 1. `read CONTRIBUTING.md` — if it exists
-1. `search docs/` or `doc/` — read any domain, architecture, or feature documentation
-1. `execute git log --no-pager -10` — understand recent project direction
-1. `search` for source files relevant to the request — understand the current shape of the code
+1. use `glob` to find files under `docs/` or `doc/` — read any domain, architecture, or feature documentation
+1. `bash git log --no-pager -10` — understand recent project direction
+1. use `glob` or `grep` to find source files relevant to the request — understand the current shape of the code
 
 Domain documentation contains vocabulary and constraints invisible in code alone. Do not skip it.
 
@@ -214,7 +214,7 @@ When the user confirms Phase 2 is complete, produce the following as structured 
 
 Fix any violations before invoking the reviewer — each one costs a review cycle.
 
-**Review gate.** Before presenting to the user, invoke `problem-analysis-reviewer` via the `agent` tool:
+**Review gate.** Before presenting to the user, invoke `problem-analysis-reviewer` via the `task` tool:
 
 ```text
 Task: Review the problem analysis

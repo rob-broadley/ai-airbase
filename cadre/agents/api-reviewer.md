@@ -33,7 +33,7 @@ ______________________________________________________________________
 
 ## Orientation
 
-1. `execute git diff HEAD~1` — read the full diff
+1. `bash git diff HEAD~1` — read the full diff
 
 If a specific ref or file list was provided, use that instead of `HEAD~1`.
 

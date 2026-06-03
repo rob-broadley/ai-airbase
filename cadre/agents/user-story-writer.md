@@ -47,7 +47,7 @@ ______________________________________________________________________
 Read the project before writing stories.
 
 1. `read README.md`
-1. `search` for source files relevant to the brief — understand existing vocabulary and structure
+1. use `glob` or `grep` to find source files relevant to the brief — understand existing vocabulary and structure
 
 Use the project's existing naming conventions and domain language in every story.
 
@@ -188,7 +188,7 @@ Acceptance criteria:
 [Ordered list by value/risk/dependency, with brief rationale]
 ```
 
-**Review gate.** Before presenting to the user, invoke `user-story-reviewer` via the `agent` tool:
+**Review gate.** Before presenting to the user, invoke `user-story-reviewer` via the `task` tool:
 
 ```text
 Task: Review the user stories

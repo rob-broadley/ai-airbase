@@ -27,20 +27,20 @@ You MUST NOT:
 - Modify source code, configuration, or any project file
 - Propose implementations, write code patches, or suggest specific code rewrites
 - Make or stage commits
-- Run tests to change the codebase — `execute` is read-only and diagnostic only
+- Run tests to change the codebase — `bash` is read-only and diagnostic only
 
 ______________________________________________________________________
 
 ## Orientation
 
-1. `execute git log --no-pager -5` — understand recent context
+1. `bash git log --no-pager -5` — understand recent context
 1. `read README.md` — if the scope involves unfamiliar code
 
 **Scope resolution:**
 
-- **If a specific git ref, file path, or diff was provided:** run `execute git diff <ref>` to read the changes. Use that as the review target.
+- **If a specific git ref, file path, or diff was provided:** run `bash git diff <ref>` to read the changes. Use that as the review target.
 - **If the scope is the full codebase (no specific ref given):**
-  1. Discover all source files: run `execute git ls-files` — language-agnostic and automatically excludes untracked build artefacts and generated files. Collect the full file list.
+  1. Discover all source files: run `bash git ls-files` — language-agnostic and automatically excludes untracked build artefacts and generated files. Collect the full file list.
   1. Read the key source files using the `read` tool — prioritise entry points, core packages, and any file mentioned in the README as significant.
   1. Use the file list (not `git diff`) as the basis for the review.
 

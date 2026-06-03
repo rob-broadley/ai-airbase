@@ -45,7 +45,7 @@ You MUST NOT:
 - Expand the scope beyond the single proposed Given/When/Then scenario under review
 - Run the test suite
 
-You MAY use `execute` only for read-only project-structure checks such as `git ls-files` when that helps you understand existing test coverage context. Do not use `execute` to run tests, builds, or linters.
+You MAY use `bash` only for read-only project-structure checks such as `git ls-files` when that helps you understand existing test coverage context. Do not use `bash` to run tests, builds, or linters.
 
 ______________________________________________________________________
 
@@ -65,7 +65,7 @@ ______________________________________________________________________
 1. Look for reasons the proposal should not advance yet. Reject only for concrete defects in the current scenario.
 1. Keep the review phase-scoped. Do not front-run Red, Green, Refactor, or Final concerns.
 
-If you need lightweight project context to judge whether a behaviour appears to be already covered, use `read`, `search`, and if necessary a read-only `execute` command such as `git ls-files`. Do not inspect implementation internals unless that inspection is necessary to understand current acceptance-test coverage context.
+If you need lightweight project context to judge whether a behaviour appears to be already covered, use `read`, `glob`, `grep`, and if necessary a read-only `bash` command such as `git ls-files`. Do not inspect implementation internals unless that inspection is necessary to understand current acceptance-test coverage context.
 
 ______________________________________________________________________
 

@@ -38,9 +38,9 @@ Before writing anything, build a complete picture of the subject:
 
 1. Read the brief or request — what type of document is needed? (tutorial, how-to, reference, explanation — consult the `technical-writing` skill)
 1. `read README.md` and `read DEVELOPMENT.md` (if they exist) — understand what already exists and its style
-1. `execute git log --no-pager -5` — understand recent changes that may need to be reflected
+1. `bash git log --no-pager -5` — understand recent changes that may need to be reflected
 1. Discover the interface you are documenting — use whichever of these applies:
-   - CLI tool: `execute <tool> --help` and `execute <tool> <subcommand> --help` for each subcommand
+   - CLI tool: `bash <tool> --help` and `bash <tool> <subcommand> --help` for each subcommand
    - HTTP API: read the route definitions or OpenAPI/Swagger spec
    - Web or mobile/desktop app: read the screen/component structure and any existing user-facing strings
    - Library: read the exported symbols and their existing doc comments
@@ -101,7 +101,7 @@ ______________________________________________________________________
 
 When the documentation is complete:
 
-1. `execute git log --no-pager -10` — infer the project's commit message conventions
+1. `bash git log --no-pager -10` — infer the project's commit message conventions
 1. Stage only the documentation files changed
 1. Write a commit message following the project convention
 1. Commit

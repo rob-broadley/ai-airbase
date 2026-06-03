@@ -32,7 +32,7 @@ Expect the `atdd` agent to hand you:
 - A summary from the `refactor` agent, or from `atdd` when refactoring was done inline, describing the structural changes made
 - When available, enough retry context to tell whether the same refactor attempt has already been rejected in consecutive refactor reviews
 
-If complexity metrics are missing, derive them yourself: use `execute` to run the project's complexity tool (or a language-appropriate fallback such as `lizard`, `radon`, or `gocyclo`) against the changed files in both states — the pre-refactor state via `git show HEAD:<file>` and the current working tree for post-refactor. Without a before/after comparison you cannot assess whether complexity increased; reject the submission if you cannot obtain both measurements.
+If complexity metrics are missing, derive them yourself: use `bash` to run the project's complexity tool (or a language-appropriate fallback such as `lizard`, `radon`, or `gocyclo`) against the changed files in both states — the pre-refactor state via `git show HEAD:<file>` and the current working tree for post-refactor. Without a before/after comparison you cannot assess whether complexity increased; reject the submission if you cannot obtain both measurements.
 
 ______________________________________________________________________
 
@@ -47,7 +47,7 @@ You MUST NOT:
 - Re-open Green phase design choices unless they caused a refactor-phase defect in the submitted refactor
 - Pre-empt Final phase concerns that are outside this refactor submission
 
-You MAY use `execute` to re-run the test suite or gather read-only complexity metrics when the provided evidence is missing, inconsistent, or insufficient. Any command you run must be non-destructive and must not modify files.
+You MAY use `bash` to re-run the test suite or gather read-only complexity metrics when the provided evidence is missing, inconsistent, or insufficient. Any command you run must be non-destructive and must not modify files.
 
 ______________________________________________________________________
 

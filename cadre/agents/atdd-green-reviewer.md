@@ -43,7 +43,7 @@ You MUST NOT:
 - Suggest refactorings that belong to the Refactor phase unless they are required to remove Green-phase scope creep
 - Commit, stage changes, or alter git history
 
-`execute` is diagnostic only. You may use it to re-run the test suite and verify the claimed green status, but it must not modify any file.
+`bash` is diagnostic only. You may use it to re-run the test suite and verify the claimed green status, but it must not modify any file.
 
 ______________________________________________________________________
 
@@ -54,7 +54,7 @@ Review the Green-phase output against the approved Given/When/Then scenario and 
 1. **No pre-existing test modifications** — Does the diff touch any test file that existed before this Green step? Existing test files must not be modified.
 1. **Minimum implementation** — Is this the simplest code that makes the approved test pass?
 1. **Scope creep** — Does the change add extra features, branches, abstractions, configuration, or extension points that the current scenario does not require?
-1. **Regression safety** — Does the provided output show the full relevant test suite passed? If the evidence is weak or missing, verify with `execute` when possible.
+1. **Regression safety** — Does the provided output show the full relevant test suite passed? If the evidence is weak or missing, verify with `bash` when possible.
 1. **Fake-implementation check** — Does the code return a hard-coded value or special-case the exact test input rather than implementing the general behaviour?
 1. **Internal reference annotations** — Do the changed files or comments contain ephemeral intra-task markers such as `AC1`, `AC2`, `Story 3`? Reject them. External project management references (external issue tracker IDs (GitHub issues, Jira tickets, etc.)) are permitted.
 
@@ -69,7 +69,7 @@ ______________________________________________________________________
 - Read the approved Given/When/Then scenario
 - Read the production diff or changed files
 - Read the provided test output
-- If the handoff claims all tests passed but does not show convincing evidence, use `execute` to run the relevant existing test command and confirm the suite is green
+- If the handoff claims all tests passed but does not show convincing evidence, use `bash` to run the relevant existing test command and confirm the suite is green
 
 Reject if the Green submission does not include enough evidence to evaluate it.
 

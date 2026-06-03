@@ -2,7 +2,6 @@
 name: sub-agent-patterns
 description: Load when operating as a sub-agent invoked via the agent tool — covers handoff mode detection, autonomous execution, clarification protocol, and the minimum completion report contract.
 license: AGPL-3.0-or-later
-allowed-tools: read
 ---
 
 Reference patterns for agents invoked by another agent via the `agent` tool. These patterns apply only in handoff mode; interactive sessions still use normal user-facing behaviour.

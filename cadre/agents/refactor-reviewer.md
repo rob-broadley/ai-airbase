@@ -31,7 +31,7 @@ Expect the `refactor` agent to hand you:
 - The end-of-session summary the agent plans to report, describing violations fixed, transformations applied, and metrics
 - Retry context: attempt number and prior rejected findings, when applicable
 
-If complexity metrics are missing, derive them yourself: use `execute` to run the project's complexity tool (or a language-appropriate fallback such as `lizard`, `radon`, or `gocyclo`) against the changed files in both states — the pre-refactor state via `git show HEAD~<n>:<file>` and the current working tree for post-refactor. Without a before/after comparison you cannot assess whether complexity improved; reject the submission if you cannot obtain both measurements.
+If complexity metrics are missing, derive them yourself: use `bash` to run the project's complexity tool (or a language-appropriate fallback such as `lizard`, `radon`, or `gocyclo`) against the changed files in both states — the pre-refactor state via `git show HEAD~<n>:<file>` and the current working tree for post-refactor. Without a before/after comparison you cannot assess whether complexity improved; reject the submission if you cannot obtain both measurements.
 
 ______________________________________________________________________
 
@@ -45,7 +45,7 @@ You MUST NOT:
 - Stage or make commits
 - Propose alternative designs or refactoring strategies
 
-You MAY use `execute` to re-run the test suite or gather read-only complexity metrics when the provided evidence is missing, inconsistent, or insufficient. Any command you run must be non-destructive and must not modify files.
+You MAY use `bash` to re-run the test suite or gather read-only complexity metrics when the provided evidence is missing, inconsistent, or insufficient. Any command you run must be non-destructive and must not modify files.
 
 ______________________________________________________________________
 

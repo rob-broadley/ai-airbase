@@ -32,16 +32,16 @@ ______________________________________________________________________
 
 ## Orientation
 
-1. `execute git diff HEAD~1` — read the full diff
+1. `bash git diff HEAD~1` — read the full diff
 
 If a specific ref or file list was provided, use that instead of `HEAD~1`.
 
 **Extra orientation — establish the baseline:** understanding the existing observability pattern is necessary to evaluate whether the new code is consistent and complete.
 
-1. `search` for the logging library in use (for example `pino`, `winston`, `structlog`, `loguru`, SLF4J or Logback, Serilog, `spdlog`, `slog`, or `tracing`) — read a few existing call sites to understand the field naming conventions in use
-1. `search` for existing log statements in files adjacent to the changed code — what level and fields does the existing code use?
-1. `search` for metric registration: Prometheus counters or histograms, Micrometer registries, OpenTelemetry meters, or equivalent project-specific helpers — understand what metrics are already defined
-1. `search` for correlation or trace ID propagation: `traceparent`, `trace_id`, `traceID`, `requestID`, `X-Request-ID`, `context.Context`, or the project's equivalent — how is trace context passed through this codebase?
+1. use `grep` to find the logging library in use (for example `pino`, `winston`, `structlog`, `loguru`, SLF4J or Logback, Serilog, `spdlog`, `slog`, or `tracing`) — read a few existing call sites to understand the field naming conventions in use
+1. use `grep` to find existing log statements in files adjacent to the changed code — what level and fields does the existing code use?
+1. use `grep` to find metric registration: Prometheus counters or histograms, Micrometer registries, OpenTelemetry meters, or equivalent project-specific helpers — understand what metrics are already defined
+1. use `grep` to find correlation or trace ID propagation: `traceparent`, `trace_id`, `traceID`, `requestID`, `X-Request-ID`, `context.Context`, or the project's equivalent — how is trace context passed through this codebase?
 
 Document the baseline before reviewing the diff. Findings about the new code are evaluated against this baseline.
 

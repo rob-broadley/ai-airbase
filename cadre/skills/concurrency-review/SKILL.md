@@ -2,7 +2,6 @@
 name: concurrency-review
 description: Load before any concurrency review. Required by the concurrency-reviewer agent — covers race conditions, deadlocks, resource leaks, shared state misuse, synchronisation primitives, and cancellation propagation across JavaScript/TypeScript, Python, Java, C#, C++, Go, and Rust.
 license: AGPL-3.0-or-later
-allowed-tools: read
 ---
 
 # Concurrency Review Reference

@@ -32,7 +32,7 @@ ______________________________________________________________________
 
 ## Orientation
 
-1. `execute git diff HEAD~1` — read the full diff
+1. `bash git diff HEAD~1` — read the full diff
 
 If a specific ref, file list, or scan scope was provided, use that instead. If the user requests a full-codebase scan rather than a diff review, skip the diff steps and proceed directly to Step 1 of the review process with a full-tree scope.
 
@@ -48,40 +48,40 @@ ______________________________________________________________________
 
 Check whether the primary dead-code detection tool for the project language is installed. If not, install it using the `tool-install` skill.
 
-- **JavaScript and TypeScript:** `execute npx knip` — knip is zero-install via npx. Note unused exports, unused files, and unused dependencies in its output. Run `execute npx ts-prune` as a follow-up when TypeScript exports need extra confirmation.
-- **Python:** `execute uvx vulture .` — vulture is zero-install via uvx.
-- **Java:** if PMD or SpotBugs is configured, `execute mvn pmd:check` or `execute mvn spotbugs:check`; otherwise rely on IDE or static analysis configuration already present in the repo.
-- **C#:** if `dotnet-unused` is configured, run it; otherwise `execute dotnet build` and use Roslyn analyser output plus search-based confirmation.
-- **C++:** if `clang-tidy` or `cppcheck` is configured, run it. Otherwise use search-based confirmation and review the build graph for unreferenced translation units.
-- **Go:** `execute deadcode -test ./...`. Also run `execute go mod tidy -v` and note any removed entries. Install `deadcode` via the `tool-install` skill if needed.
-- **Rust:** `execute cargo +nightly udeps`. Install `cargo-udeps` via the `tool-install` skill if needed.
-- **Other languages:** `search` for any dead-code or unused-symbol analyser already configured in the project and run it. Apply the manual search patterns from the `dead-code-review` skill if no tool is available.
+- **JavaScript and TypeScript:** `bash npx knip` — knip is zero-install via npx. Note unused exports, unused files, and unused dependencies in its output. Run `bash npx ts-prune` as a follow-up when TypeScript exports need extra confirmation.
+- **Python:** `bash uvx vulture .` — vulture is zero-install via uvx.
+- **Java:** if PMD or SpotBugs is configured, `bash mvn pmd:check` or `bash mvn spotbugs:check`; otherwise rely on IDE or static analysis configuration already present in the repo.
+- **C#:** if `dotnet-unused` is configured, run it; otherwise `bash dotnet build` and use Roslyn analyser output plus grep-based confirmation.
+- **C++:** if `clang-tidy` or `cppcheck` is configured, run it. Otherwise use grep-based confirmation and review the build graph for unreferenced translation units.
+- **Go:** `bash deadcode -test ./...`. Also run `bash go mod tidy -v` and note any removed entries. Install `deadcode` via the `tool-install` skill if needed.
+- **Rust:** `bash cargo +nightly udeps`. Install `cargo-udeps` via the `tool-install` skill if needed.
+- **Other languages:** use `glob` or `grep` to find any dead-code or unused-symbol analyser already configured in the project and run it. Apply the manual search patterns from the `dead-code-review` skill if no tool is available.
 
 Include the full tool output in the report.
 
 **Step 2 — Identify unreachable code.**
 
-In the diff (or full tree for a codebase scan): search for statements after unconditional `return`/`throw`/`panic`/`exit`, constant conditionals, and catch blocks for exception types that cannot be thrown.
+In the diff (or full tree for a codebase scan): grep or inspect for statements after unconditional `return`/`throw`/`panic`/`exit`, constant conditionals, and catch blocks for exception types that cannot be thrown.
 
 **Step 3 — Identify unused exports.**
 
 Cross-reference exported symbols from the diff against usages in the codebase. For a diff review, focus on newly added exports and exports whose only callers were removed in the diff.
 
-`search` for the symbol name across the codebase. If no usage is found outside the defining file (or test file for the defining file), flag as unused.
+use `grep` to find the symbol name across the codebase. If no usage is found outside the defining file (or test file for the defining file), flag as unused.
 
 **Step 4 — Identify stale feature flags.**
 
-`search` for feature flag patterns: `getFlag(`, `isEnabled(`, `featureEnabled`, environment variable reads for feature names, and any project-specific flag utility. For each flag found in the diff, trace whether its value can still vary at runtime. If it is hardcoded or its configuration key no longer exists, the dead branch is a finding.
+use `grep` to find feature flag patterns: `getFlag(`, `isEnabled(`, `featureEnabled`, environment variable reads for feature names, and any project-specific flag utility. For each flag found in the diff, trace whether its value can still vary at runtime. If it is hardcoded or its configuration key no longer exists, the dead branch is a finding.
 
 **Step 5 — Identify orphaned files.**
 
 For any new file added in the diff: verify it is imported or referenced somewhere. For any file whose only importer was removed in the diff: flag it as potentially orphaned.
 
-For a full codebase scan: use the tooling output from Step 1 to identify orphaned files. Supplement with `search` for the file's exported symbols.
+For a full codebase scan: use the tooling output from Step 1 to identify orphaned files. Supplement with `grep` for the file's exported symbols.
 
 **Step 6 — Identify dead routes and endpoints.**
 
-`search` for route registrations (HTTP router patterns, CLI command registration, message topic subscriptions). For each route in the diff, verify it has a handler and is not shadowed by a more specific route registered earlier.
+use `grep` to find route registrations (HTTP router patterns, CLI command registration, message topic subscriptions). For each route in the diff, verify it has a handler and is not shadowed by a more specific route registered earlier.
 
 **Step 7 — Assign severity.**
 

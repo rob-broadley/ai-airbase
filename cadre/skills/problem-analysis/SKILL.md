@@ -2,7 +2,6 @@
 name: problem-analysis
 description: Load before any problem decomposition or requirements analysis. Required by the problem-analyser agent — covers Impact Mapping, Jobs To Be Done, contradiction taxonomy, NFR catalogue, constraint taxonomy, premortem, and confidence scoring.
 license: AGPL-3.0-or-later
-allowed-tools: read
 ---
 
 # Problem Analysis

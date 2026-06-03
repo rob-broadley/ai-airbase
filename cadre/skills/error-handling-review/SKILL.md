@@ -2,7 +2,6 @@
 name: error-handling-review
 description: Load before any error-handling review. Required by the error-handling-reviewer agent — covers swallowed errors, error specificity, language-specific patterns, resilience, partial failure, user-facing errors, and a three-tier severity model with mandatory taxonomy categories.
 license: AGPL-3.0-or-later
-allowed-tools: read
 ---
 
 # Error Handling Review Reference

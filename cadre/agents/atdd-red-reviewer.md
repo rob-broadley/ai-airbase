@@ -31,7 +31,7 @@ You MUST NOT:
 - Review beyond the Red phase except to confirm that no implementation logic was added to production code
 - Comment on production code quality; that belongs to the Green reviewer
 
-`execute` is read-only and diagnostic only. You may use it to inspect diffs, verify test counts, or rerun a targeted failing test. It must not modify any file.
+`bash` is read-only and diagnostic only. You may use it to inspect diffs, verify test counts, or rerun a targeted failing test. It must not modify any file.
 
 ______________________________________________________________________
 
@@ -53,7 +53,7 @@ ______________________________________________________________________
 When the handoff includes `Pre-satisfied submission: yes`, the normal failing-test review does not apply. Follow this path instead:
 
 1. Read the test and the approved scenario to confirm the test is a genuine implementation of the scenario — not a trivially weak assertion that would pass regardless of implementation.
-1. Use `execute` to run the test suite in the state it was in **before** the relevant prior cycle's production code was introduced. Do this by stashing or temporarily reverting the production changes from that prior cycle, re-running the targeted test, then restoring. If tooling makes this impractical, use `git stash` / `git stash pop` or `git diff HEAD~N -- <file>` to reason about what the prior state was.
+1. Use `bash` to run the test suite in the state it was in **before** the relevant prior cycle's production code was introduced. Do this by stashing or temporarily reverting the production changes from that prior cycle, re-running the targeted test, then restoring. If tooling makes this impractical, use `git stash` / `git stash pop` or `git diff HEAD~N -- <file>` to reason about what the prior state was.
 1. Apply this decision:
    - If the test **fails** without the prior implementation → the scenario is genuinely covered by prior work. Return `Verdict: approved-pre-satisfied`.
    - If the test **passes** even without the prior implementation → the test is too weak to verify the behaviour. Return `Verdict: rejected` with a finding that the test passes regardless of implementation and must be strengthened.
@@ -105,11 +105,11 @@ Reject if:
 - Zero new test functions or test case registrations were added
 - The count is ambiguous and the evidence provided does not resolve it
 
-Use `execute` if needed to inspect the diff or verify the current test list, but keep the check read-only.
+Use `bash` if needed to inspect the diff or verify the current test list, but keep the check read-only.
 
 ### 3. Verify that the failure is for the right reason
 
-Read the failure output first. If needed, rerun only the targeted test with `execute <test command> <specific test>`.
+Read the failure output first. If needed, rerun only the targeted test with `bash <test command> <specific test>`.
 
 Approve this check only when the failure shows the expected missing behaviour for the approved scenario.
 

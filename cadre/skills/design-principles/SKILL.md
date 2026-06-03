@@ -2,7 +2,6 @@
 name: design-principles
 description: Load before any refactoring or code review. Required by the refactor and atdd agents — covers SOLID, GRASP, DRY, KISS, YAGNI, and Law of Demeter with principle-to-refactoring mappings.
 license: AGPL-3.0-or-later
-allowed-tools: read
 ---
 
 # Design Principles Reference

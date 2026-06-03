@@ -2,7 +2,6 @@
 name: workflow-patterns
 description: Load before planning or routing any task. Required by mission-control — maps task archetypes to ordered sequences of specialist agents, with handoff context and success criteria for each step.
 license: AGPL-3.0-or-later
-allowed-tools: read
 ---
 
 # Workflow Patterns
@@ -211,7 +210,7 @@ ______________________________________________________________________
 **Notes:**
 
 - `bootstrap` installs. It does not write configuration files or modify the project. Use it when tools are simply missing.
-- `devex` designs and configures. It delegates installation to `bootstrap` via the `agent` tool. Use it when the goal is to choose tools, scaffold configs, or improve the toolchain.
+- `devex` designs and configures. It delegates installation to `bootstrap` via the `task` tool. Use it when the goal is to choose tools, scaffold configs, or improve the toolchain.
 - `devex` also handles audit and improvement of existing tooling — reviewing what is installed, identifying gaps, recommending upgrades, and applying config changes.
 - If environment setup is a prerequisite for feature delivery, run this chain first and then proceed with the feature delivery chain.
 
@@ -294,7 +293,7 @@ ______________________________________________________________________
 
 **When:** The user wants to understand existing code, debug a problem, or answer a question.
 
-**Handle inline** — no delegation needed. Use `read` and `search` to explore, `execute` to run diagnostics.
+**Handle inline** — no delegation needed. Use `read`, `glob`, and `grep` to explore, `bash` to run diagnostics.
 
 **Produce:** A clear explanation of what the code does, why the problem occurs, or the answer to the question. If investigation reveals work that warrants a workflow, propose the appropriate chain.
 
@@ -306,7 +305,7 @@ ______________________________________________________________________
 
 **Chain:** Investigate inline first.
 
-- If the failure is in tested code → fix inline and verify with `execute`.
+- If the failure is in tested code → fix inline and verify with `bash`.
 - If the failure is in untested code → `legacy-code` → fix → verify.
 - If the failure is environmental → `bootstrap`.
 
@@ -339,4 +338,4 @@ Success criteria: [what done looks like for this step]
 
 The more precise the handoff, the better the specialist agent performs. Vague handoffs produce vague results.
 
-Sub-agents dispatched via the `agent` tool follow the `sub-agent-patterns` skill. They run autonomously and return structured completion reports rather than asking interactive questions.
+Sub-agents dispatched via the `task` tool follow the `sub-agent-patterns` skill. They run autonomously and return structured completion reports rather than asking interactive questions.

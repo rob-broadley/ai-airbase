@@ -34,7 +34,7 @@ ______________________________________________________________________
 
 ## Orientation
 
-1. `execute git diff HEAD~1 -- package.json package-lock.json pnpm-lock.yaml yarn.lock pyproject.toml uv.lock pom.xml build.gradle build.gradle.kts *.csproj packages.lock.json Directory.Packages.props vcpkg.json conanfile.txt conanfile.py go.mod go.sum Cargo.toml Cargo.lock` — read dependency manifest changes
+1. `bash git diff HEAD~1 -- package.json package-lock.json pnpm-lock.yaml yarn.lock pyproject.toml uv.lock pom.xml build.gradle build.gradle.kts *.csproj packages.lock.json Directory.Packages.props vcpkg.json conanfile.txt conanfile.py go.mod go.sum Cargo.toml Cargo.lock` — read dependency manifest changes
 
 If a specific ref or file list was provided, use that instead of `HEAD~1`.
 
@@ -56,7 +56,7 @@ Execute `osv-scanner .` — it auto-detects all lockfiles in the project (`uv.lo
 
 **Step 3 — Run the licence scan.**
 
-Run `execute trivy fs --scanners license .` — it scans npm, Maven/Gradle, NuGet, and Go lockfiles in one pass. If not installed, use the `tool-install` skill. Python (`uv.lock`) and Rust (`Cargo.lock`) are not supported by Trivy licence scanning — inspect those manually via each package's registry page. C++ (vcpkg/Conan) is also manual. Flag any copyleft or unrecognised licence against the guidance in the `dependency-review` skill.
+Run `bash trivy fs --scanners license .` — it scans npm, Maven/Gradle, NuGet, and Go lockfiles in one pass. If not installed, use the `tool-install` skill. Python (`uv.lock`) and Rust (`Cargo.lock`) are not supported by Trivy licence scanning — inspect those manually via each package's registry page. C++ (vcpkg/Conan) is also manual. Flag any copyleft or unrecognised licence against the guidance in the `dependency-review` skill.
 
 **Step 4 — Check added dependencies.**
 

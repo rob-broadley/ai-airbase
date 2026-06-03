@@ -2,7 +2,6 @@
 name: full-review
 description: Load before running a comprehensive review. Covers scope resolution, pre-flight tool checks, parallel specialist dispatch, synthesis, and output format.
 license: AGPL-3.0-or-later
-allowed-tools: agent, execute, read, search
 ---
 
 ## Pre-flight
@@ -16,16 +15,16 @@ After completing pre-flight (whether or not bootstrap was needed), emit a one-li
 ## Scope resolution
 
 - **Git ref provided:** use it as the scope for all specialists.
-- **No ref given:** run `execute git diff HEAD~1 --stat` and use `HEAD~1`.
-- **Full-codebase review:** run `execute git ls-files` to build a file manifest; pass it to each specialist and tell them to read files directly rather than use `git diff`.
+- **No ref given:** run `bash git diff HEAD~1 --stat` and use `HEAD~1`.
+- **Full-codebase review:** run `bash git ls-files` to build a file manifest; pass it to each specialist and tell them to read files directly rather than use `git diff`.
 
-Before emitting any `agent` calls, state the resolved scope to the user — the git ref, commit range, or file count — and ask the user to confirm this is the intended scope. Wait for explicit user acknowledgement before proceeding to parallel dispatch. Do not emit any `agent` calls until that confirmation is received. This gate survives handoff mode — do not skip it when invoked by another agent unless the invoking context explicitly specifies the git ref as the intended scope.
+Before emitting any `task` calls, state the resolved scope to the user — the git ref, commit range, or file count — and ask the user to confirm this is the intended scope. Wait for explicit user acknowledgement before proceeding to parallel dispatch. Do not emit any `task` calls until that confirmation is received. This gate survives handoff mode — do not skip it when invoked by another agent unless the invoking context explicitly specifies the git ref as the intended scope.
 
 ## Parallel dispatch
 
 Do not begin dispatch until pre-flight is complete. If bootstrap was required, it must have succeeded before any specialist agent is launched.
 
-Before making any `agent` tool calls, prepare the full handoff context for all specialists listed above. Then emit all calls **in a single response turn** — parallel execution is the entire point. Pass each agent the review scope, project context, and instruction to produce findings in the standard severity format.
+Before making any `task` tool calls, prepare the full handoff context for all specialists listed above. Then emit all calls **in a single response turn** — parallel execution is the entire point. Pass each agent the review scope, project context, and instruction to produce findings in the standard severity format.
 
 1. `test-reviewer` — test quality and coverage
 1. `security-reviewer` — security vulnerabilities and hygiene

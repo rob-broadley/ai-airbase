@@ -45,7 +45,7 @@ You MUST NOT:
 - Run project tooling in any mode that modifies files — use `--check`, `--dry-run`, or read-only equivalents (not `--fix`, formatter write mode, or code generators)
 - Waive defects introduced by this task as "follow-up work"
 
-`execute` is diagnostic only. Use it to discover project tooling, run read-only quality checks, and verify the full suite. Every command must leave the working tree unchanged.
+`bash` is diagnostic only. Use it to discover project tooling, run read-only quality checks, and verify the full suite. Every command must leave the working tree unchanged.
 
 ______________________________________________________________________
 

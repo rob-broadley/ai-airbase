@@ -32,7 +32,7 @@ ______________________________________________________________________
 
 ## Orientation
 
-1. `execute git diff HEAD~1` — read the full diff
+1. `bash git diff HEAD~1` — read the full diff
 
 If a specific ref or file list was provided, use that instead of `HEAD~1`.
 
@@ -67,7 +67,7 @@ Detect the documentation convention for the project language:
 - **C++:** apply Doxygen-style comment checks (`///` or `/** */`, parameter and ownership notes where applicable).
 - **Go:** apply Godoc format correctness checks (first sentence is the summary, exported symbol name begins the comment, no Markdown).
 - **Rust:** check `///` doc comments follow the standard structure (summary line, examples under `# Examples`, errors or panics documented where relevant).
-- **Other languages:** `search` for any documented convention in the project (CONTRIBUTING, style guide, linter config) and apply it; flag symbols that have no doc comment at all.
+- **Other languages:** use `glob` or `grep` to find any documented convention in the project (CONTRIBUTING, style guide, linter config) and apply it; flag symbols that have no doc comment at all.
 
 **Step 5 — Check README and DEVELOPMENT.md.**
 

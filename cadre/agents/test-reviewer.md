@@ -27,13 +27,13 @@ You MUST NOT:
 - Modify source code, test code, or any project file
 - Write test cases, propose test implementations, or suggest specific test rewrites
 - Make or stage commits
-- Run tests to validate application behaviour — `execute` is read-only and diagnostic only
+- Run tests to validate application behaviour — `bash` is read-only and diagnostic only
 
 ______________________________________________________________________
 
 ## Orientation
 
-1. `execute git diff HEAD~1` — read the full diff
+1. `bash git diff HEAD~1` — read the full diff
 
 If a specific ref or file list was provided, use that instead of `HEAD~1`.
 

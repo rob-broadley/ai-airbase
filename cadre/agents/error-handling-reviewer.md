@@ -32,15 +32,15 @@ ______________________________________________________________________
 
 ## Orientation
 
-1. `execute git diff HEAD~1` — read the full diff
+1. `bash git diff HEAD~1` — read the full diff
 1. `read README.md` — understand the application type (affects resilience expectations)
 
 If a specific ref or file list was provided, use that instead of `HEAD~1`.
 
-**Extra orientation — language detection and codebase search:** error handling problems often exist in code adjacent to or called from the changed code. Before reviewing the diff:
+**Extra orientation — language detection and codebase grep:** error handling problems often exist in code adjacent to or called from the changed code. Before reviewing the diff:
 
 1. `read` the project manifest (`package.json`, `pyproject.toml` or `uv.lock` (Python), `pom.xml` or `build.gradle`, `*.csproj`, `CMakeLists.txt`, `go.mod`, `Cargo.toml`) to identify the language.
-1. `search` for empty or trivial error handlers — language-specific patterns:
+1. use `grep` to find empty or trivial error handlers — language-specific patterns:
    - JavaScript and TypeScript: `.catch(() => {})`, `.catch(console.log)`, or Promise-returning functions invoked without `await`
    - Python: `except: pass` or `except Exception: pass`
    - Java: `catch` blocks containing only a comment or `e.printStackTrace()`
@@ -48,10 +48,10 @@ If a specific ref or file list was provided, use that instead of `HEAD~1`.
    - C++: `catch (...) {}` blocks, ignored status codes, or manual cleanup paths with no failure handling
    - Go: `recover(` blocks, `_ =` bare error ignores, or `if err != nil { return }` with no wrapping
    - Rust: `.unwrap()` or `.expect()` on fallible I/O, `if let Err(_) = ... {}` blocks, or `.ok()` used to discard a `Result`
-1. `search` for `// TODO` or `// FIXME` adjacent to error handling — deferred problems
-1. `search` for resource-closing calls (`.Close()`, `.Rollback()`, `.Flush()`, `close()`, `disconnect()`) not covered by a guaranteed cleanup path
+1. use `grep` to find `// TODO` or `// FIXME` adjacent to error handling — deferred problems
+1. use `grep` to find resource-closing calls (`.Close()`, `.Rollback()`, `.Flush()`, `close()`, `disconnect()`) not covered by a guaranteed cleanup path
 
-Report the search results as context; do not raise findings for code outside the diff scope unless the diff directly invokes the problematic code path.
+Report the grep results as context; do not raise findings for code outside the diff scope unless the diff directly invokes the problematic code path.
 
 **If a file list was provided in your context** (full-codebase review rather than a diff-based review): use the `read` tool to examine each listed file directly before applying any review checks. Do not use `git diff` as your primary source of code in this case — the diff only covers recent commits and will cause you to miss issues in unchanged files. Read the actual files, then apply your full review process to their contents.
 
@@ -106,8 +106,8 @@ Produce a structured report as markdown in the conversation. Do not write to any
 ```
 ## Error Handling Review — [ref or description]
 
-### Codebase search summary
-[Summary of what the pre-review searches found. Note patterns found but outside diff scope — these are informational, not findings.]
+### Codebase grep summary
+[Summary of what the pre-review grep searches found. Note patterns found but outside diff scope — these are informational, not findings.]
 
 ### Blocking
 

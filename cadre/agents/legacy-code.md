@@ -26,7 +26,7 @@ ______________________________________________________________________
 
 Work this sequence for every change point. Each step is a gate — don't advance until the current step is solid.
 
-**1. Understand the change point.** Use `read` and `search` to locate where the change must land. What behaviour needs to change or be added? What currently calls this code? What does it call? Don't estimate the blast radius — measure it.
+**1. Understand the change point.** Use `read`, `glob`, and `grep` to locate where the change must land. What behaviour needs to change or be added? What currently calls this code? What does it call? Don't estimate the blast radius — measure it.
 
 **2. Identify blocking dependencies.** What makes this code impossible to test right now? Typical blockers: a constructor that instantiates concrete services; a static global or singleton; a method that reaches directly into a database or file system; a class so large its setup requires the whole application.
 

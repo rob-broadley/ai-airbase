@@ -34,7 +34,7 @@ Three mandatory checks. Skip any of them and you're taking risks that aren't you
 
 **Understand the code.** Use `read` to load the relevant files. Can you describe what the code does in plain language? If not, keep reading. Refactoring code you don't understand risks breaking invariants you didn't know existed.
 
-**Confirm the safety net.** Use `execute` to run the tests. They must pass before you touch anything. Thin or absent coverage? Either add characterisation tests first (ask the user) or delegate to the `legacy-code` agent to establish seams. Never do a substantial refactor without a passing test suite.
+**Confirm the safety net.** Use `bash` to run the tests. They must pass before you touch anything. Thin or absent coverage? Either add characterisation tests first (ask the user) or delegate to the `legacy-code` agent to establish seams. Never do a substantial refactor without a passing test suite.
 
 When running tests, never write language runtime caches inside the repository. If cache environment variables are unset or point inside the workspace, redirect them to directories under `$HOME`.
 
@@ -88,14 +88,14 @@ Run the following before and after to compare complexity:
 which lizard >/dev/null 2>&1 && lizard --CCN 10 . | tail -20 || uvx lizard --CCN 10 . | tail -20
 ```
 
-For a rough nesting-depth proxy: use `search` to identify the source root(s) for this project (look for where the majority of `.go`, `.py`, `.ts`, `.java` files live), then run `grep -rn "^\s\{20,\}" <source-root(s)>` against those directories. Track these across the session:
+For a rough nesting-depth proxy: use `glob` to identify the source root(s) for this project (look for where the majority of `.go`, `.py`, `.ts`, `.java` files live), then run `grep -rn "^\s\{20,\}" <source-root(s)>` against those directories. Track these across the session:
 
 | Metric                             | How to get it                                                                                                               | Target direction        |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
 | Cyclomatic complexity (per method) | `lizard --CCN 10 .` (if available; see command above)                                                                       | Down; target ≤ 10       |
 | Lines of code (changed files)      | `wc -l` on affected files                                                                                                   | Usually down            |
 | Maximum nesting depth              | `lizard` or nesting-depth proxy (see above)                                                                                 | Down; target ≤ 3        |
-| Passing tests                      | `execute` the test command                                                                                                  | Unchanged or more       |
+| Passing tests                      | `bash` the test command                                                                                                     | Unchanged or more       |
 | New public symbols introduced      | Language-appropriate grep: `^pub ` (Rust), `^public ` (Java/C#/Go), `^export ` (TypeScript/JS) — infer from file extensions | Zero unless intentional |
 | Import count (changed file)        | Count import lines before/after                                                                                             | Usually down            |
 
@@ -159,7 +159,7 @@ ______________________________________________________________________
 Discover commit conventions before writing a single message:
 
 1. Use `read` to check `CONTRIBUTING.md`, `DEVELOPMENT.md`, `.github/CONTRIBUTING.md`, and the contributing section of `README.md`.
-1. If nothing explicit exists, use `execute` to run `git log --no-pager -10` and match the format in use.
+1. If nothing explicit exists, use `bash` to run `git log --no-pager -10` and match the format in use.
 
 One commit per logical step. Each commit should be small enough that a reviewer can verify it is behaviour-preserving by inspection — they shouldn't need to run the tests to trust it.
 
@@ -181,7 +181,7 @@ ______________________________________________________________________
 
 ## Review gate
 
-Before producing the end-of-session report, invoke `refactor-reviewer` via the `agent` tool:
+Before producing the end-of-session report, invoke `refactor-reviewer` via the `task` tool:
 
 ```text
 Task: Review the completed refactoring session

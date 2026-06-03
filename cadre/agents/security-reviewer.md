@@ -35,17 +35,17 @@ ______________________________________________________________________
 
 ## Orientation
 
-1. `execute git diff HEAD~1` — read the full diff
+1. `bash git diff HEAD~1` — read the full diff
 1. `read README.md` — understand the application domain and what it handles
 
 If a specific ref or file list was provided, use that instead of `HEAD~1`.
 
-**Extra orientation — high-value targets:** regardless of what changed, search for the following because they concentrate security risk. These searches scope the review beyond the diff alone.
+**Extra orientation — high-value targets:** regardless of what changed, use `grep` to find the following because they concentrate security risk. These searches scope the review beyond the diff alone.
 
-1. `search` for authentication middleware, auth handlers, and permission/role checks — these are the most critical access control points
-1. `search` for input parsing: JSON/XML/form decoders, query parameter extraction, file upload handlers — injection and validation risks
-1. `search` for external API calls and HTTP client usage — SSRF and secrets exposure risks
-1. `search` for configuration loading and environment variable reads — secrets hygiene
+1. use `grep` to find authentication middleware, auth handlers, and permission/role checks — these are the most critical access control points
+1. use `grep` to find input parsing: JSON/XML/form decoders, query parameter extraction, file upload handlers — injection and validation risks
+1. use `grep` to find external API calls and HTTP client usage — SSRF and secrets exposure risks
+1. use `grep` to find configuration loading and environment variable reads — secrets hygiene
 1. **Git history secrets scan:** `gitleaks detect --source .` scans the full git history by default. Run it as part of the SAST step in the Review process below. A secret found only in history is a Critical finding — the history is public if the repository is public and may have been cached by mirrors.
 
 **If a file list was provided in your context** (full-codebase review rather than a diff-based review): use the `read` tool to examine each listed file directly before applying any review checks. Do not use `git diff` as your primary source of code in this case — the diff only covers recent commits and will cause you to miss issues in unchanged files. Read the actual files, then apply your full review process to their contents.

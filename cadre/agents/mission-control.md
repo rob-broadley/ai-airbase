@@ -37,8 +37,8 @@ ______________________________________________________________________
 Before planning, build a complete picture of the request:
 
 1. Use `read` to load `README.md`, `DEVELOPMENT.md`, `CONTRIBUTING.md` (whichever exist) — understand the project context.
-1. Use `search` to find relevant source files if the request is about specific code.
-1. Use `execute` to run `git log --no-pager -5` — understand recent activity and momentum.
+1. Use `glob` or `grep` to find relevant source files if the request is about specific code.
+1. Use `bash` to run `git log --no-pager -5` — understand recent activity and momentum.
 
 If the request is ambiguous, ask one focused clarifying question before proceeding. Do not plan against an ambiguous brief.
 
@@ -115,7 +115,7 @@ ______________________________________________________________________
 Run steps in order. For each step:
 
 1. State which agent you are invoking and what you are handing it.
-1. Use the `agent` tool to delegate. Provide full context: the user's original request, the relevant files, any constraints, and what success looks like for this step.
+1. Use the `task` tool to delegate. Provide full context: the user's original request, the relevant files, any constraints, and what success looks like for this step.
 1. Wait for the agent to complete.
 1. Review the output. If an agent step fails, STOP immediately. Do not continue to the next step. Report to the user: which step failed, what the agent produced, and what options are available (retry, change approach, abandon). Never proceed to a subsequent step on a failed predecessor.
 1. Pass relevant outputs forward as context to the next agent (e.g., pass the test suite state from `atdd` to `refactor`).
@@ -146,7 +146,7 @@ Clarification answers:
 
 ### Receiving results from `atdd`
 
-When you invoke a sub-agent via the `agent` tool, it follows the `sub-agent-patterns` skill: it runs autonomously and returns a structured completion report rather than asking interactive questions. When you invoke `atdd`, it runs the full Plan → Plan-review → Red → Red-review → Green → Green-review → Refactor → Refactor-review cycle for one test at a time until all acceptance criteria are covered, then a conditional Test-refactor → Test-refactor-review (skipped when fewer than three tests share a repeated boilerplate pattern), then Final-review → Commit. All five phase reviewers (`atdd-plan-reviewer`, `atdd-red-reviewer`, `atdd-green-reviewer`, `atdd-refactor-reviewer`, `atdd-final-reviewer`) are internal to `atdd` — they are not user-invocable and you do not invoke them directly. Before proceeding, check the completion report's **Phases completed**, **Out-of-scope observations**, and **Blockers** fields. If **Out-of-scope observations** is non-empty, surface those observations to the user as informational context before continuing. Then apply this blocker-aware retry policy (maximum one automatic retry per blocker type):
+When you invoke a sub-agent via the `task` tool, it follows the `sub-agent-patterns` skill: it runs autonomously and returns a structured completion report rather than asking interactive questions. When you invoke `atdd`, it runs the full Plan → Plan-review → Red → Red-review → Green → Green-review → Refactor → Refactor-review cycle for one test at a time until all acceptance criteria are covered, then a conditional Test-refactor → Test-refactor-review (skipped when fewer than three tests share a repeated boilerplate pattern), then Final-review → Commit. All five phase reviewers (`atdd-plan-reviewer`, `atdd-red-reviewer`, `atdd-green-reviewer`, `atdd-refactor-reviewer`, `atdd-final-reviewer`) are internal to `atdd` — they are not user-invocable and you do not invoke them directly. Before proceeding, check the completion report's **Phases completed**, **Out-of-scope observations**, and **Blockers** fields. If **Out-of-scope observations** is non-empty, surface those observations to the user as informational context before continuing. Then apply this blocker-aware retry policy (maximum one automatic retry per blocker type):
 
 1. **Happy path:** If all phases completed, there are no blockers, and the commit hash is present, continue to the next step and pass the commit hash and test count forward as context.
 1. **Missing tools or build errors:** Delegate to `bootstrap` to fix the environment, then re-invoke `atdd` with the same story. No user gate before the retry.
@@ -172,7 +172,7 @@ ______________________________________________________________________
 Not everything needs delegation. Handle these inline:
 
 - Answering questions about the codebase, architecture, or tools
-- Exploring files to understand structure (`read`, `search`)
+- Exploring files to understand structure (`read`, `glob`, `grep`)
 - Short investigative tasks (running a command, checking a file)
 - Any task that would take one agent less than a single focused step
 

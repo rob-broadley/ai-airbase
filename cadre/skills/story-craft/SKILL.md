@@ -2,7 +2,6 @@
 name: story-craft
 description: Load before writing any user stories. Required by the user-story-writer agent — covers Example Mapping, INVEST scoring, SPIDR splitting, Elephant Carpaccio, User Story Mapping, acceptance criteria patterns, and story dependency mapping.
 license: AGPL-3.0-or-later
-allowed-tools: read
 ---
 
 # Story Craft

@@ -2,7 +2,6 @@
 name: tool-install
 description: Recipe reference for installing tools in the container environment. Used by bootstrap and specialist reviewer agents to look up the correct install command for any tool.
 license: AGPL-3.0-or-later
-allowed-tools: execute
 ---
 
 > **Opencode environment only.** These instructions apply to the Opencode container environment. They are not guidance for configuring developer machines or CI pipelines — use the `devex` agent for toolchain design and configuration, or the `bootstrap` agent for tool installation.
