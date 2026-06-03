@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/cmd"
@@ -518,11 +519,12 @@ func TestDefaultCmd_ErrorMessageContainsContext(t *testing.T) {
 	assertContains(t, err.Error(), "no space left on device")
 }
 
-// TestDefaultCmd_CreatePassesCmd verifies that when marshal creates a container
-// the default command ["opencode", "web", "--port=4096", "--hostname=0.0.0.0"] is forwarded to
-// `podman create` as trailing arguments after the image name, so the agent is
-// configured at the container level rather than relying solely on the image CMD.
-func TestDefaultCmd_CreatePassesCmd(t *testing.T) {
+// TestDefaultCmd_CreateUsesImageCMD verifies that when marshal creates a container,
+// it does not specify any trailing command arguments. This allows the container
+// to fall back to the CMD defined inside the image's Containerfile, enabling
+// better compatibility across different or older versions of the container image.
+func TestDefaultCmd_CreateUsesImageCMD(t *testing.T) {
+	// Given no container exists for project "myapp" and deps are configured
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	runner := &fakeRunner{exists: false, running: false, imageExistsResult: true}
@@ -539,23 +541,18 @@ func TestDefaultCmd_CreatePassesCmd(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp"})
 
+	// When the default command is executed
 	assertNoError(t, root.Execute())
 
+	// Then no trailing command arguments are forwarded to podman create, allowing it to fall back to the image CMD
 	createArgs := runner.createArgs()
 	if createArgs == nil {
 		t.Fatal("expected 'podman create' to be called but it was not")
 	}
-	if !runner.createArgsContain("opencode") {
-		t.Errorf("expected 'opencode' in create args; full create args: %v", createArgs)
-	}
-	if !runner.createArgsContain("web") {
-		t.Errorf("expected 'web' in create args; full create args: %v", createArgs)
-	}
-	if !runner.createArgsContain("--port=4096") {
-		t.Errorf("expected '--port=4096' in create args; full create args: %v", createArgs)
-	}
-	if !runner.createArgsContain("--hostname=0.0.0.0") {
-		t.Errorf("expected '--hostname=0.0.0.0' in create args; full create args: %v", createArgs)
+
+	lastArg := createArgs[len(createArgs)-1]
+	if strings.Contains(lastArg, "opencode") || strings.Contains(lastArg, "web") {
+		t.Errorf("expected no trailing command in create args; got: %v", createArgs)
 	}
 }
 

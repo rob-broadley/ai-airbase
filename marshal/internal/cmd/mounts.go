@@ -245,6 +245,6 @@ func resolveContainerParams(deps Deps, projectFlag string) (params containerPara
 		maskVolumes:   maskVolumes,
 		userConfig:    uc,
 		workdir:       workdir,
-		cmd:           container.DefaultContainerCmd,
+		cmd:           nil,
 	}, nil
 }
