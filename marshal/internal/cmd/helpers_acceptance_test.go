@@ -263,7 +263,7 @@ func (f *fakeRunner) handleInspect(args []string) ([]byte, error) {
 	if cr == "" {
 		cr = "2024-01-01"
 	}
-	return []byte(img + "|" + cr + "|" + f.imageDigest + "|" + f.imageRef + "|" + f.imageVersion + "\n"), nil
+	return []byte(img + "|" + cr + "|" + f.imageDigest + "|" + f.imageRef + "||" + f.imageVersion + "\n"), nil
 }
 
 // RunStreaming is a spy: records the streamed command via the same call log as

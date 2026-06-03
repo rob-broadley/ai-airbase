@@ -139,7 +139,7 @@ func createContainerWithVolumes(mkdirAll func(string, fs.FileMode) error, runner
 	}
 	log.Info("creating container", "container", p.containerName)
 	allNamedVolumes := slices.Concat(namedVolumes, p.maskVolumes)
-	if err := container.Create(runner, p.containerName, p.image, p.mountSpecs, allNamedVolumes, p.userConfig, p.workdir, p.cmd); err != nil {
+	if err := container.Create(runner, p.containerName, p.image, p.port, p.mountSpecs, allNamedVolumes, p.userConfig, p.workdir, p.cmd); err != nil {
 		return fmt.Errorf("creating container: %w", err)
 	}
 	return nil
@@ -192,7 +192,7 @@ func removeAndRecreateContainer(mkdirAll func(string, fs.FileMode) error, runner
 	// Step 1 — create the replacement under the staging name.
 	log.Info("creating container", "container", pendingName)
 	allNamedVolumes := slices.Concat(namedVolumes, p.maskVolumes)
-	if err := container.Create(runner, pendingName, p.image, p.mountSpecs, allNamedVolumes, p.userConfig, p.workdir, p.cmd); err != nil {
+	if err := container.Create(runner, pendingName, p.image, p.port, p.mountSpecs, allNamedVolumes, p.userConfig, p.workdir, p.cmd); err != nil {
 		// Creation failed — clean up any partial pending container (best-effort)
 		// and leave the original container completely untouched.
 		tryForceRemove(runner, log, pendingName, "failed to clean up pending container after creation failure")
@@ -274,13 +274,13 @@ func ensureContainerAndStart(cmd *cobra.Command, deps Deps, projectFlag string) 
 		return err
 	}
 	if running {
-		fmt.Fprintf(cmd.OutOrStdout(), "container %s is already running\nOpenCode Web is available at http://127.0.0.1:4096/\n", containerName)
+		fmt.Fprintf(cmd.OutOrStdout(), "container %s is already running\nOpenCode Web is available at http://127.0.0.1:%d/\n", containerName, p.port)
 		return nil
 	}
 	if err := container.Start(deps.Runner, containerName); err != nil {
 		return fmt.Errorf("starting container: %w", err)
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "container %s started\nOpenCode Web is available at http://127.0.0.1:4096/\n", containerName)
+	fmt.Fprintf(cmd.OutOrStdout(), "container %s started\nOpenCode Web is available at http://127.0.0.1:%d/\n", containerName, p.port)
 	return nil
 }
 

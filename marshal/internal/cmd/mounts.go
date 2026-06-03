@@ -187,6 +187,7 @@ type containerParams struct {
 	maskVolumes   []container.NamedVolumeMount
 	userConfig    container.UserConfig
 	cmd           []string
+	port          int
 }
 
 // resolveContainerParams resolves the project name, working directory, config,
@@ -238,6 +239,11 @@ func resolveContainerParams(deps Deps, projectFlag string) (params containerPara
 		return containerParams{}, err
 	}
 
+	port := cfg.Port
+	if port == 0 {
+		port = 4096
+	}
+
 	return containerParams{
 		containerName: containerName,
 		image:         image,
@@ -246,5 +252,6 @@ func resolveContainerParams(deps Deps, projectFlag string) (params containerPara
 		userConfig:    uc,
 		workdir:       workdir,
 		cmd:           nil,
+		port:          port,
 	}, nil
 }

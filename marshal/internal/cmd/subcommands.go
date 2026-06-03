@@ -18,22 +18,24 @@ import (
 func newCreateCmd(deps Deps, projectFlag *string) *cobra.Command {
 	var mountFlags []string
 	var maskFlags []string
+	var portFlag int
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a new container for the project, pulling the image if not present",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCreate(cmd, deps, *projectFlag, mountFlags, maskFlags)
+			return runCreate(cmd, deps, *projectFlag, mountFlags, maskFlags, portFlag)
 		},
 	}
 	cmd.Flags().StringArrayVarP(&mountFlags, "mount", "m", nil, "Directory to bind mount into /workspace/<basename> (repeatable)")
 	cmd.Flags().StringArrayVar(&maskFlags, "mask", nil, "Hide a host subdirectory from the agent by overlaying it with a named volume (repeatable). Path resolves from CWD; must fall inside a configured mount.")
+	cmd.Flags().IntVar(&portFlag, "port", 0, "Host port to bind to the container's web interface (0 for auto-allocation)")
 	return cmd
 }
 
 // runCreate implements the "create" subcommand: it validates the project, errors
 // if the container already exists, saves the mount configuration, pulls the
 // image if needed, and creates the container.
-func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues, maskFlagValues []string) error {
+func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValues, maskFlagValues []string, portFlag int) error {
 	project, containerName, err := resolveContainer(deps, projectFlag)
 	if err != nil {
 		return err
@@ -69,6 +71,13 @@ func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValue
 	if _, err = resolveMaskPaths(cwd, cfg.Mounts, maskFlagValues, cfg); err != nil {
 		return err
 	}
+
+	resolvedPort, err := resolveAndValidatePort(deps, project, cfg.Port, portFlag)
+	if err != nil {
+		return err
+	}
+	cfg.Port = resolvedPort
+
 	if err := deps.saveConfig()(project, cfg); err != nil {
 		return fmt.Errorf("saving config: %w", err)
 	}
@@ -173,9 +182,21 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		return err
 	}
 
+	cfg, err := deps.loadConfig()(project)
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
 	status, err := container.GetStatus(deps.Runner, containerName)
 	if err != nil {
 		return fmt.Errorf("getting container status: %w", err)
+	}
+
+	portStr := "-"
+	if cfg.Port != 0 {
+		portStr = fmt.Sprintf("%d", cfg.Port)
+	} else if status.Exists && status.Running && status.Port != 0 {
+		portStr = fmt.Sprintf("%d", status.Port)
 	}
 
 	w := cmd.OutOrStdout()
@@ -184,15 +205,12 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 
 	if !status.Exists {
 		fmt.Fprintf(w, "Status:       absent\n")
+		fmt.Fprintf(w, "Port:         %s\n", portStr)
 		fmt.Fprintf(w, "Image Ref:    -\n")
 		fmt.Fprintf(w, "Image ID:     -\n")
 		fmt.Fprintf(w, "Image Digest: -\n")
 		fmt.Fprintf(w, "Version:      -\n")
 		fmt.Fprintf(w, "Created:      -\n")
-		cfg, err := deps.loadConfig()(project)
-		if err != nil {
-			return fmt.Errorf("loading config: %w", err)
-		}
 		if len(cfg.Mounts) > 0 {
 			fmt.Fprintf(w, "Mounts:\n")
 			for _, m := range cfg.Mounts {
@@ -258,16 +276,13 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		created = "-"
 	}
 	fmt.Fprintf(w, "Status:       %s\n", statusStr)
+	fmt.Fprintf(w, "Port:         %s\n", portStr)
 	fmt.Fprintf(w, "Image Ref:    %s\n", imageRef)
 	fmt.Fprintf(w, "Image ID:     %s\n", image)
 	fmt.Fprintf(w, "Image Digest: %s\n", imageDigest)
 	fmt.Fprintf(w, "Version:      %s\n", version)
 	fmt.Fprintf(w, "Created:      %s\n", created)
 
-	cfg, err := deps.loadConfig()(project)
-	if err != nil {
-		return fmt.Errorf("loading config: %w", err)
-	}
 	actualMounts, err := container.GetMounts(deps.Runner, containerName)
 	if err != nil {
 		return fmt.Errorf("getting container mounts: %w", err)
@@ -442,48 +457,68 @@ func runList(cmd *cobra.Command, deps Deps) error {
 	}
 
 	const statusColWidth = 7 // width of the longest STATUS value ("running", "stopped", "unknown")
+	const portColWidth = 5   // width of PORT header ("PORT" is 4, 5 max length for ports up to 65535)
 
 	w := cmd.OutOrStdout()
-	fmt.Fprintf(w, "%-*s  %-*s  %s\n", colWidth, "NAME", statusColWidth, "STATUS", "CONFIG")
+	fmt.Fprintf(w, "%-*s  %-*s  %-*s  %s\n", colWidth, "NAME", statusColWidth, "STATUS", portColWidth, "PORT", "CONFIG")
 
 	for _, project := range projects {
-		configStatus := "ok"
-		if _, loadErr := deps.loadConfig()(project); loadErr != nil {
-			if errors.Is(loadErr, os.ErrNotExist) {
-				loadErr = fmt.Errorf("config file disappeared: %w", loadErr)
-			}
-			deps.logger().Warn("config problem for project", "project", project, "error", sanitizeForTerminal(loadErr.Error()))
-			configStatus = "error"
-		}
-		status, statusErr := containerStatusStringErr(deps.Runner, containerNameForProject(project))
-		if statusErr != nil {
-			deps.logger().Warn("failed to query container for project", "project", project, "container", containerNameForProject(project), "error", sanitizeForTerminal(statusErr.Error()))
-		}
-		fmt.Fprintf(w, "%-*s  %-*s  %s\n", colWidth, project, statusColWidth, status, configStatus)
+		row, _ := getProjectListStatus(deps, project)
+		fmt.Fprintf(w, "%-*s  %-*s  %-*s  %s\n", colWidth, project, statusColWidth, row.statusStr, portColWidth, row.portStr, row.configStatus)
 	}
 	return nil
 }
 
-// containerStatusStringErr returns the display status and the first error
-// encountered while querying the container state. It returns ("unknown", err)
-// when an error occurs so that callers can render an explicit unknown row while
-// also detecting the failure.
-func containerStatusStringErr(runner container.Runner, containerName string) (string, error) {
-	exists, err := container.Exists(runner, containerName)
-	if err != nil {
-		return "unknown", err
+type listRowStatus struct {
+	statusStr    string
+	portStr      string
+	configStatus string
+}
+
+func getProjectListStatus(deps Deps, project string) (listRowStatus, error) {
+	res := listRowStatus{
+		statusStr:    "unknown",
+		portStr:      "-",
+		configStatus: "ok",
 	}
-	if !exists {
-		return "absent", nil
+
+	cfg, loadErr := deps.loadConfig()(project)
+	if loadErr != nil {
+		if errors.Is(loadErr, os.ErrNotExist) {
+			loadErr = fmt.Errorf("config file disappeared: %w", loadErr)
+		}
+		deps.logger().Warn("config problem for project", "project", project, "error", sanitizeForTerminal(loadErr.Error()))
+		res.configStatus = "error"
 	}
-	running, err := container.IsRunning(runner, containerName)
-	if err != nil {
-		return "unknown", err
+
+	cStatus, statusErr := container.GetStatus(deps.Runner, containerNameForProject(project))
+	if statusErr != nil {
+		deps.logger().Warn("failed to query container for project", "project", project, "container", containerNameForProject(project), "error", sanitizeForTerminal(statusErr.Error()))
+		return res, statusErr
 	}
-	if !running {
-		return "stopped", nil
+
+	switch {
+	case !cStatus.Exists:
+		res.statusStr = "absent"
+	case cStatus.Running:
+		res.statusStr = "running"
+	default:
+		res.statusStr = "stopped"
 	}
-	return "running", nil
+
+	if loadErr == nil {
+		if cfg.Port != 0 {
+			res.portStr = fmt.Sprintf("%d", cfg.Port)
+		} else if cStatus.Exists && cStatus.Running && cStatus.Port != 0 {
+			res.portStr = fmt.Sprintf("%d", cStatus.Port)
+		}
+	} else {
+		if cStatus.Exists && cStatus.Running && cStatus.Port != 0 {
+			res.portStr = fmt.Sprintf("%d", cStatus.Port)
+		}
+	}
+
+	return res, nil
 }
 
 // newPullCmd returns the cobra.Command for the "pull" subcommand, which

@@ -18,6 +18,7 @@ import (
 type Config struct {
 	Mounts []string `toml:"mounts"`
 	Masks  []string `toml:"masks"`
+	Port   int      `toml:"port"`
 }
 
 // ---------------------------------------------------------------------------

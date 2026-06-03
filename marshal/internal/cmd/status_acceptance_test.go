@@ -591,7 +591,41 @@ func TestStatus_UntrackedBindMount_SourceSanitized(t *testing.T) {
 	// Then the ESC character is absent from the output — the path is sanitised
 	out := buf.String()
 	assertNotContains(t, out, "\x1b")
-	assertContains(t, out, "? /home/user/evil[2J")
+	assertContains(t, out, "/home/user/evil[2J")
+}
+
+// TestStatus_DisplaysCustomPort verifies that status output displays the custom port configured
+// in the project's config.
+func TestStatus_DisplaysCustomPort(t *testing.T) {
+	// Given a running container with custom port 5000 configured
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: true, running: true}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		LoadConfig: func(project string) (*config.Config, error) {
+			return &config.Config{
+				Port: 5000,
+			}, nil
+		},
+	}
+
+	buf := &bytes.Buffer{}
+	root := cmd.NewRootCmd(deps)
+	root.SetOut(buf)
+
+	// When the status subcommand is executed
+	root.SetArgs([]string{"--project", "myapp", "status"})
+	assertNoError(t, root.Execute())
+
+	// Then the output displays Port: 5000
+	out := buf.String()
+	assertContains(t, out, "Port:         5000")
 }
 
 // TestStatus_UntrackedVolumeMount_DestinationSanitized verifies that control

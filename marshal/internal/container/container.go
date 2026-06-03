@@ -31,7 +31,7 @@ const (
 	// workspaceDir is the container-side path where project directories are mounted.
 	workspaceDir       = "/workspace"
 	formatNames        = "{{.Names}}"
-	formatImageCreated = `{{.Image}}|{{.Created}}|{{.ImageDigest}}|{{.ImageName}}|{{index .Config.Labels "org.opencontainers.image.version"}}`
+	formatImageCreated = `{{.Image}}|{{.Created}}|{{.ImageDigest}}|{{.ImageName}}|{{range $p, $conf := .NetworkSettings.Ports}}{{range $conf}}{{.HostPort}}{{end}}{{end}}|{{index .Config.Labels "org.opencontainers.image.version"}}`
 	inspectSeparator   = "|"
 
 	// imageAbsentExitCode is the exit code that `podman image exists` returns
@@ -92,6 +92,7 @@ type Status struct {
 	Created     string // container creation timestamp from podman inspect .Created (e.g. "2026-05-01 09:14:32 +0100 BST"); empty for a non-existent container
 	Exists      bool
 	Running     bool
+	Port        int
 }
 
 // MountSpec describes a single bind-mount: a host path mapped to a container path.
@@ -388,7 +389,7 @@ func IsRunning(r Runner, containerName string) (bool, error) {
 // uc.UID/GID are passed as --user; uc.HomeDir is exported via -e HOME.
 // workdir sets the container's working directory via -w.
 // The container will run the image's default CMD when started.
-func Create(r Runner, containerName, image string, mounts []MountSpec, namedVolumes []NamedVolumeMount, uc UserConfig, workdir string, cmd []string) error {
+func Create(r Runner, containerName, image string, hostPort int, mounts []MountSpec, namedVolumes []NamedVolumeMount, uc UserConfig, workdir string, cmd []string) error {
 	args := []string{
 		"create",
 		"--name", containerName,
@@ -396,7 +397,7 @@ func Create(r Runner, containerName, image string, mounts []MountSpec, namedVolu
 		"--tty",
 		"--interactive",
 		"--security-opt", "no-new-privileges",
-		"-p", "127.0.0.1:4096:4096",
+		"-p", fmt.Sprintf("127.0.0.1:%d:4096", hostPort),
 	}
 	args = append(args, userIdentityArgs(uc)...)
 	for _, m := range mounts {
@@ -491,16 +492,22 @@ func GetStatus(r Runner, containerName string) (Status, error) {
 		return Status{}, fmt.Errorf("inspecting container: %w", err)
 	}
 
-	image, created, imageDigest, imageRef, version := parseInspectOutput(string(out))
+	fields := parseInspectOutput(string(out))
+
+	var boundPort int
+	if fields.port != "" {
+		_, _ = fmt.Sscanf(fields.port, "%d", &boundPort)
+	}
 
 	return Status{
 		Exists:      true,
 		Running:     running,
-		Image:       image,
-		ImageRef:    imageRef,
-		ImageDigest: imageDigest,
-		Created:     created,
-		Version:     version,
+		Image:       fields.image,
+		ImageRef:    fields.imageRef,
+		ImageDigest: fields.imageDigest,
+		Created:     fields.created,
+		Version:     fields.version,
+		Port:        boundPort,
 	}, nil
 }
 
@@ -558,30 +565,43 @@ func userIdentityArgs(uc UserConfig) []string {
 	}
 }
 
-// parseInspectOutput extracts image, created, imageDigest, imageRef, and version from raw
-// podman inspect output. The named-return order matches the format-string field
-// order: image (0), created (1), imageDigest (2), imageRef (3), version (4). imageDigest
-// and imageRef precede version so that any | characters in the version label are absorbed
-// into parts[4] by SplitN and cannot corrupt the digest or ref. It uses the last
-// non-empty line, so any leading warning lines written to stderr (e.g. from
+type inspectFields struct {
+	image       string
+	created     string
+	imageDigest string
+	imageRef    string
+	port        string
+	version     string
+}
+
+// parseInspectOutput extracts image, created, imageDigest, imageRef, port, and version from raw
+// podman inspect output. The order matches the format-string field
+// order: image (0), created (1), imageDigest (2), imageRef (3), port (4), version (5).
+// imageDigest, imageRef, and port precede version so that any | characters in the version
+// label are absorbed into parts[5] by SplitN and cannot corrupt those fields. It uses the
+// last non-empty line, so any leading warning lines written to stderr (e.g. from
 // CombinedOutput) are skipped gracefully.
-func parseInspectOutput(raw string) (image, created, imageDigest, imageRef, version string) {
+func parseInspectOutput(raw string) inspectFields {
 	line := lastNonEmptyLine(raw)
-	parts := strings.SplitN(line, inspectSeparator, 5)
-	image = strings.TrimSpace(parts[0])
+	parts := strings.SplitN(line, inspectSeparator, 6)
+	var f inspectFields
+	f.image = strings.TrimSpace(parts[0])
 	if len(parts) > 1 {
-		created = strings.TrimSpace(parts[1])
+		f.created = strings.TrimSpace(parts[1])
 	}
 	if len(parts) > 2 {
-		imageDigest = strings.TrimSpace(parts[2])
+		f.imageDigest = strings.TrimSpace(parts[2])
 	}
 	if len(parts) > 3 {
-		imageRef = strings.TrimSpace(parts[3])
+		f.imageRef = strings.TrimSpace(parts[3])
 	}
 	if len(parts) > 4 {
-		version = strings.TrimSpace(parts[4])
+		f.port = strings.TrimSpace(parts[4])
 	}
-	return
+	if len(parts) > 5 {
+		f.version = strings.TrimSpace(parts[5])
+	}
+	return f
 }
 
 // lastNonEmptyLine returns the last line in s that contains non-whitespace

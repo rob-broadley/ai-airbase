@@ -42,104 +42,116 @@ func TestImageExists_UnexpectedFailureIncludesOutput(t *testing.T) {
 }
 
 // TestParseInspectOutput_WithLeadingWarning verifies that parseInspectOutput
-// returns all five fields (image, created, imageDigest, imageRef, version)
+// returns all six fields (image, created, imageDigest, imageRef, port, version)
 // correctly when podman prefixes its output with a warning line (e.g. from
 // CombinedOutput mixing stderr into stdout).
 func TestParseInspectOutput_WithLeadingWarning(t *testing.T) {
 	// Given an inspect output string prefixed with a podman warning line
-	// Field order: image|created|imageDigest|imageRef|version
-	raw := "Warning: blah blah\nimage-name|2024-01-01|sha256:abc123|ghcr.io/foo:latest|v2.0.0"
+	// Field order: image|created|imageDigest|imageRef|port|version
+	raw := "Warning: blah blah\nimage-name|2024-01-01|sha256:abc123|ghcr.io/foo:latest|4096|v2.0.0"
 
 	// When the output is parsed
-	image, created, imageDigest, imageRef, version := parseInspectOutput(raw)
+	f := parseInspectOutput(raw)
 
-	// Then the image, created, version, imageDigest, and imageRef fields are correctly extracted, ignoring the warning
-	if image != "image-name" {
-		t.Errorf("image = %q, want %q", image, "image-name")
+	// Then the fields are correctly extracted, ignoring the warning
+	if f.image != "image-name" {
+		t.Errorf("image = %q, want %q", f.image, "image-name")
 	}
-	if created != "2024-01-01" {
-		t.Errorf("created = %q, want %q", created, "2024-01-01")
+	if f.created != "2024-01-01" {
+		t.Errorf("created = %q, want %q", f.created, "2024-01-01")
 	}
-	if version != "v2.0.0" {
-		t.Errorf("version = %q, want %q", version, "v2.0.0")
+	if f.version != "v2.0.0" {
+		t.Errorf("version = %q, want %q", f.version, "v2.0.0")
 	}
-	if imageDigest != "sha256:abc123" {
-		t.Errorf("imageDigest = %q, want %q", imageDigest, "sha256:abc123")
+	if f.imageDigest != "sha256:abc123" {
+		t.Errorf("imageDigest = %q, want %q", f.imageDigest, "sha256:abc123")
 	}
-	if imageRef != "ghcr.io/foo:latest" {
-		t.Errorf("imageRef = %q, want %q", imageRef, "ghcr.io/foo:latest")
+	if f.imageRef != "ghcr.io/foo:latest" {
+		t.Errorf("imageRef = %q, want %q", f.imageRef, "ghcr.io/foo:latest")
+	}
+	if f.port != "4096" {
+		t.Errorf("port = %q, want %q", f.port, "4096")
 	}
 }
 
 // TestParseInspectOutput_AbsentVersionLabel_ReturnsEmptyString verifies that
-// parseInspectOutput returns an empty version when the fifth field is empty
+// parseInspectOutput returns an empty version when the sixth field is empty
 // (i.e. the org.opencontainers.image.version label is not set on the image).
 func TestParseInspectOutput_AbsentVersionLabel_ReturnsEmptyString(t *testing.T) {
-	// Given inspect output with an empty version field (field 5); digest is field 3, imageRef is field 4
-	raw := "Warning: blah blah\nimage-name|2024-01-01|sha256:abc123||"
+	// Given inspect output with an empty version field (field 6); digest is field 3, imageRef is field 4, port is field 5
+	raw := "Warning: blah blah\nimage-name|2024-01-01|sha256:abc123||4096|"
 
 	// When the output is parsed
-	_, _, imageDigest, imageRef, version := parseInspectOutput(raw)
+	f := parseInspectOutput(raw)
 
-	// Then version and imageRef are empty strings and digest is correctly parsed
-	if version != "" {
-		t.Errorf("version = %q, want empty string", version)
+	// Then version and imageRef are empty strings and digest and port are correctly parsed
+	if f.version != "" {
+		t.Errorf("version = %q, want empty string", f.version)
 	}
-	if imageRef != "" {
-		t.Errorf("imageRef = %q, want empty string", imageRef)
+	if f.imageRef != "" {
+		t.Errorf("imageRef = %q, want empty string", f.imageRef)
 	}
-	if imageDigest != "sha256:abc123" {
-		t.Errorf("imageDigest = %q, want %q", imageDigest, "sha256:abc123")
+	if f.imageDigest != "sha256:abc123" {
+		t.Errorf("imageDigest = %q, want %q", f.imageDigest, "sha256:abc123")
+	}
+	if f.port != "4096" {
+		t.Errorf("port = %q, want %q", f.port, "4096")
 	}
 }
 
 // TestParseInspectOutput_VersionLabelWithPipe_DigestUnaffected verifies that a
 // version label containing a pipe character does not corrupt imageDigest or
-// imageRef. imageRef (field 4) and version (field 5, last) are placed after
-// imageDigest (field 3); SplitN(..., 5) absorbs any extra pipes into the
-// version slot, so neither digest nor imageRef can be corrupted.
+// imageRef. imageRef (field 4), port (field 5) and version (field 6, last) are placed after
+// imageDigest (field 3); SplitN(..., 6) absorbs any extra pipes into the
+// version slot, so neither digest, imageRef nor port can be corrupted.
 func TestParseInspectOutput_VersionLabelWithPipe_DigestUnaffected(t *testing.T) {
 	// Given a version label that contains a pipe character
-	// Field order: image|created|imageDigest|imageRef|version (version absorbs extra pipes via SplitN)
-	raw := "image-name|2024-01-01|sha256:abc123|ghcr.io/foo:latest|1.0|injected"
+	// Field order: image|created|imageDigest|imageRef|port|version (version absorbs extra pipes via SplitN)
+	raw := "image-name|2024-01-01|sha256:abc123|ghcr.io/foo:latest|4096|1.0|injected"
 
 	// When the output is parsed
-	_, _, imageDigest, imageRef, version := parseInspectOutput(raw)
+	f := parseInspectOutput(raw)
 
-	// Then imageDigest and imageRef are unaffected; version absorbs the extra pipe content
-	if imageDigest != "sha256:abc123" {
-		t.Errorf("imageDigest = %q, want %q; pipe in version label must not corrupt digest", imageDigest, "sha256:abc123")
+	// Then imageDigest, imageRef and port are unaffected; version absorbs the extra pipe content
+	if f.imageDigest != "sha256:abc123" {
+		t.Errorf("imageDigest = %q, want %q; pipe in version label must not corrupt digest", f.imageDigest, "sha256:abc123")
 	}
-	if imageRef != "ghcr.io/foo:latest" {
-		t.Errorf("imageRef = %q, want %q; pipe in version label must not corrupt imageRef", imageRef, "ghcr.io/foo:latest")
+	if f.imageRef != "ghcr.io/foo:latest" {
+		t.Errorf("imageRef = %q, want %q; pipe in version label must not corrupt imageRef", f.imageRef, "ghcr.io/foo:latest")
 	}
-	if version != "1.0|injected" {
-		t.Errorf("version = %q, want %q", version, "1.0|injected")
+	if f.port != "4096" {
+		t.Errorf("port = %q, want %q", f.port, "4096")
+	}
+	if f.version != "1.0|injected" {
+		t.Errorf("version = %q, want %q", f.version, "1.0|injected")
 	}
 }
 
 // TestParseInspectOutput_EmptyInput verifies that parseInspectOutput returns
-// empty strings for all five fields when given an empty (or all-whitespace) input.
+// empty strings for all six fields when given an empty (or all-whitespace) input.
 func TestParseInspectOutput_EmptyInput(t *testing.T) {
 	// Given an empty input string
 
 	// When the output is parsed
-	image, created, imageDigest, imageRef, version := parseInspectOutput("")
+	f := parseInspectOutput("")
 
-	// Then all five fields are returned as empty strings
-	if image != "" {
-		t.Errorf("image = %q, want empty string", image)
+	// Then all six fields are returned as empty strings
+	if f.image != "" {
+		t.Errorf("image = %q, want empty string", f.image)
 	}
-	if created != "" {
-		t.Errorf("created = %q, want empty string", created)
+	if f.created != "" {
+		t.Errorf("created = %q, want empty string", f.created)
 	}
-	if version != "" {
-		t.Errorf("version = %q, want empty string", version)
+	if f.version != "" {
+		t.Errorf("version = %q, want empty string", f.version)
 	}
-	if imageDigest != "" {
-		t.Errorf("imageDigest = %q, want empty string", imageDigest)
+	if f.imageDigest != "" {
+		t.Errorf("imageDigest = %q, want empty string", f.imageDigest)
 	}
-	if imageRef != "" {
-		t.Errorf("imageRef = %q, want empty string", imageRef)
+	if f.imageRef != "" {
+		t.Errorf("imageRef = %q, want empty string", f.imageRef)
+	}
+	if f.port != "" {
+		t.Errorf("port = %q, want empty string", f.port)
 	}
 }

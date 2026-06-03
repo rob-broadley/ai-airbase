@@ -468,3 +468,43 @@ func TestRecreate_CreateSucceeds_NoStart(t *testing.T) {
 		t.Error("expected 'podman start' NOT to be called by recreate")
 	}
 }
+
+// TestRecreate_PreservesCustomPort verifies that recreate preserves and reuse
+// the custom port configured in the project's config.
+func TestRecreate_PreservesCustomPort(t *testing.T) {
+	// Given an existing configuration with a custom port
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{
+		exists:            false,
+		imageExistsResult: true,
+	}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	// Save existing configuration with port 5000
+	cfg := &config.Config{
+		Mounts: []string{"/projects/myapp"},
+		Port:   5000,
+	}
+	if err := config.Save("myapp", cfg); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+
+	// When the recreate subcommand is executed
+	root := cmd.NewRootCmd(deps)
+	root.SetOut(&bytes.Buffer{})
+	root.SetArgs([]string{"--project", "myapp", "recreate"})
+	assertNoError(t, root.Execute())
+
+	// Then the container is created with port 5000
+	if !runner.createArgsContain("127.0.0.1:5000:4096") {
+		t.Errorf("expected '127.0.0.1:5000:4096' in recreate args, got %v", runner.createArgs())
+	}
+}

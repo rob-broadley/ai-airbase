@@ -123,6 +123,12 @@ directory survives a container rebuild. `marshal remove` deletes mask volumes au
 > `--ignore`, so re-running is idempotent and will not duplicate or corrupt existing volumes. If you want to abandon the project entirely, run
 > `marshal remove`, which cleans up all label-tagged volumes including any that were partially provisioned.
 
+#### `--port <number>`
+
+The host loopback port to bind to the container's web interface (ports below `1024` are privileged and blocked).
+
+If the `--port` flag is omitted or set to `0`, marshal will automatically probe and allocate the first free port starting at `4096` and persist it in the project's configuration file.
+
 **Examples**
 
 ```bash
@@ -546,6 +552,8 @@ marshal stores per-project configuration as TOML files under `$XDG_CONFIG_HOME/m
 Each file records the directories to bind-mount into the container and any masked subdirectories:
 
 ```toml
+port = 5000
+
 mounts = [
     "/home/user/work/my-app",
     "/home/user/work/shared-lib",
@@ -556,6 +564,8 @@ masks = [
     "/home/user/work/my-app/node_modules",
 ]
 ```
+
+`port` specifies the host loopback port mapped to the container's web interface.
 
 `mounts` lists the host directories bind-mounted into `/workspace/`. `masks` lists the absolute host paths of subdirectories shadowed by empty named
 volumes — these paths correspond to the `--mask` values passed to `marshal create`, resolved to absolute form.

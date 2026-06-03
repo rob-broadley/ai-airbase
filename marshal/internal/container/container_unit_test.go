@@ -476,7 +476,7 @@ func TestCreate_InvokesCorrectPodmanArgs(t *testing.T) {
 	}
 
 	// When Create is called with workdir matching the mount path
-	err := container.Create(r, "mycontainer", "myimage:latest", mounts, namedVols, container.UserConfig{}, "/workspace/src", nil)
+	err := container.Create(r, "mycontainer", "myimage:latest", 4096, mounts, namedVols, container.UserConfig{}, "/workspace/src", nil)
 
 	// Then the correct podman create arguments are passed
 	if err != nil {
@@ -511,7 +511,7 @@ func TestCreate_PassesWorkdirToContainer(t *testing.T) {
 	const workdir = "/workspace/myapp"
 
 	// When Create is called with that workdir
-	err := container.Create(r, "mycontainer", "myimage:latest", mounts, nil, container.UserConfig{}, workdir, nil)
+	err := container.Create(r, "mycontainer", "myimage:latest", 4096, mounts, nil, container.UserConfig{}, workdir, nil)
 
 	// Then the -w flag is set to the supplied workdir, not /workspace
 	if err != nil {
@@ -534,7 +534,7 @@ func TestCreate_MultipleMount_AllMountsPresent(t *testing.T) {
 	}
 
 	// When Create is called
-	err := container.Create(r, "c", "img", mounts, nil, container.UserConfig{}, "/workspace", nil)
+	err := container.Create(r, "c", "img", 4096, mounts, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then both mounts appear in the podman create arguments
 	if err != nil {
@@ -556,7 +556,7 @@ func TestCreate_RunnerError_PropagatesError(t *testing.T) {
 	r := newFake(errOut(errors.New("image not found")))
 
 	// When Create is called
-	err := container.Create(r, "c", "bad-image", nil, nil, container.UserConfig{}, "/workspace", nil)
+	err := container.Create(r, "c", "bad-image", 4096, nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then the error is propagated
 	if err == nil {
@@ -575,7 +575,7 @@ func TestCreate_AllMountsHaveZSELinuxSuffix(t *testing.T) {
 	}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", mounts, nil, container.UserConfig{}, "/workspace", nil)
+	_ = container.Create(r, "c", "img", 4096, mounts, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then every mount argument includes the :Z SELinux suffix
 	args := r.calls[0].args
@@ -600,7 +600,7 @@ func TestCreate_AppendsCmdAfterImage(t *testing.T) {
 	cmd := []string{"opencode", "--agent=mission-control"}
 
 	// When Create is called with the cmd slice
-	err := container.Create(r, "mycontainer", "myimage:latest", nil, nil, container.UserConfig{}, "/workspace", cmd)
+	err := container.Create(r, "mycontainer", "myimage:latest", 4096, nil, nil, container.UserConfig{}, "/workspace", cmd)
 
 	// Then the error is nil and the args end with the image name followed by the cmd
 	if err != nil {
@@ -639,7 +639,7 @@ func TestCreate_EmptyCmdAppendsNothing(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called with a nil cmd
-	err := container.Create(r, "mycontainer", "myimage:latest", nil, nil, container.UserConfig{}, "/workspace", nil)
+	err := container.Create(r, "mycontainer", "myimage:latest", 4096, nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then the image name is the last argument
 	if err != nil {
@@ -886,7 +886,7 @@ func TestCreate_NamedVolumesAppearInArgs(t *testing.T) {
 	}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, namedVols, container.UserConfig{}, "/workspace", nil)
+	_ = container.Create(r, "c", "img", 4096, nil, namedVols, container.UserConfig{}, "/workspace", nil)
 
 	// Then both named volumes are present without a :Z suffix
 	args := r.calls[0].args
@@ -908,7 +908,7 @@ func TestCreate_NamedVolumes_NoZSuffix(t *testing.T) {
 	}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, namedVols, container.UserConfig{}, "/workspace", nil)
+	_ = container.Create(r, "c", "img", 4096, nil, namedVols, container.UserConfig{}, "/workspace", nil)
 
 	// Then the named volume arg does not have a :Z suffix
 	args := r.calls[0].args
@@ -949,7 +949,7 @@ func TestCreate_HasManagedByLabel(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called with a container name and image
-	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, nil, container.UserConfig{}, "/workspace", nil)
+	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", 4096, nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then --label io.ai-airbase.managed-by=marshal is present in the podman create arguments
 	args := r.calls[0].args
@@ -968,7 +968,7 @@ func TestCreate_HasProjectLabel(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called with containerName "marshal-myapp"
-	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, nil, container.UserConfig{}, "/workspace", nil)
+	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", 4096, nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then --label io.ai-airbase.project=marshal-myapp is present in the podman create arguments
 	args := r.calls[0].args
@@ -984,7 +984,7 @@ func TestCreate_HasImageLabel(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called with image "ghcr.io/org/img:latest"
-	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", nil, nil, container.UserConfig{}, "/workspace", nil)
+	_ = container.Create(r, "marshal-myapp", "ghcr.io/org/img:latest", 4096, nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then --label io.ai-airbase.image=ghcr.io/org/img:latest is present in the podman create arguments
 	args := r.calls[0].args
@@ -1000,7 +1000,7 @@ func TestCreate_LabelFlagsAreAdjacentPairs(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called
-	_ = container.Create(r, "marshal-proj", "myimage:1.0", nil, nil, container.UserConfig{}, "/workspace", nil)
+	_ = container.Create(r, "marshal-proj", "myimage:1.0", 4096, nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then each label value is immediately preceded by --label (pair format)
 	args := r.calls[0].args
@@ -1030,7 +1030,7 @@ func TestCreate_HasUsernsKeepId(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, nil, container.UserConfig{}, "/workspace", nil)
+	_ = container.Create(r, "c", "img", 4096, nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	// Then --userns=keep-id is present in the podman create arguments
 	if !hasArg(r.calls[0].args, "--userns=keep-id") {
@@ -1045,7 +1045,7 @@ func TestCreate_HasNoNewPrivileges(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, nil, container.UserConfig{}, "/workspace", nil)
+	_ = container.Create(r, "c", "img", 4096, nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	args := r.calls[0].args
 	// Then --security-opt no-new-privileges is present as a consecutive pair
@@ -1061,7 +1061,7 @@ func TestCreate_HasPortMapping(t *testing.T) {
 	r := newFake(okEmpty())
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, nil, container.UserConfig{}, "/workspace", nil)
+	_ = container.Create(r, "c", "img", 4096, nil, nil, container.UserConfig{}, "/workspace", nil)
 
 	args := r.calls[0].args
 	// Then -p 127.0.0.1:4096:4096 is present as a consecutive pair
@@ -1078,7 +1078,7 @@ func TestCreate_UserConfig_SetsUserFlag(t *testing.T) {
 	uc := container.UserConfig{UID: 1001, GID: 1001, HomeDir: "/home/alice"}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, nil, uc, "/workspace", nil)
+	_ = container.Create(r, "c", "img", 4096, nil, nil, uc, "/workspace", nil)
 
 	// Then --user 1001:1001 is present in the podman create arguments
 	args := r.calls[0].args
@@ -1105,7 +1105,7 @@ func TestCreate_UserConfig_SetsHomeEnv(t *testing.T) {
 	uc := container.UserConfig{UID: 1001, GID: 1001, HomeDir: "/home/alice"}
 
 	// When Create is called
-	_ = container.Create(r, "c", "img", nil, nil, uc, "/workspace", nil)
+	_ = container.Create(r, "c", "img", 4096, nil, nil, uc, "/workspace", nil)
 
 	// Then -e HOME=/home/alice is present in the podman create arguments
 	args := r.calls[0].args
@@ -1344,13 +1344,13 @@ func TestGetStatus_ContainerDoesNotExist_ReturnsNotExistsStatus(t *testing.T) {
 }
 
 // TestGetStatus_ContainerRunning_ReturnsFullStatus verifies that GetStatus
-// returns full status (Exists, Running, Image, ImageRef, ImageDigest, Created, Version) for a running container.
+// returns full status (Exists, Running, Image, ImageRef, ImageDigest, Created, Version, Port) for a running container.
 func TestGetStatus_ContainerRunning_ReturnsFullStatus(t *testing.T) {
 	// Given a running container with inspect data including the version label, image ref, and image digest
 	r := newFake(
 		okOut("mycontainer\n"), // Exists → true
 		okOut("mycontainer\n"), // IsRunning → true
-		okOut("docker.io/myimage:latest|2024-01-15T10:30:00Z|sha256:abc123|docker.io/myimage:latest|v1.2.3\n"), // inspect (field order: image|created|digest|imageRef|version)
+		okOut("docker.io/myimage:latest|2024-01-15T10:30:00Z|sha256:abc123|docker.io/myimage:latest|4096|v1.2.3\n"), // inspect (field order: image|created|digest|imageRef|port|version)
 	)
 
 	// When GetStatus is called
@@ -1381,14 +1381,17 @@ func TestGetStatus_ContainerRunning_ReturnsFullStatus(t *testing.T) {
 	if got.ImageDigest != "sha256:abc123" {
 		t.Errorf("ImageDigest = %q, want %q", got.ImageDigest, "sha256:abc123")
 	}
-	// The inspect call (calls[2]) must include --format with the full 5-field template
+	if got.Port != 4096 {
+		t.Errorf("Port = %d, want %d", got.Port, 4096)
+	}
+	// The inspect call (calls[2]) must include --format with the full 6-field template
 	if len(r.calls) < 3 {
 		t.Fatalf("expected at least 3 calls, got %d", len(r.calls))
 	}
 	if !hasArg(r.calls[2].args, "--format") {
 		t.Error("expected --format flag in inspect args")
 	}
-	const wantFormat = `{{.Image}}|{{.Created}}|{{.ImageDigest}}|{{.ImageName}}|{{index .Config.Labels "org.opencontainers.image.version"}}`
+	const wantFormat = `{{.Image}}|{{.Created}}|{{.ImageDigest}}|{{.ImageName}}|{{range $p, $conf := .NetworkSettings.Ports}}{{range $conf}}{{.HostPort}}{{end}}{{end}}|{{index .Config.Labels "org.opencontainers.image.version"}}`
 	if !hasConsecutiveArgs(r.calls[2].args, "--format", wantFormat) {
 		t.Errorf("expected --format %q in inspect args; got %v", wantFormat, r.calls[2].args)
 	}
@@ -1401,7 +1404,7 @@ func TestGetStatus_ContainerStopped_ReturnsExistsNotRunning(t *testing.T) {
 	r := newFake(
 		okOut("mycontainer\n"), // Exists → true
 		okOut(""),              // IsRunning → false
-		okOut("docker.io/myimage:latest|2024-01-10T08:00:00Z|||\n"), // inspect (field order: image|created|digest|imageRef|version)
+		okOut("docker.io/myimage:latest|2024-01-10T08:00:00Z||||\n"), // inspect (field order: image|created|digest|imageRef|port|version)
 	)
 
 	// When GetStatus is called
@@ -1658,7 +1661,7 @@ func TestUserIdentityArgs_IncludesPasswdEntry(t *testing.T) {
 	uc := container.UserConfig{UID: 1001, GID: 1002, HomeDir: "/home/opencode"}
 
 	// When Create is called
-	_ = container.Create(runner, "marshal-myapp", "img", nil, nil, uc, "/workspace", nil)
+	_ = container.Create(runner, "marshal-myapp", "img", 4096, nil, nil, uc, "/workspace", nil)
 
 	// Then --passwd-entry with opencode:x:1001:1002 is included in the args
 	args := runner.lastCreateArgs()
@@ -1688,7 +1691,7 @@ func TestUserIdentityArgs_HomeInPasswdEntry(t *testing.T) {
 	uc := container.UserConfig{UID: 500, GID: 500, HomeDir: "/home/opencode"}
 
 	// When Create is called
-	_ = container.Create(runner, "marshal-myapp", "img", nil, nil, uc, "/workspace", nil)
+	_ = container.Create(runner, "marshal-myapp", "img", 4096, nil, nil, uc, "/workspace", nil)
 
 	// Then the passwd entry contains the correct home directory and UID:GID
 	args := runner.lastCreateArgs()

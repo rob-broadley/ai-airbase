@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"syscall"
@@ -53,6 +54,9 @@ type Deps struct {
 	// container creation, volume provisioning). When nil, a discard logger is
 	// used so callers that do not inject a logger are not affected.
 	Logger *slog.Logger
+	// IsPortBound checks if a TCP port is already bound on host loopback.
+	// Defaults to standard net.Listen-based check.
+	IsPortBound func(port int) bool
 }
 
 // deleteConfig returns the effective config-delete function: the injected one or config.Delete.
@@ -106,6 +110,14 @@ func (d Deps) lookupGitConfigFn() func(string) string {
 		return d.LookupGitConfig
 	}
 	return func(string) string { return "" }
+}
+
+// isPortBound returns the effective port-binding check: the injected one or defaultIsPortBound.
+func (d Deps) isPortBound() func(int) bool {
+	if d.IsPortBound != nil {
+		return d.IsPortBound
+	}
+	return defaultIsPortBound
 }
 
 // logger returns the injected Logger or a discard logger when none is set.
@@ -221,4 +233,14 @@ func defaultImage() string {
 		return img
 	}
 	return "ghcr.io/rob-broadley/ai-airbase/revetment:latest"
+}
+
+func defaultIsPortBound(port int) bool {
+	address := fmt.Sprintf("127.0.0.1:%d", port)
+	l, err := net.Listen("tcp", address)
+	if err != nil {
+		return true
+	}
+	_ = l.Close()
+	return false
 }

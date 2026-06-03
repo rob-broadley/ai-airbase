@@ -492,3 +492,174 @@ func TestCreate_ImagePullFails(t *testing.T) {
 	// Then the pull error is propagated
 	assertError(t, err)
 }
+
+// TestCreate_WithCustomPort verifies that custom port is validated, saved to config,
+// and correctly used in podman create command.
+func TestCreate_WithCustomPort(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetOut(&bytes.Buffer{})
+	root.SetArgs([]string{"--project", "myapp", "create", "--port", "5000"})
+
+	// When create is executed with custom port
+	assertNoError(t, root.Execute())
+
+	// Then config was saved with the custom port
+	cfg, err := config.Load("myapp")
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	if cfg.Port != 5000 {
+		t.Errorf("expected config.Port = 5000, got %d", cfg.Port)
+	}
+
+	// And podman create maps port 5000 to container 4096
+	if !runner.createArgsContain("127.0.0.1:5000:4096") {
+		t.Errorf("expected '127.0.0.1:5000:4096' in create args, got %v", runner.createArgs())
+	}
+}
+
+// TestCreate_InvalidPortRange verifies that create rejects invalid ports (<1024 or >65535).
+func TestCreate_InvalidPortRange(t *testing.T) {
+	for _, invalidPort := range []string{"80", "1023", "65536"} {
+		t.Run("port_"+invalidPort, func(t *testing.T) {
+			t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+			runner := &fakeRunner{exists: false, imageExistsResult: true}
+			deps := cmd.Deps{
+				Runner:              runner,
+				ExecFn:              (&fakeExec{}).exec,
+				Getwd:               func() (string, error) { return "/projects/myapp", nil },
+				Getuid:              stubGetuid,
+				Getgid:              stubGetgid,
+				EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+			}
+
+			root := cmd.NewRootCmd(deps)
+			root.SetOut(&bytes.Buffer{})
+			root.SetErr(&bytes.Buffer{})
+			root.SetArgs([]string{"--project", "myapp", "create", "--port", invalidPort})
+
+			// When create is executed with invalid port
+			err := root.Execute()
+
+			// Then an error is returned
+			assertError(t, err)
+			assertContains(t, err.Error(), "must be in range 1024-65535")
+		})
+	}
+}
+
+// TestCreate_PortConflictWithOtherProject verifies that create rejects ports already taken by other projects.
+func TestCreate_PortConflictWithOtherProject(t *testing.T) {
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+
+	// Pre-register another project config with port 5000
+	otherCfg := &config.Config{
+		Mounts: []string{},
+		Masks:  []string{},
+		Port:   5000,
+	}
+	if err := config.Save("otherproject", otherCfg); err != nil {
+		t.Fatalf("saving other config: %v", err)
+	}
+
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetOut(&bytes.Buffer{})
+	root.SetArgs([]string{"--project", "myapp", "create", "--port", "5000"})
+
+	// When create is executed with a port already taken by otherproject
+	err := root.Execute()
+
+	// Then an error is returned
+	assertError(t, err)
+	assertContains(t, err.Error(), `port 5000 is already configured for project "otherproject"`)
+}
+
+// TestCreate_PortConflictWithHost verifies that create rejects ports already bound on the host.
+func TestCreate_PortConflictWithHost(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		IsPortBound:         func(port int) bool { return port == 5000 },
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetOut(&bytes.Buffer{})
+	root.SetArgs([]string{"--project", "myapp", "create", "--port", "5000"})
+
+	// When create is executed with a port bound on host
+	err := root.Execute()
+
+	// Then an error is returned
+	assertError(t, err)
+	assertContains(t, err.Error(), "port 5000 is already in use on the host")
+}
+
+// TestCreate_AutoPortAllocation verifies that when no port is specified,
+// create auto-allocates the first free port (starting at 4096), persists it, and maps it.
+func TestCreate_AutoPortAllocation(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		// Mock 4096 as bound, but 4097 as free
+		IsPortBound: func(port int) bool { return port == 4096 },
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetOut(&bytes.Buffer{})
+	root.SetArgs([]string{"--project", "myapp", "create"})
+
+	// When create is executed with no explicit port
+	assertNoError(t, root.Execute())
+
+	// Then config was saved with the auto-allocated port 4097
+	cfg, err := config.Load("myapp")
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	if cfg.Port != 4097 {
+		t.Errorf("expected config.Port = 4097, got %d", cfg.Port)
+	}
+
+	// And podman create maps port 4097
+	if !runner.createArgsContain("127.0.0.1:4097:4096") {
+		t.Errorf("expected '127.0.0.1:4097:4096' in create args, got %v", runner.createArgs())
+	}
+}

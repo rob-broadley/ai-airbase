@@ -20,7 +20,7 @@ import (
 // listHeader is the exact header line produced by `marshal list`.
 // Using a named constant ensures there is one place to update if the
 // column names or spacing ever changes.
-const listHeader = "NAME  STATUS   CONFIG\n"
+const listHeader = "NAME  STATUS   PORT   CONFIG\n"
 
 // testContainerName mirrors the production containerNameForProject logic.
 // Using this helper in test state-map keys means there is one place to
@@ -52,6 +52,17 @@ type listRunner struct {
 }
 
 func (r *listRunner) Run(name string, args ...string) ([]byte, error) {
+	if name == "podman" && len(args) > 0 && args[0] == "inspect" {
+		containerName := args[len(args)-1]
+		if containerName == "marshal-alpha" {
+			return []byte("img|2024-01-01|||4096|\n"), nil
+		}
+		if containerName == "marshal-beta" {
+			return []byte("img|2024-01-01|||5000|\n"), nil
+		}
+		return []byte("img|2024-01-01||||\n"), nil
+	}
+
 	if name != "podman" || len(args) == 0 || args[0] != "ps" {
 		return []byte(""), nil
 	}
@@ -847,4 +858,46 @@ func TestAcceptance_ListWithOnlyNonTomlFilesInProjectsDir_PrintsHeaderAndExitsZe
 		t.Errorf("stdout = %q, want %q", got, listHeader)
 	}
 	assertNotContains(t, got, ".gitkeep")
+}
+
+// TestAcceptance_List_DisplaysPorts verifies that the list command prints the port
+// number for each project.
+func TestAcceptance_List_DisplaysPorts(t *testing.T) {
+	// Given two projects, one with default port (4096) and one with a custom port (5000)
+	configHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configHome)
+
+	projDir := filepath.Join(configHome, "marshal", "projects")
+	if err := os.MkdirAll(projDir, 0o755); err != nil {
+		t.Fatalf("creating projects dir: %v", err)
+	}
+
+	// Project alpha has default port 4096 (port field omitted/0)
+	alphaCfg := &config.Config{Mounts: []string{"/projects/alpha"}}
+	if err := config.Save("alpha", alphaCfg); err != nil {
+		t.Fatalf("saving config for alpha: %v", err)
+	}
+
+	// Project beta has custom port 5000
+	betaCfg := &config.Config{Mounts: []string{"/projects/beta"}, Port: 5000}
+	if err := config.Save("beta", betaCfg); err != nil {
+		t.Fatalf("saving config for beta: %v", err)
+	}
+
+	runner := &listRunner{
+		containerStates: map[string]listContainerState{
+			testContainerName("alpha"): {exists: true, running: true},
+			testContainerName("beta"):  {exists: true, running: false},
+		},
+	}
+	deps := newListDeps(t, runner)
+
+	// When marshal list is executed
+	out, _, err := runCmd(t, deps, "list")
+	assertNoError(t, err)
+
+	// Then alpha is listed with port 4096 and beta is listed with port 5000
+	got := out.String()
+	assertRowContains(t, got, "alpha", "4096")
+	assertRowContains(t, got, "beta", "5000")
 }
