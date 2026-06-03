@@ -130,8 +130,8 @@ VOLUME /home/opencode/.local/share/uv
 
 
 # Bundle cadre agents and skills so they are available to OpenCode out of the box.
-COPY cadre/ /opt/cadre/
-ENV OPENCODE_CONFIG_DIR=/opt/cadre
+ENV OPENCODE_CONFIG_DIR=/etc/xdg/opencode
+COPY cadre/ $OPENCODE_CONFIG_DIR/
 
 WORKDIR $WORKSPACE
 
