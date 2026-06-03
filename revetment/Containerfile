@@ -33,6 +33,10 @@ npm install -g "opencode-ai@${OPENCODE_VERSION}"
 npm cache clean --force
 NPM_INSTALL
 
+# Configure opencode
+ENV OPENCODE_DISABLE_SHARE=1
+ENV OPENCODE_DISABLE_AUTOUPDATE=1
+
 # Install extra tools via uv
 ENV UV_TOOL_BIN_DIR=/usr/local/bin
 ENV UV_TOOL_DIR=/usr/local/share/uv/tools
