@@ -63,7 +63,7 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 	})
 
 	// Per-project session store and session state — both isolated by project.
-	projectShareDir, err := deps.ensureSharedDataDir()("projects/" + project + "/share")
+	projectShareDir, err := deps.ensureSharedDataDir()("projects/" + project + "/opencode/share")
 	if err != nil {
 		return nil, fmt.Errorf("ensuring project share dir for %s: %w", project, err)
 	}
@@ -72,7 +72,7 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 		ContainerPath: container.ContainerOpencodeDataDir,
 	})
 
-	projectStateDir, err := deps.ensureSharedDataDir()("projects/" + project + "/state")
+	projectStateDir, err := deps.ensureSharedDataDir()("projects/" + project + "/opencode/state")
 	if err != nil {
 		return nil, fmt.Errorf("ensuring project state dir for project %s: %w", project, err)
 	}

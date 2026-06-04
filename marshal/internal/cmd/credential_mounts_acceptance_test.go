@@ -183,7 +183,7 @@ func TestDefaultCmd_GitConfigNotOverwrittenIfExists(t *testing.T) {
 }
 
 // TestDefaultCmd_SessionStoreMounted verifies that the share/ directory is
-// bind-mounted from the per-project XDG_DATA_HOME/marshal/projects/<project>/share/
+// bind-mounted from the per-project XDG_DATA_HOME/marshal/projects/<project>/opencode/share/
 // path so conversation history is preserved across container recreates.
 func TestDefaultCmd_SessionStoreMounted(t *testing.T) {
 	// Given deps configured for project "myapp"
@@ -209,7 +209,7 @@ func TestDefaultCmd_SessionStoreMounted(t *testing.T) {
 
 	// Then the share/ directory is mounted from the per-project data directory
 	args := runner.createArgs()
-	want := cf.expectedDataMount("projects/myapp/share", container.ContainerOpencodeDataDir)
+	want := cf.expectedDataMount("projects/myapp/opencode/share", container.ContainerOpencodeDataDir)
 	if !sliceContains(args, want) {
 		t.Errorf("expected share/ directory mount %q in create args\ngot: %v", want, args)
 	}
@@ -242,7 +242,7 @@ func TestDefaultCmd_SessionStateMountedPerProject(t *testing.T) {
 
 	// Then state/ directory is mounted from a per-project path under XDG_DATA_HOME
 	args := runner.createArgs()
-	want := cf.expectedDataMount("projects/myapp/state", container.ContainerOpencodeStateDir)
+	want := cf.expectedDataMount("projects/myapp/opencode/state", container.ContainerOpencodeStateDir)
 	if !sliceContains(args, want) {
 		t.Errorf("expected per-project state/ directory mount %q in create args\ngot: %v", want, args)
 	}
@@ -286,8 +286,8 @@ func TestCredentialMounts_SessionStateIsolatedByProject(t *testing.T) {
 		betaSubdir    string
 		containerPath string
 	}{
-		{"projects/alpha/state", "projects/beta/state", container.ContainerOpencodeStateDir},
-		{"projects/alpha/share", "projects/beta/share", container.ContainerOpencodeDataDir},
+		{"projects/alpha/opencode/state", "projects/beta/opencode/state", container.ContainerOpencodeStateDir},
+		{"projects/alpha/opencode/share", "projects/beta/opencode/share", container.ContainerOpencodeDataDir},
 	} {
 		alphaMount := cf.expectedDataMount(tc.alphaSubdir, tc.containerPath)
 		betaMount := cf.expectedDataMount(tc.betaSubdir, tc.containerPath)
@@ -389,7 +389,7 @@ func TestRecreate_CredentialMountsIncluded(t *testing.T) {
 	// Then credential mounts (config and share directories) are included
 	args := runner.createArgs()
 	opencodeConfigMount := cf.expectedConfigMount("opencode", container.ContainerOpencodeConfigDir)
-	sessionMount := cf.expectedDataMount("projects/myapp/share", container.ContainerOpencodeDataDir)
+	sessionMount := cf.expectedDataMount("projects/myapp/opencode/share", container.ContainerOpencodeDataDir)
 
 	if !sliceContains(args, opencodeConfigMount) {
 		t.Errorf("recreate: expected settings mount %q\ngot: %v", opencodeConfigMount, args)
