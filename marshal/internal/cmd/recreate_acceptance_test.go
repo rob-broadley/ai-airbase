@@ -508,3 +508,53 @@ func TestRecreate_PreservesCustomPort(t *testing.T) {
 		t.Errorf("expected '127.0.0.1:5000:4096' in recreate args, got %v", runner.createArgs())
 	}
 }
+
+// TestRecreate_AutoAllocatesAndPersistsPortWhenNoneConfigured verifies that when
+// no port is configured in the config file, recreate auto-allocates a free port,
+// persists it to the configuration file, and maps it in the podman create command.
+func TestRecreate_AutoAllocatesAndPersistsPortWhenNoneConfigured(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{
+		exists:            false,
+		imageExistsResult: true,
+	}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		IsPortBound:         func(port int) bool { return port == 4096 }, // Mock 4096 bound, 4097 free
+	}
+
+	// Save existing configuration with no port (Port: 0)
+	cfg := &config.Config{
+		Mounts: []string{"/projects/myapp"},
+		Port:   0,
+	}
+	if err := config.Save("myapp", cfg); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+
+	// When the recreate subcommand is executed
+	root := cmd.NewRootCmd(deps)
+	root.SetOut(&bytes.Buffer{})
+	root.SetArgs([]string{"--project", "myapp", "recreate"})
+	assertNoError(t, root.Execute())
+
+	// Then the config file is updated and persisted with the auto-allocated port 4097
+	loadedCfg, err := config.Load("myapp")
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+	if loadedCfg.Port != 4097 {
+		t.Errorf("expected config.Port to be persisted as 4097, got %d", loadedCfg.Port)
+	}
+
+	// And the container is created mapping port 4097
+	if !runner.createArgsContain("127.0.0.1:4097:4096") {
+		t.Errorf("expected '127.0.0.1:4097:4096' in recreate args, got %v", runner.createArgs())
+	}
+}

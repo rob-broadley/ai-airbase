@@ -663,3 +663,61 @@ func TestCreate_AutoPortAllocation(t *testing.T) {
 		t.Errorf("expected '127.0.0.1:4097:4096' in create args, got %v", runner.createArgs())
 	}
 }
+
+// TestCreate_NoPortFlag_SavesConfigExactlyOnce verifies that when `marshal
+// create` is run without `--port`, the project config is persisted exactly
+// once. The first save must already contain the auto-allocated port — a
+// separate, follow-up save (as previously triggered by ensurePortIsConfigured
+// inside resolveContainerParams) would briefly leave the on-disk config with
+// Port: 0 and waste a file write on every fresh create.
+func TestCreate_NoPortFlag_SavesConfigExactlyOnce(t *testing.T) {
+	// Given a SaveConfig spy that counts invocations and records the last saved config
+	var saveCalls int
+	var lastSavedProject string
+	var lastSavedCfg *config.Config
+
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		SaveConfig: func(project string, cfg *config.Config) error {
+			saveCalls++
+			lastSavedProject = project
+			lastSavedCfg = cfg
+			// Also persist to disk so the second loadConfig inside
+			// resolveContainerParams sees the saved state — otherwise
+			// the spy would mask a real double-save by reading back an
+			// empty config.
+			return config.Save(project, cfg)
+		},
+	}
+
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := cmd.NewRootCmd(deps)
+	root.SetOut(&bytes.Buffer{})
+	// When `marshal create` is executed without --port
+	root.SetArgs([]string{"--project", "myapp", "create"})
+
+	assertNoError(t, root.Execute())
+
+	// Then SaveConfig is called exactly once (not twice)
+	if saveCalls != 1 {
+		t.Errorf("expected SaveConfig to be called exactly once, got %d calls", saveCalls)
+	}
+
+	// And the last saved config has a non-zero port (auto-allocated before the save)
+	if lastSavedCfg == nil {
+		t.Fatal("expected SaveConfig to have been called with a non-nil config")
+	}
+	if lastSavedCfg.Port == 0 {
+		t.Errorf("expected last saved config to have a non-zero Port, got %d", lastSavedCfg.Port)
+	}
+	if lastSavedProject != "myapp" {
+		t.Errorf("expected saved project name to be %q, got %q", "myapp", lastSavedProject)
+	}
+}

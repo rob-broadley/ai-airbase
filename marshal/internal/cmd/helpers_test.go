@@ -3,13 +3,18 @@ package cmd
 
 import (
 	"bytes"
+	"context"
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
 )
 
@@ -475,5 +480,394 @@ func TestMaskContainerPath_ExactMountRootMatch(t *testing.T) {
 	// Then the container destination for the mount root is returned
 	if result != "/workspace/project" {
 		t.Errorf("maskContainerPath returned %q, want %q", result, "/workspace/project")
+	}
+}
+
+// recordingHandler is an slog.Handler spy that captures every record it is
+// asked to handle. It is safe for concurrent use; records are appended under a
+// mutex in the order Handle is called. It is used by the log-spy tests
+// TestEnsurePortIsConfigured_EmitsInfoLogOnAutoAllocation and
+// TestEnsurePortIsConfigured_DoesNotLogWhenPortAlreadyConfigured below to
+// assert that an INFO log call is emitted on the auto-allocation path and
+// that no log call is emitted on the early-return path.
+type recordingHandler struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+// Enabled always reports true so the spy records records at any level.
+func (h *recordingHandler) Enabled(_ context.Context, _ slog.Level) bool { return true }
+
+// Handle appends a clone of r to the spy's record slice.
+func (h *recordingHandler) Handle(_ context.Context, r slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.records = append(h.records, r.Clone())
+	return nil
+}
+
+// WithAttrs is a no-op: the spy is not used with pre-attached attributes.
+func (h *recordingHandler) WithAttrs(_ []slog.Attr) slog.Handler { return h }
+
+// WithGroup is a no-op: the spy does not model groups.
+func (h *recordingHandler) WithGroup(_ string) slog.Handler { return h }
+
+// recordCount returns the number of captured records.
+func (h *recordingHandler) recordCount() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return len(h.records)
+}
+
+// describeRecords returns a one-line human-readable dump of every captured
+// record (level + message), used in test failure messages so an operator can
+// see what was actually logged.
+func (h *recordingHandler) describeRecords() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if len(h.records) == 0 {
+		return "(no records)"
+	}
+	parts := make([]string, 0, len(h.records))
+	for _, r := range h.records {
+		parts = append(parts, fmt.Sprintf("{level=%s msg=%q}", r.Level, r.Message))
+	}
+	return strings.Join(parts, ", ")
+}
+
+// findInfoRecordWithValue returns the first record at INFO level whose
+// attributes include a key==attrKey with a value matching the string form of
+// want, OR whose rendered message text contains the string form of want. This
+// lets the test pass against either an attribute-style log call
+// (slog.Int("port", n)) or a printf-style log call whose message embeds the
+// port number. Returns the record and true on success, or a zero slog.Record
+// and false if no matching record exists.
+func (h *recordingHandler) findInfoRecordWithValue(attrKey string, want any) (slog.Record, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	wantStr := fmt.Sprintf("%v", want)
+	for _, r := range h.records {
+		if r.Level != slog.LevelInfo {
+			continue
+		}
+		if strings.Contains(r.Message, wantStr) {
+			return r, true
+		}
+		found := false
+		r.Attrs(func(a slog.Attr) bool {
+			if a.Key == attrKey && fmt.Sprintf("%v", a.Value.Any()) == wantStr {
+				found = true
+				return false
+			}
+			return true
+		})
+		if found {
+			return r, true
+		}
+	}
+	return slog.Record{}, false
+}
+
+// ---------------------------------------------------------------------------
+// Unit tests for port allocation and validation
+// ---------------------------------------------------------------------------
+
+// TestEnsurePortIsConfigured_AutoAllocatesFreePortAndPersists verifies that
+// when no port is configured (cfg.Port == 0) and the host has a free port
+// available, ensurePortIsConfigured auto-allocates it, updates the in-memory
+// config to reflect the new port, and persists the configuration via
+// SaveConfig.
+func TestEnsurePortIsConfigured_AutoAllocatesFreePortAndPersists(t *testing.T) {
+	// Given a project "my-project" with no port configured (cfg.Port is 0)
+	cfg := &config.Config{Port: 0}
+	// And there is a free port available (first available is 4096)
+	// And deps has functions configured for listing projects, checking port bounds, and saving configuration
+	var savedProject string
+	var savedCfg *config.Config
+	saveCalled := 0
+
+	deps := Deps{
+		ListProjects: func() ([]string, []string, error) {
+			return []string{"my-project"}, nil, nil
+		},
+		IsPortBound: func(port int) bool {
+			return false
+		},
+		SaveConfig: func(project string, cfg *config.Config) error {
+			savedProject = project
+			savedCfg = cfg
+			saveCalled++
+			return nil
+		},
+	}
+
+	// When ensurePortIsConfigured is called with the project and configuration
+	port, err := ensurePortIsConfigured(deps, "my-project", cfg)
+
+	// Then the configuration port (cfg.Port) is updated to 4096
+	if cfg.Port != 4096 {
+		t.Errorf("expected cfg.Port to be updated to 4096, got %d", cfg.Port)
+	}
+	// And deps.saveConfig is called to save the configuration
+	if saveCalled != 1 {
+		t.Errorf("expected SaveConfig to be called once, called %d times", saveCalled)
+	}
+	if savedProject != "my-project" {
+		t.Errorf("expected saved project to be %q, got %q", "my-project", savedProject)
+	}
+	if savedCfg != cfg {
+		t.Errorf("expected saved config to be the same config pointer")
+	}
+	// And the resolved port 4096 is returned without error
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if port != 4096 {
+		t.Errorf("expected resolved port 4096, got %d", port)
+	}
+}
+
+// TestEnsurePortIsConfigured_LeavesConfiguredPortUnchangedAndDoesNotSave
+// verifies that when a port is already configured (cfg.Port != 0),
+// ensurePortIsConfigured returns it unchanged and does not invoke SaveConfig.
+func TestEnsurePortIsConfigured_LeavesConfiguredPortUnchangedAndDoesNotSave(t *testing.T) {
+	// Given a project "my-project" with port 8080 already configured
+	cfg := &config.Config{Port: 8080}
+	// And a SaveConfig spy that counts invocations
+	saveCalled := 0
+	deps := Deps{
+		SaveConfig: func(project string, cfg *config.Config) error {
+			saveCalled++
+			return nil
+		},
+	}
+
+	// When ensurePortIsConfigured is called
+	port, err := ensurePortIsConfigured(deps, "my-project", cfg)
+
+	// Then the configured port 8080 is returned with no error
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if port != 8080 {
+		t.Errorf("expected configured port 8080, got %d", port)
+	}
+	// And cfg.Port is left unchanged at 8080
+	if cfg.Port != 8080 {
+		t.Errorf("expected cfg.Port to remain 8080, got %d", cfg.Port)
+	}
+	// And SaveConfig is not called
+	if saveCalled != 0 {
+		t.Errorf("expected SaveConfig not to be called, called %d times", saveCalled)
+	}
+}
+
+// TestEnsurePortIsConfigured_PropagatesFreePortLookupError verifies that when
+// no port is configured and the free-port lookup (via ListProjects) returns an
+// error, ensurePortIsConfigured surfaces that error and does not call
+// SaveConfig.
+func TestEnsurePortIsConfigured_PropagatesFreePortLookupError(t *testing.T) {
+	// Given a project "my-project" with no port configured (cfg.Port is 0)
+	// And ListProjects returns a sentinel error that findFreePort will surface
+	cfg := &config.Config{Port: 0}
+	listErr := errors.New("list projects failed")
+	saveCalled := 0
+	deps := Deps{
+		ListProjects: func() ([]string, []string, error) {
+			return nil, nil, listErr
+		},
+		SaveConfig: func(project string, cfg *config.Config) error {
+			saveCalled++
+			return nil
+		},
+	}
+
+	// When ensurePortIsConfigured is called
+	port, err := ensurePortIsConfigured(deps, "my-project", cfg)
+
+	// Then the sentinel error is returned and port is 0
+	if !errors.Is(err, listErr) {
+		t.Errorf("expected error %v, got %v", listErr, err)
+	}
+	if port != 0 {
+		t.Errorf("expected port 0 on error, got %d", port)
+	}
+	// And SaveConfig is not called
+	if saveCalled != 0 {
+		t.Errorf("expected SaveConfig not to be called, called %d times", saveCalled)
+	}
+}
+
+// TestEnsurePortIsConfigured_PropagatesConfigurationSaveError verifies that
+// when SaveConfig fails after a free port is allocated, ensurePortIsConfigured
+// propagates the save error and returns a port of 0.
+func TestEnsurePortIsConfigured_PropagatesConfigurationSaveError(t *testing.T) {
+	// Given a project "my-project" with no port configured (cfg.Port is 0)
+	// And ListProjects returns an empty list (no port conflicts to probe)
+	// And IsPortBound returns false (port 4096 is free)
+	// And SaveConfig returns a sentinel error
+	cfg := &config.Config{Port: 0}
+	saveErr := errors.New("disk full")
+	deps := Deps{
+		ListProjects: func() ([]string, []string, error) {
+			return nil, nil, nil
+		},
+		IsPortBound: func(port int) bool {
+			return false
+		},
+		SaveConfig: func(project string, cfg *config.Config) error {
+			return saveErr
+		},
+	}
+
+	// When ensurePortIsConfigured is called
+	port, err := ensurePortIsConfigured(deps, "my-project", cfg)
+
+	// Then the SaveConfig error is propagated
+	if !errors.Is(err, saveErr) {
+		t.Errorf("expected error %v, got %v", saveErr, err)
+	}
+	if port != 0 {
+		t.Errorf("expected port 0 on error, got %d", port)
+	}
+}
+
+// TestEnsurePortIsConfigured_LeavesInMemoryPortUnchangedWhenPersistenceFails
+// verifies that when SaveConfig fails after the free port has been written to
+// cfg.Port, the in-memory config is reverted to 0 so it remains consistent
+// with the unchanged on-disk config.
+func TestEnsurePortIsConfigured_LeavesInMemoryPortUnchangedWhenPersistenceFails(t *testing.T) {
+	// Given a project "my-project" with no port configured (cfg.Port is 0)
+	// And ListProjects returns an empty list (no port conflicts to probe)
+	// And IsPortBound returns false (port 4096 is free, so findFreePort returns 4096)
+	// And SaveConfig returns a sentinel error
+	cfg := &config.Config{Port: 0}
+	saveErr := errors.New("disk full")
+	deps := Deps{
+		ListProjects: func() ([]string, []string, error) {
+			return nil, nil, nil
+		},
+		IsPortBound: func(port int) bool {
+			return false
+		},
+		SaveConfig: func(project string, cfg *config.Config) error {
+			return saveErr
+		},
+	}
+
+	// When ensurePortIsConfigured is called
+	port, err := ensurePortIsConfigured(deps, "my-project", cfg)
+
+	// Then the SaveConfig error is propagated
+	if !errors.Is(err, saveErr) {
+		t.Errorf("expected error %v, got %v", saveErr, err)
+	}
+	if port != 0 {
+		t.Errorf("expected port 0 on error, got %d", port)
+	}
+	// And cfg.Port is NOT mutated — on-disk and in-memory must remain consistent
+	if cfg.Port != 0 {
+		t.Errorf("expected cfg.Port to remain 0 after save failure, got %d", cfg.Port)
+	}
+}
+
+// TestEnsurePortIsConfigured_EmitsInfoLogOnAutoAllocation verifies that when
+// ensurePortIsConfigured auto-allocates a free port (cfg.Port == 0 path), an
+// INFO-level log record carrying the allocated port value is emitted via the
+// injected Logger.
+func TestEnsurePortIsConfigured_EmitsInfoLogOnAutoAllocation(t *testing.T) {
+	// Given a project "my-project" with cfg.Port == 0 (triggers auto-allocation)
+	// And ListProjects returns ["my-project"] (no port conflicts)
+	// And IsPortBound always returns false (every port is free)
+	// And SaveConfig is a no-op spy
+	// And deps.Logger is a custom slog.Handler spy that records every record
+	cfg := &config.Config{Port: 0}
+	spy := &recordingHandler{}
+	deps := Deps{
+		Logger: slog.New(spy),
+		ListProjects: func() ([]string, []string, error) {
+			return []string{"my-project"}, nil, nil
+		},
+		IsPortBound: func(port int) bool {
+			return false
+		},
+		SaveConfig: func(project string, cfg *config.Config) error {
+			return nil
+		},
+	}
+
+	// When ensurePortIsConfigured is called
+	port, err := ensurePortIsConfigured(deps, "my-project", cfg)
+
+	// Then no error is returned
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if port == 0 {
+		t.Fatalf("expected a non-zero auto-allocated port, got 0")
+	}
+	// And the logger captured at least one INFO-level record carrying the allocated port value
+	if _, ok := spy.findInfoRecordWithValue("port", port); !ok {
+		t.Errorf("expected an INFO log record carrying port=%d, got %d record(s): %s",
+			port, spy.recordCount(), spy.describeRecords())
+	}
+}
+
+// TestEnsurePortIsConfigured_DoesNotLogWhenPortAlreadyConfigured verifies that
+// when a port is already configured (cfg.Port != 0), the early-return path
+// emits no log records.
+func TestEnsurePortIsConfigured_DoesNotLogWhenPortAlreadyConfigured(t *testing.T) {
+	// Given a project "my-project" with cfg.Port == 8080 (early-return path)
+	// And deps.Logger is the same custom slog.Handler spy
+	cfg := &config.Config{Port: 8080}
+	spy := &recordingHandler{}
+	deps := Deps{
+		Logger: slog.New(spy),
+	}
+
+	// When ensurePortIsConfigured is called
+	port, err := ensurePortIsConfigured(deps, "my-project", cfg)
+
+	// Then no error is returned and the configured port is preserved
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if port != 8080 {
+		t.Errorf("expected configured port 8080, got %d", port)
+	}
+	// And the logger captured zero log records on the early-return path
+	if n := spy.recordCount(); n != 0 {
+		t.Errorf("expected no log calls when port is already configured, got %d record(s): %s",
+			n, spy.describeRecords())
+	}
+}
+
+// TestResolveAndValidatePort_FreePortInRange_ReturnsUnchanged verifies that
+// when portFlag is non-zero (the only path the call site ever exercises),
+// resolveAndValidatePort validates the port range, checks for cross-project
+// port conflicts, checks whether the port is already bound on the host, and
+// returns the port unchanged on success.
+func TestResolveAndValidatePort_FreePortInRange_ReturnsUnchanged(t *testing.T) {
+	// Given a project "my-project" with no other projects configured to use port 5000
+	// And port 5000 is not bound on host loopback
+	// And no other project lists port 5000 in its config
+	deps := Deps{
+		ListProjects: func() ([]string, []string, error) {
+			return []string{"my-project"}, nil, nil
+		},
+		IsPortBound: func(port int) bool {
+			return false
+		},
+	}
+
+	// When resolveAndValidatePort is called with port 5000
+	port, err := resolveAndValidatePort(deps, "my-project", 5000)
+
+	// Then it returns 5000 with no error
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if port != 5000 {
+		t.Errorf("expected resolved port 5000, got %d", port)
 	}
 }

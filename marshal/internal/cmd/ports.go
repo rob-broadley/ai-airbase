@@ -3,6 +3,8 @@ package cmd
 
 import (
 	"fmt"
+
+	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 )
 
 // validatePort returns an error if port is outside the non-privileged range (1024-65535).
@@ -70,32 +72,50 @@ func findFreePort(deps Deps, currentProject string) (int, error) {
 	return 0, fmt.Errorf("no free ports available in range 4096-65535")
 }
 
-// resolveAndValidatePort handles port selection, validation, and collision checks.
-func resolveAndValidatePort(deps Deps, project string, cfgPort, portFlag int) (int, error) {
-	resolvedPort := portFlag
-	if resolvedPort == 0 && cfgPort != 0 {
-		resolvedPort = cfgPort
+// resolveAndValidatePort validates a port supplied by the user, checks it does
+// not collide with another project's configured port, and checks it is not
+// already bound on the host. The caller is expected to invoke this only with a
+// non-zero port (auto-allocation, when the user did not supply a port, is
+// handled by ensurePortIsConfigured).
+func resolveAndValidatePort(deps Deps, project string, port int) (int, error) {
+	if err := validatePort(port); err != nil {
+		return 0, err
 	}
-	if resolvedPort != 0 {
-		if err := validatePort(resolvedPort); err != nil {
-			return 0, err
-		}
-		conflictProj, err := isPortConfigured(deps, project, resolvedPort)
-		if err != nil {
-			return 0, err
-		}
-		if conflictProj != "" {
-			return 0, fmt.Errorf("port %d is already configured for project %q", resolvedPort, conflictProj)
-		}
-		if deps.isPortBound()(resolvedPort) {
-			return 0, fmt.Errorf("port %d is already in use on the host", resolvedPort)
-		}
-	} else {
-		var err error
-		resolvedPort, err = findFreePort(deps, project)
-		if err != nil {
-			return 0, err
-		}
+	conflictProj, err := isPortConfigured(deps, project, port)
+	if err != nil {
+		return 0, err
 	}
-	return resolvedPort, nil
+	if conflictProj != "" {
+		return 0, fmt.Errorf("port %d is already configured for project %q", port, conflictProj)
+	}
+	if deps.isPortBound()(port) {
+		return 0, fmt.Errorf("port %d is already in use on the host", port)
+	}
+	return port, nil
+}
+
+// ensurePortIsConfigured returns the configured port or a default fallback if not configured.
+func ensurePortIsConfigured(deps Deps, project string, cfg *config.Config) (int, error) {
+	if cfg.Port != 0 {
+		return cfg.Port, nil
+	}
+
+	port, err := findFreePort(deps, project)
+	if err != nil {
+		return 0, err
+	}
+
+	deps.logger().Info("auto-allocated port", "project", project, "port", port)
+
+	// Set cfg.Port to the allocated port BEFORE saveConfig so the on-disk
+	// config reflects the new port. If saveConfig fails, revert cfg.Port
+	// back to 0 so the in-memory config remains consistent with the
+	// unchanged on-disk config.
+	cfg.Port = port
+	if err := deps.saveConfig()(project, cfg); err != nil {
+		cfg.Port = 0
+		return 0, err
+	}
+
+	return port, nil
 }

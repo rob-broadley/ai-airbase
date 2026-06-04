@@ -239,9 +239,9 @@ func resolveContainerParams(deps Deps, projectFlag string) (params containerPara
 		return containerParams{}, err
 	}
 
-	port := cfg.Port
-	if port == 0 {
-		port = 4096
+	port, err := ensurePortIsConfigured(deps, project, cfg)
+	if err != nil {
+		return containerParams{}, err
 	}
 
 	return containerParams{

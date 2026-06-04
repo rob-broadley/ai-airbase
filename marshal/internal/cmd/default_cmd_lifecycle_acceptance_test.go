@@ -28,6 +28,7 @@ func TestDefaultCmd_CreateAndStart(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		IsPortBound:         func(int) bool { return false },
 	}
 
 	// When the root command is executed
@@ -80,6 +81,7 @@ func TestDefaultCmd_ReuseRunning(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		IsPortBound:         func(int) bool { return false },
 	}
 
 	// When the root command is executed
@@ -120,6 +122,7 @@ func TestDefaultCmd_RestartStopped(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		IsPortBound:         func(int) bool { return false },
 	}
 
 	// When the root command is executed
@@ -465,6 +468,7 @@ func TestDefaultCmd_CreateUsesImageCMD(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		IsPortBound:         func(int) bool { return false },
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -501,6 +505,7 @@ func TestDefaultCmd_CreatePassesLabels(t *testing.T) {
 		Getuid:              stubGetuid,
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+		IsPortBound:         func(int) bool { return false },
 	}
 
 	root := cmd.NewRootCmd(deps)

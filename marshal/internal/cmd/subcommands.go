@@ -72,11 +72,24 @@ func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValue
 		return err
 	}
 
-	resolvedPort, err := resolveAndValidatePort(deps, project, cfg.Port, portFlag)
-	if err != nil {
-		return err
+	if portFlag != 0 {
+		resolvedPort, err := resolveAndValidatePort(deps, project, portFlag)
+		if err != nil {
+			return err
+		}
+		cfg.Port = resolvedPort
+	} else if cfg.Port == 0 {
+		// No --port flag and no previously-saved port. Allocate a free
+		// host port now, before the main saveConfig below, so the on-disk
+		// config is never left with Port: 0. resolveContainerParams will
+		// then see cfg.Port != 0 and skip its own allocation-save branch,
+		// keeping this create to a single config write.
+		port, err := findFreePort(deps, project)
+		if err != nil {
+			return err
+		}
+		cfg.Port = port
 	}
-	cfg.Port = resolvedPort
 
 	if err := deps.saveConfig()(project, cfg); err != nil {
 		return fmt.Errorf("saving config: %w", err)
