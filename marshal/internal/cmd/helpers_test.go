@@ -871,3 +871,349 @@ func TestResolveAndValidatePort_FreePortInRange_ReturnsUnchanged(t *testing.T) {
 		t.Errorf("expected resolved port 5000, got %d", port)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Unit tests for hardenProjectDir
+// ---------------------------------------------------------------------------
+
+// TestHardenProjectDir_MissingDirectoryIsNoop verifies that hardening a path that
+// does not exist returns nil without error. This is the freshly-created case:
+// the caller (e.g. ensureSharedDataDir) has not yet created the directory.
+func TestHardenProjectDir_MissingDirectoryIsNoop(t *testing.T) {
+	// Given a path that does not exist
+	missing := filepath.Join(t.TempDir(), "does-not-exist")
+
+	// When hardenProjectDir is called
+	err := hardenProjectDir(missing)
+
+	// Then it returns nil (no error, no panic)
+	if err != nil {
+		t.Errorf("expected nil error for missing directory, got: %v", err)
+	}
+}
+
+// TestHardenProjectDir_RootIsSymlinkAborts verifies that if the bind mount target
+// itself is a symlink (os.RemoveAll would follow it), hardenProjectDir aborts with
+// the "directory is a symlink" error before attempting any walk.
+func TestHardenProjectDir_RootIsSymlinkAborts(t *testing.T) {
+	// Given a real directory and a symlink pointing to it
+	base := t.TempDir()
+	realDir := filepath.Join(base, "real")
+	if err := os.MkdirAll(realDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	symlinkDir := filepath.Join(base, "link")
+	if err := os.Symlink(realDir, symlinkDir); err != nil {
+		t.Fatalf("Symlink: %v", err)
+	}
+
+	// When hardenProjectDir is called on the symlink
+	err := hardenProjectDir(symlinkDir)
+
+	// Then it returns the "directory is a symlink" error
+	if err == nil {
+		t.Fatal("expected error for symlink root, got nil")
+	}
+	if !strings.Contains(err.Error(), "security violation: directory is a symlink") {
+		t.Errorf("expected 'directory is a symlink' error, got: %v", err)
+	}
+}
+
+// TestHardenProjectDir_RootNotWritableAborts verifies that if the bind mount target
+// is not owner-writable (the 0o200 bit is clear), hardenProjectDir aborts with a
+// "permission denied" error mentioning the directory path.
+func TestHardenProjectDir_RootNotWritableAborts(t *testing.T) {
+	// Given a directory with no owner write bit
+	dir := filepath.Join(t.TempDir(), "readonly")
+	if err := os.MkdirAll(dir, 0o500); err != nil { // r-x for owner
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) }) // allow TempDir cleanup
+
+	// When hardenProjectDir is called
+	err := hardenProjectDir(dir)
+
+	// Then it returns a "permission denied" error mentioning the path
+	if err == nil {
+		t.Fatal("expected error for non-writable root, got nil")
+	}
+	if !strings.Contains(err.Error(), "permission denied") {
+		t.Errorf("expected 'permission denied' error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), dir) {
+		t.Errorf("expected error to mention %q, got: %v", dir, err)
+	}
+}
+
+// TestHardenProjectDir_NestedRelativeSymlinkAllowed verifies that a relative
+// symlink whose target stays inside the bind mount is allowed. This is the
+// opencode/package-manager case that was previously broken.
+func TestHardenProjectDir_NestedRelativeSymlinkAllowed(t *testing.T) {
+	// Given a directory containing a file and a relative symlink to it
+	dir := t.TempDir()
+	target := filepath.Join(dir, "real.json")
+	if err := os.WriteFile(target, []byte("{}"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	link := filepath.Join(dir, "link.json")
+	if err := os.Symlink("real.json", link); err != nil {
+		t.Fatalf("Symlink: %v", err)
+	}
+
+	// When hardenProjectDir is called
+	err := hardenProjectDir(dir)
+
+	// Then it returns nil (the symlink stays inside the bind mount)
+	if err != nil {
+		t.Errorf("expected nil error for internal symlink, got: %v", err)
+	}
+
+	// And the symlink still exists
+	if _, err := os.Lstat(link); err != nil {
+		t.Errorf("expected symlink to still exist, got: %v", err)
+	}
+}
+
+// TestHardenProjectDir_NestedAbsoluteSymlinkEscapesAborts verifies that a
+// symlink inside the bind mount whose resolved target is outside the bind mount
+// causes hardenProjectDir to abort with the "escapes the bind mount" error.
+func TestHardenProjectDir_NestedAbsoluteSymlinkEscapesAborts(t *testing.T) {
+	// Given a bind mount directory and a target file outside it
+	base := t.TempDir()
+	dir := filepath.Join(base, "mount")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	outside := filepath.Join(base, "outside.json")
+	if err := os.WriteFile(outside, []byte("{}"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	// Symlink inside the mount pointing to the outside file
+	link := filepath.Join(dir, "escape.json")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Fatalf("Symlink: %v", err)
+	}
+
+	// When hardenProjectDir is called
+	err := hardenProjectDir(dir)
+
+	// Then it returns an "escapes the bind mount" error
+	if err == nil {
+		t.Fatal("expected error for escaping symlink, got nil")
+	}
+	if !strings.Contains(err.Error(), "escapes the bind mount") {
+		t.Errorf("expected 'escapes the bind mount' error, got: %v", err)
+	}
+}
+
+// TestHardenProjectDir_NestedRelativeSymlinkEscapesAborts verifies that a
+// relative symlink whose target is outside the bind mount is caught. The
+// relative path is evaluated from the symlink's parent directory, so a
+// symlink deep in the tree can use enough ".." levels to reach outside.
+func TestHardenProjectDir_NestedRelativeSymlinkEscapesAborts(t *testing.T) {
+	// Given a bind mount directory nested two levels deep, and a file
+	// outside the mount, and a relative symlink inside the mount that
+	// resolves to that file
+	base := t.TempDir()
+	mountRoot := filepath.Join(base, "mount")
+	nestedDir := filepath.Join(mountRoot, "a", "b")
+	if err := os.MkdirAll(nestedDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	// Create the target file outside the mount at /base/evil
+	evil := filepath.Join(base, "evil")
+	if err := os.WriteFile(evil, []byte("pwned"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	// Link at /base/mount/a/b/escape -> ../../../evil
+	// From /base/mount/a/b/, three ".." levels reaches /base/, then evil → /base/evil
+	link := filepath.Join(nestedDir, "escape")
+	if err := os.Symlink("../../../evil", link); err != nil {
+		t.Fatalf("Symlink: %v", err)
+	}
+
+	// When hardenProjectDir is called on the mount root
+	err := hardenProjectDir(mountRoot)
+
+	// Then it returns an "escapes the bind mount" error
+	if err == nil {
+		t.Fatal("expected error for traversal symlink, got nil")
+	}
+	if !strings.Contains(err.Error(), "escapes the bind mount") {
+		t.Errorf("expected 'escapes the bind mount' error, got: %v", err)
+	}
+}
+
+// TestHardenProjectDir_NestedBrokenSymlinkAllowed verifies that a symlink whose
+// target does not exist on the host is allowed. A broken symlink cannot be
+// used for a sandbox escape: the host resolves the symlink, and if the target
+// is missing the resolution fails. The container cannot create files outside
+// the bind mount, so a broken symlink stays broken.
+func TestHardenProjectDir_NestedBrokenSymlinkAllowed(t *testing.T) {
+	// Given a directory containing a symlink whose target does not exist
+	dir := t.TempDir()
+	link := filepath.Join(dir, "broken")
+	if err := os.Symlink("does-not-exist", link); err != nil {
+		t.Fatalf("Symlink: %v", err)
+	}
+
+	// When hardenProjectDir is called
+	err := hardenProjectDir(dir)
+
+	// Then it returns nil (broken symlink is not an escape)
+	if err != nil {
+		t.Errorf("expected nil error for broken symlink, got: %v", err)
+	}
+}
+
+// TestHardenProjectDir_NestedSymlinkChainEscapesAborts verifies that a
+// multi-hop symlink chain (A -> B -> outside) is caught. EvalSymlinks follows
+// the entire chain, so a symlink that points to another symlink which points
+// outside the bind mount is still detected as an escape.
+func TestHardenProjectDir_NestedSymlinkChainEscapesAborts(t *testing.T) {
+	// Given a bind mount directory and a two-hop symlink chain inside it
+	// where the final hop resolves to a file outside the mount
+	base := t.TempDir()
+	dir := filepath.Join(base, "mount")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	outside := filepath.Join(base, "outside.json")
+	if err := os.WriteFile(outside, []byte("pwned"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	// First hop: mount/inner -> mount/outer (both inside the mount)
+	// Second hop: mount/outer -> ../outside.json (escapes the mount)
+	outer := filepath.Join(dir, "outer")
+	if err := os.Symlink("../outside.json", outer); err != nil {
+		t.Fatalf("Symlink outer: %v", err)
+	}
+	inner := filepath.Join(dir, "inner")
+	if err := os.Symlink("outer", inner); err != nil {
+		t.Fatalf("Symlink inner: %v", err)
+	}
+
+	// When hardenProjectDir is called
+	err := hardenProjectDir(dir)
+
+	// Then it returns an "escapes the bind mount" error (the inner link's
+	// chain resolves to ../outside.json which is outside the mount)
+	if err == nil {
+		t.Fatal("expected error for chained escaping symlink, got nil")
+	}
+	if !strings.Contains(err.Error(), "escapes the bind mount") {
+		t.Errorf("expected 'escapes the bind mount' error, got: %v", err)
+	}
+}
+
+// TestHardenProjectDir_CorrectsPermissionsOnDirAndFile verifies that existing
+// directories and files have their permissions corrected to 0o700 and 0o600
+// respectively by the walk.
+func TestHardenProjectDir_CorrectsPermissionsOnDirAndFile(t *testing.T) {
+	// Given a directory tree with loosened permissions
+	dir := t.TempDir()
+	nested := filepath.Join(dir, "nested")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	file := filepath.Join(nested, "file.txt")
+	if err := os.WriteFile(file, []byte("data"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	// When hardenProjectDir is called
+	if err := hardenProjectDir(dir); err != nil {
+		t.Fatalf("hardenProjectDir: %v", err)
+	}
+
+	// Then the root, nested dir, and file all have hardened permissions
+	wantDir := os.FileMode(0o700)
+	wantFile := os.FileMode(0o600)
+	for path, want := range map[string]os.FileMode{dir: wantDir, nested: wantDir, file: wantFile} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("Stat %s: %v", path, err)
+		}
+		if got := info.Mode().Perm(); got != want {
+			t.Errorf("%s: expected perm %04o, got %04o", path, want, got)
+		}
+	}
+}
+
+// TestHardenProjectDir_PreservesAlreadyCorrectPermissions verifies that when
+// permissions are already 0o700/0o600, the walk is a no-op (no chmod calls
+// needed, no error).
+func TestHardenProjectDir_PreservesAlreadyCorrectPermissions(t *testing.T) {
+	// Given a directory tree already at 0o700/0o600
+	dir := t.TempDir()
+	nested := filepath.Join(dir, "nested")
+	if err := os.MkdirAll(nested, 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	file := filepath.Join(nested, "file.txt")
+	if err := os.WriteFile(file, []byte("data"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	// When hardenProjectDir is called
+	if err := hardenProjectDir(dir); err != nil {
+		t.Fatalf("hardenProjectDir: %v", err)
+	}
+
+	// Then permissions are unchanged
+	for path, want := range map[string]os.FileMode{dir: 0o700, nested: 0o700, file: 0o600} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("Stat %s: %v", path, err)
+		}
+		if got := info.Mode().Perm(); got != want {
+			t.Errorf("%s: expected perm %04o, got %04o", path, want, got)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Unit tests for isPathUnder
+// ---------------------------------------------------------------------------
+
+// TestIsPathUnder_EqualPaths verifies that child == parent is treated as "under".
+// The bind mount root itself is the first path the walk visits (via d.IsDir()),
+// and it must be considered inside its own bound.
+func TestIsPathUnder_EqualPaths(t *testing.T) {
+	if !isPathUnder("/a/b", "/a/b") {
+		t.Error("expected /a/b to be under /a/b (equal)")
+	}
+}
+
+// TestIsPathUnder_ChildUnderParent verifies the basic containment case.
+func TestIsPathUnder_ChildUnderParent(t *testing.T) {
+	if !isPathUnder("/a/b/c", "/a/b") {
+		t.Error("expected /a/b/c to be under /a/b")
+	}
+}
+
+// TestIsPathUnder_PrefixBoundaryNotMatched verifies that /a/bc is NOT considered
+// under /a/b. This is the safety property the trailing-separator logic enforces.
+func TestIsPathUnder_PrefixBoundaryNotMatched(t *testing.T) {
+	if isPathUnder("/a/bc", "/a/b") {
+		t.Error("expected /a/bc to NOT be under /a/b (prefix boundary)")
+	}
+}
+
+// TestIsPathUnder_ParentAlreadyHasTrailingSeparator verifies that the function
+// is robust to the caller having already appended a separator to parent.
+func TestIsPathUnder_ParentAlreadyHasTrailingSeparator(t *testing.T) {
+	if !isPathUnder("/a/b/c", "/a/b/") {
+		t.Error("expected /a/b/c to be under /a/b/")
+	}
+	if isPathUnder("/a/bc", "/a/b/") {
+		t.Error("expected /a/bc to NOT be under /a/b/ (prefix boundary)")
+	}
+}
+
+// TestIsPathUnder_ChildOutsideParent verifies the negative case.
+func TestIsPathUnder_ChildOutsideParent(t *testing.T) {
+	if isPathUnder("/x/y", "/a/b") {
+		t.Error("expected /x/y to NOT be under /a/b")
+	}
+}

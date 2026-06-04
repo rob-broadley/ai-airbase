@@ -553,3 +553,50 @@ func TestDefaultCmd_CreatePassesLabels(t *testing.T) {
 		t.Errorf("expected --label io.ai-airbase.image=<image> in create args; full create args: %v", createArgs)
 	}
 }
+
+// TestDefaultCmd_InvalidProjectName_ErrorNamesTheRules verifies that if marshal
+// is run with an invalid project name containing disallowed characters, the execution
+// is aborted with an error, and the error message names the exact validation rules
+// (1-128 chars, alphanumeric, hyphens, underscores, or dots).
+func TestDefaultCmd_InvalidProjectName_ErrorNamesTheRules(t *testing.T) {
+	// Given no container exists
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	runner := &fakeRunner{exists: false, running: false, imageExistsResult: true}
+	deps := cmd.Deps{
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/workspace/myapp", nil },
+		Getuid:              stubGetuid,
+		Getgid:              stubGetgid,
+		EnsureSharedDataDir: stubEnsureSharedDataDir(t),
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetArgs([]string{"--project", "invalid@project"})
+
+	var errBuf bytes.Buffer
+	root.SetErr(&errBuf)
+
+	// When the command is executed
+	err := root.Execute()
+
+	// Then the execution is aborted with an error
+	if err == nil {
+		t.Fatal("expected Execute() to return error due to invalid project name")
+	}
+
+	// And the error message contains the exact constraints (1-128 chars, alphanumeric, hyphens, underscores, or dots)
+	errMsg := err.Error()
+	for _, expectedStr := range []string{
+		"1-128 chars",
+		"alphanumeric",
+		"hyphens",
+		"underscores",
+		"dots",
+	} {
+		if !strings.Contains(errMsg, expectedStr) {
+			t.Errorf("expected error message to contain %q; got: %q", expectedStr, errMsg)
+		}
+	}
+}

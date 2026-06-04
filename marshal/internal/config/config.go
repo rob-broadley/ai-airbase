@@ -72,7 +72,7 @@ func ValidateProjectName(name string) error {
 		return fmt.Errorf("project name must not be empty")
 	}
 	if !validProjectName.MatchString(name) {
-		return fmt.Errorf("invalid project name %q: must contain only letters, digits, hyphens, underscores, or dots and must not start with a dot", name)
+		return fmt.Errorf("invalid project name %q: must be 1-128 chars, start and end with an alphanumeric character, and contain only alphanumeric, hyphens, underscores, or dots", name)
 	}
 	if stagingProjectName.MatchString(name) {
 		return fmt.Errorf("invalid project name %q: must not end with \"-pending-<pid>-<nano>\" or \"-retiring-<pid>-<nano>\" (reserved for internal staging containers)", name)

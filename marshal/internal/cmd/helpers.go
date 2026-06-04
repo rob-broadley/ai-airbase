@@ -2,12 +2,14 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
@@ -22,41 +24,55 @@ import (
 // container package and is used throughout this package for path construction.
 const containerWorkspaceDir = "/workspace"
 
+// writePermissionBit is the mode bit for write permission in syscall.Access
+// (W_OK from the access(2) syscall).
+const writePermissionBit = 0x2
+
 // buildCredentialMounts returns MountSpec values that bind host credential files
-// into the container. These mounts are shared across all projects unless noted.
+// and directories into the container. These mounts are shared across all projects
+// unless noted.
 //
-// Config files (settings, mcp-config, git config, etc.) come from XDG_CONFIG_HOME
-// so backup tools and dotfile managers handle them.
+// Git config comes from XDG_CONFIG_HOME so backup tools and dotfile managers
+// handle it. The opencode configuration directory (settings.json, mcp-config.json)
+// is per-project under XDG_DATA_HOME at projects/<project>/opencode/config/.
 //
-// The share/ (containing opencode.db) and state/ directories are both per-project under XDG_DATA_HOME
-// so conversation history and checkpoints survive container recreates.
+// The share/ (containing opencode.db) and state/ directories are both per-project
+// under XDG_DATA_HOME so conversation history and checkpoints survive container
+// recreates.
 //
 // The agents/ and skills/ directories baked into the container image are left
 // untouched — no whole-directory /opt/cadre mount is used.
 func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, error) {
 	specs := make([]container.MountSpec, 0, 8)
-	ensureConfigDir := deps.ensureSharedConfigDirFn()
-	lookupGit := deps.lookupGitConfigFn()
 
 	// User git config — overrides /etc/gitconfig baked into the image.
-	gitConfigDir, err := ensureConfigDir("git")
+	gitSpec, err := setupGitConfigMount(deps.ensureSharedConfigDirFn(), deps.lookupGitConfigFn())
 	if err != nil {
-		return nil, fmt.Errorf("ensuring config dir git: %w", err)
+		return nil, err
 	}
-	gitConfigPath := filepath.Join(gitConfigDir, "config")
-	if err := ensureConfigFile(gitConfigPath, buildGitConfigContent(lookupGit)); err != nil {
-		return nil, fmt.Errorf("ensuring git config file: %w", err)
-	}
-	specs = append(specs, container.MountSpec{
-		HostPath:      gitConfigPath,
-		ContainerPath: container.ContainerGitConfigFile,
-	})
+	specs = append(specs, gitSpec)
 
-	// User-editable config files — individual file mounts from XDG_CONFIG.
-	configDir, err := ensureConfigDir("opencode")
+	// User-editable config files — project-specific config directory under XDG_DATA_HOME.
+	configDir, err := deps.ensureSharedDataDir()("projects/" + project + "/opencode/config")
 	if err != nil {
-		return nil, fmt.Errorf("ensuring config dir opencode: %w", err)
+		if os.IsPermission(err) {
+			return nil, fmt.Errorf("permission denied: %w", err)
+		}
+		return nil, fmt.Errorf("ensuring project config dir for project %s: %w", project, err)
 	}
+	if err := hardenProjectDir(configDir); err != nil {
+		return nil, fmt.Errorf("enforcing permissions on config dir: %w", err)
+	}
+
+	// Verify write permissions on the config directory. syscall.Access is a
+	// stateless check that doesn't create any files in the target directory.
+	if err := syscall.Access(configDir, writePermissionBit); err != nil {
+		if os.IsPermission(err) {
+			return nil, fmt.Errorf("permission denied: %s", configDir)
+		}
+		return nil, fmt.Errorf("verifying write permissions on config dir: %w", err)
+	}
+
 	specs = append(specs, container.MountSpec{
 		HostPath:      configDir,
 		ContainerPath: container.ContainerOpencodeConfigDir,
@@ -67,14 +83,21 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 	if err != nil {
 		return nil, fmt.Errorf("ensuring project share dir for %s: %w", project, err)
 	}
+	if err := hardenProjectDir(projectShareDir); err != nil {
+		return nil, fmt.Errorf("enforcing permissions on share dir: %w", err)
+	}
 	specs = append(specs, container.MountSpec{
 		HostPath:      projectShareDir,
 		ContainerPath: container.ContainerOpencodeDataDir,
 	})
 
+	// Per-project session state — isolated by project.
 	projectStateDir, err := deps.ensureSharedDataDir()("projects/" + project + "/opencode/state")
 	if err != nil {
 		return nil, fmt.Errorf("ensuring project state dir for project %s: %w", project, err)
+	}
+	if err := hardenProjectDir(projectStateDir); err != nil {
+		return nil, fmt.Errorf("enforcing permissions on state dir: %w", err)
 	}
 	specs = append(specs, container.MountSpec{
 		HostPath:      projectStateDir,
@@ -82,6 +105,22 @@ func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, er
 	})
 
 	return specs, nil
+}
+
+// setupGitConfigMount ensures the git config file exists with host user info and returns its mount spec.
+func setupGitConfigMount(ensureConfigDir func(string) (string, error), lookupGit func(string) string) (container.MountSpec, error) {
+	gitConfigDir, err := ensureConfigDir("git")
+	if err != nil {
+		return container.MountSpec{}, fmt.Errorf("ensuring config dir git: %w", err)
+	}
+	gitConfigPath := filepath.Join(gitConfigDir, "config")
+	if err := ensureConfigFile(gitConfigPath, buildGitConfigContent(lookupGit)); err != nil {
+		return container.MountSpec{}, fmt.Errorf("ensuring git config file: %w", err)
+	}
+	return container.MountSpec{
+		HostPath:      gitConfigPath,
+		ContainerPath: container.ContainerGitConfigFile,
+	}, nil
 }
 
 // buildGitConfigContent generates a minimal git [user] section from the host
@@ -377,4 +416,102 @@ func maskContainerPath(mask string, configuredMounts []string, mountContainerDes
 		}
 	}
 	return ""
+}
+
+// hardenProjectDir enforces strict permissions on a project directory and its
+// contents. It ensures directories have 0o700 and files have 0o600 permissions,
+// verifies that the root directory is owner-writable (the 0o200 bit is set),
+// and aborts if the root directory itself is a symlink (which would make the
+// bind mount target a symlink, and os.RemoveAll would follow it). It returns
+// nil when the directory does not exist.
+//
+// Nested symlinks inside the directory are checked for sandbox escape: a
+// symlink whose target resolves to a path outside the bind mount directory is
+// a security violation (the container could follow it to read or write host
+// files outside the sandbox). Symlinks that stay inside the bind mount
+// (e.g. relative links created by package managers) are allowed. Symlinks
+// are skipped during the permission walk (chmod on a symlink is meaningless).
+//
+// This function is intended for hardening pre-existing directories that may
+// have had their permissions loosened by external processes. For freshly
+// created directories from ensureSharedDataDir, the 0o700 permissions are
+// already set by MkdirAll — hardenProjectDir is still called to perform the
+// root write-permission verification. Callers may also perform an additional
+// stateless write-permission check via syscall.Access.
+func hardenProjectDir(dir string) error {
+	fi, err := os.Lstat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		return errors.New("security violation: directory is a symlink")
+	}
+	if fi.Mode().Perm()&0o200 == 0 {
+		return fmt.Errorf("permission denied: %s", dir)
+	}
+
+	// Resolve the bind mount root to detect sandbox escapes. filepath.EvalSymlinks
+	// returns the real path with all symlinks resolved.
+	rootResolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return fmt.Errorf("resolving bind mount root %s: %w", dir, err)
+	}
+
+	return filepath.WalkDir(dir, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		// Check symlinks for sandbox escape: resolve the target and verify it
+		// stays under the bind mount root. The container is untrusted AI code
+		// that could follow a symlink to read/write host files outside the
+		// sandbox. A broken symlink (target does not exist) is not an escape
+		// — the container would get ENOENT, not access outside the sandbox.
+		if d.Type()&os.ModeSymlink != 0 {
+			targetResolved, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return nil
+				}
+				return fmt.Errorf("resolving symlink %s: %w", path, err)
+			}
+			if !isPathUnder(targetResolved, rootResolved) {
+				return fmt.Errorf("security violation: symlink %s escapes the bind mount (resolves to %s)", path, targetResolved)
+			}
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		var targetMode os.FileMode
+		if d.IsDir() {
+			targetMode = 0o700
+		} else {
+			targetMode = 0o600
+		}
+		if info.Mode().Perm() != targetMode {
+			if err := os.Chmod(path, targetMode); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// isPathUnder reports whether child is the same as parent or sits inside it.
+// Both paths must be cleaned and absolute.
+func isPathUnder(child, parent string) bool {
+	// Ensure parent has a trailing separator so prefix matching is safe
+	// (e.g. /a/b should not match /a/bc).
+	parentWithSep := parent
+	if !strings.HasSuffix(parentWithSep, string(filepath.Separator)) {
+		parentWithSep += string(filepath.Separator)
+	}
+	if child == parent {
+		return true
+	}
+	return strings.HasPrefix(child, parentWithSep)
 }

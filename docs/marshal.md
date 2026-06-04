@@ -375,8 +375,7 @@ The replacement uses a double-rename sequence (pending → canonical) to minimis
 
 - Three per-project tool volumes: the Nix store (`/nix/store`), the Nix user profile (`~/.local/state/nix`), and the uv tool cache
   (`~/.local/share/uv`). Tools installed by agents persist across recreates.
-- Conversation history and agent checkpoints (the `opencode.db` database inside `share/` and the checkpoints inside `state/`) stored under `$XDG_DATA_HOME/marshal/projects/<project>/` on
-  the host.
+- Conversation history, agent checkpoints, and OpenCode configurations stored under `$XDG_DATA_HOME/marshal/projects/<project>/` on the host.
 - Mask volumes — any data written by the agent into each masked directory is preserved across recreates.
 
 **What is not preserved**
