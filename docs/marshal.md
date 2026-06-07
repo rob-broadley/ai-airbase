@@ -574,6 +574,12 @@ marshal writes this file when you run `marshal create`. You do not normally need
 
 ______________________________________________________________________
 
+### User defaults directory
+
+marshal maintains a user defaults directory tree at `$XDG_DATA_HOME/marshal/defaults/opencode/{config,share,state}` (which resolves to `~/.local/share/marshal/defaults/opencode/{config,share,state}` when `XDG_DATA_HOME` is not set). The directory is automatically created with `0o700` permissions on every `marshal create`, `marshal recreate`, and the default `marshal` command. Currently the directory structure is created empty; no files are placed inside it. This directory tree serves as the foundation for future populate-from-defaults behaviour.
+
+______________________________________________________________________
+
 ## Environment variables
 
 | Variable          | Description                                                                          |

@@ -13,6 +13,8 @@ import (
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
+	"github.com/rob-broadley/ai-airbase/marshal/internal/customisations"
+	"github.com/rob-broadley/ai-airbase/marshal/internal/hostinfo"
 )
 
 // ---------------------------------------------------------------------------
@@ -91,9 +93,8 @@ func provisionProjectDir(deps Deps, project string) (projectDirPaths, error) {
 }
 
 // ensureHostState ensures all host-side state needed before the container is
-// built. Currently this is just the per-project host dir tree
-// (provisionProjectDir). The v1a "user customisations" feature will add a
-// call to customisations.Ensure here.
+// built: the per-project host dir tree (provisionProjectDir) and the
+// on-host user defaults directory tree (customisations.Ensure).
 //
 // This function is the single entry point for host-state setup; it is called
 // by each subcommand (runCreate, runRecreate, ensureContainerAndStart,
@@ -103,7 +104,14 @@ func provisionProjectDir(deps Deps, project string) (projectDirPaths, error) {
 // callers can thread them into resolveContainerParams and avoid redundant
 // I/O in buildContainerMounts.
 func ensureHostState(deps Deps, project string) (projectDirPaths, error) {
-	return provisionProjectDir(deps, project)
+	paths, err := provisionProjectDir(deps, project)
+	if err != nil {
+		return paths, err
+	}
+	if err := customisations.Ensure(hostinfo.XDGDataHome); err != nil {
+		return paths, err
+	}
+	return paths, nil
 }
 
 // buildContainerMounts returns MountSpec values that bind host credentials
