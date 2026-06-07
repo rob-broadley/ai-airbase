@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-package cmd
+package hostinfo
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// lookupHostGitConfig reads a git config key from the host using git(1) with
+// LookupHostGitConfig reads a git config key from the host using git(1) with
 // --global scope and returns the trimmed value, or an empty string if the key
 // is unset or git is unavailable. Git-specific environment variables that could
 // redirect the lookup to a project-local config are stripped:
@@ -18,7 +18,7 @@ import (
 // override --global scope reads so they are safe to leave in place.
 // Note: users who rely solely on GIT_CONFIG_GLOBAL (e.g. dotfile managers) will
 // get empty results here; they can populate the file manually after first run.
-func lookupHostGitConfig(key string) string {
+func LookupHostGitConfig(key string) string {
 	cmd := exec.Command("git", "config", "--global", "--", key)
 	cmd.Env = filterEnv(os.Environ(), "GIT_DIR", "GIT_CONFIG", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM")
 	out, err := cmd.Output()

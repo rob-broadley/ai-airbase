@@ -16,6 +16,7 @@ import (
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
+	"github.com/rob-broadley/ai-airbase/marshal/internal/hostinfo"
 )
 
 // ExecFunc replaces the current process with a new one (like syscall.Exec).
@@ -39,7 +40,7 @@ type Deps struct {
 	ListProjects func() ([]string, []string, error)
 	// LookupGitConfig reads a git configuration key (e.g. "user.name") from the
 	// host and returns its trimmed value, or an empty string if unset or on error.
-	// Defaults to lookupHostGitConfig.
+	// Defaults to hostinfo.LookupHostGitConfig.
 	LookupGitConfig func(key string) string
 	// ResolveImage returns the container image to use. Defaults to defaultImage,
 	// which reads MARSHAL_IMAGE from the environment and falls back to the
@@ -59,17 +60,17 @@ type Deps struct {
 	IsPortBound func(port int) bool
 	// SharedDataPath returns the resolved host path for a subdirectory
 	// under XDG_DATA_HOME/marshal/ without creating the directory.
-	// Defaults to config.SharedDataPath.
+	// Defaults to hostinfo.SharedDataPath.
 	SharedDataPath func(subdir string) string
 }
 
 // sharedDataPath returns the injected SharedDataPath or the
-// real config.SharedDataPath.
+// real hostinfo.SharedDataPath.
 func (d Deps) sharedDataPath() func(string) string {
 	if d.SharedDataPath != nil {
 		return d.SharedDataPath
 	}
-	return config.SharedDataPath
+	return hostinfo.SharedDataPath
 }
 
 // deleteConfig returns the effective config-delete function: the injected one or config.Delete.
@@ -105,13 +106,13 @@ func (d Deps) listProjects() func() ([]string, []string, error) {
 }
 
 // ensureSharedConfigDirFn returns the injected EnsureSharedConfigDir or the
-// real config.EnsureSharedConfigDir. Tests that set XDG_CONFIG_HOME to a temp
+// real hostinfo.EnsureSharedConfigDir. Tests that set XDG_CONFIG_HOME to a temp
 // directory get safe isolation without needing to inject this function.
 func (d Deps) ensureSharedConfigDirFn() func(string) (string, error) {
 	if d.EnsureSharedConfigDir != nil {
 		return d.EnsureSharedConfigDir
 	}
-	return config.EnsureSharedConfigDir
+	return hostinfo.EnsureSharedConfigDir
 }
 
 // lookupGitConfigFn returns the injected LookupGitConfig or a no-op that
@@ -143,13 +144,13 @@ func (d Deps) logger() *slog.Logger {
 }
 
 // ensureSharedDataDir returns the injected EnsureSharedDataDir or the
-// real config.EnsureSharedDataDir. Tests that set XDG_DATA_HOME to a temp
+// real hostinfo.EnsureSharedDataDir. Tests that set XDG_DATA_HOME to a temp
 // directory get safe isolation without needing to inject this function.
 func (d Deps) ensureSharedDataDir() func(string) (string, error) {
 	if d.EnsureSharedDataDir != nil {
 		return d.EnsureSharedDataDir
 	}
-	return config.EnsureSharedDataDir
+	return hostinfo.EnsureSharedDataDir
 }
 
 // package-level defaultImage free function (which reads MARSHAL_IMAGE).
@@ -205,12 +206,12 @@ func Execute(version string) {
 		Getwd:                 os.Getwd,
 		Getuid:                os.Getuid,
 		Getgid:                os.Getgid,
-		EnsureSharedDataDir:   config.EnsureSharedDataDir,
-		EnsureSharedConfigDir: config.EnsureSharedConfigDir,
-		SharedDataPath:        config.SharedDataPath,
+		EnsureSharedDataDir:   hostinfo.EnsureSharedDataDir,
+		EnsureSharedConfigDir: hostinfo.EnsureSharedConfigDir,
+		SharedDataPath:        hostinfo.SharedDataPath,
 		SaveConfig:            config.Save,
 		LoadConfig:            config.Load,
-		LookupGitConfig:       lookupHostGitConfig,
+		LookupGitConfig:       hostinfo.LookupHostGitConfig,
 		ResolveImage:          defaultImage,
 		Logger:                NewCLILogger(os.Stderr),
 	}

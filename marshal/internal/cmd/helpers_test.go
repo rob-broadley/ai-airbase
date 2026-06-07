@@ -218,22 +218,22 @@ func TestSanitizeForTerminal_StripsArabicLetterMark(t *testing.T) {
 // Unit tests for Deps.ensureSharedDataDir accessor
 // ---------------------------------------------------------------------------
 
-// TestDeps_EnsureSharedDataDir_NilFieldDefaultsToConfigFunc verifies that
+// TestDeps_EnsureSharedDataDir_NilFieldDefaultsToHostInfoFunc verifies that
 // when EnsureSharedDataDir is not injected (nil), the accessor returns a
-// non-nil function (defaulting to config.EnsureSharedDataDir).
-func TestDeps_EnsureSharedDataDir_NilFieldDefaultsToConfigFunc(t *testing.T) {
+// non-nil function (defaulting to hostinfo.EnsureSharedDataDir).
+func TestDeps_EnsureSharedDataDir_NilFieldDefaultsToHostInfoFunc(t *testing.T) {
 	// Given a Deps with EnsureSharedDataDir left nil (zero-value)
 	deps := Deps{}
 
 	// When the nil-safe accessor is called
 	fn := deps.ensureSharedDataDir()
 
-	// Then a non-nil function is returned (the default is config.EnsureSharedDataDir)
+	// Then a non-nil function is returned (the default is hostinfo.EnsureSharedDataDir)
 	if fn == nil {
-		t.Fatal("ensureSharedDataDir() returned nil; expected config.EnsureSharedDataDir as default")
+		t.Fatal("ensureSharedDataDir() returned nil; expected hostinfo.EnsureSharedDataDir as default")
 	}
 
-	// And the returned function behaves like config.EnsureSharedDataDir —
+	// And the returned function behaves like hostinfo.EnsureSharedDataDir —
 	// call it with a temp-dir-rooted subdir and expect no error.
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 	dir, err := fn("projects/test-project")
@@ -260,7 +260,7 @@ func TestDeps_EnsureSharedDataDir_InjectedFunctionIsUsed(t *testing.T) {
 	fn := deps.ensureSharedDataDir()
 	got, err := fn("projects/myproject")
 
-	// Then the injected function is called, not config.EnsureSharedDataDir
+	// Then the injected function is called, not hostinfo.EnsureSharedDataDir
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

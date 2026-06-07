@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-package config
+package hostinfo
 
 import (
 	"os"
@@ -21,14 +21,14 @@ func xdgBaseDir(envVar, relativeFallback string) string {
 	return filepath.Join(home, relativeFallback)
 }
 
-// xdgConfigHome returns $XDG_CONFIG_HOME if set, otherwise ~/.config.
+// XDGConfigHome returns $XDG_CONFIG_HOME if set, otherwise ~/.config.
 // Returns an empty string when the home directory cannot be determined.
-func xdgConfigHome() string {
+func XDGConfigHome() string {
 	return xdgBaseDir("XDG_CONFIG_HOME", ".config")
 }
 
-// xdgDataHome returns $XDG_DATA_HOME if set, otherwise ~/.local/share.
+// XDGDataHome returns $XDG_DATA_HOME if set, otherwise ~/.local/share.
 // Returns an empty string when the home directory cannot be determined.
-func xdgDataHome() string {
+func XDGDataHome() string {
 	return xdgBaseDir("XDG_DATA_HOME", filepath.Join(".local", "share"))
 }

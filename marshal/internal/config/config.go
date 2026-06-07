@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/rob-broadley/ai-airbase/marshal/internal/hostinfo"
 )
 
 // Config holds per-project marshal configuration.
@@ -82,7 +84,7 @@ func ValidateProjectName(name string) error {
 
 // projectsDir returns the filesystem path for the projects configuration directory.
 func projectsDir() string {
-	return filepath.Join(xdgConfigHome(), "marshal", "projects")
+	return filepath.Join(hostinfo.XDGConfigHome(), "marshal", "projects")
 }
 
 // ListProjects returns the names of all registered projects by scanning the
@@ -215,51 +217,4 @@ func Save(projectName string, cfg *Config) error {
 	}
 	committed = true
 	return nil
-}
-
-// ensureSharedDir creates the shared directory returned by pathFn(subdir).
-// kind and envVar are used only in error messages ("config", "XDG_CONFIG_HOME").
-func ensureSharedDir(pathFn func(string) string, kind, envVar, subdir string) (string, error) {
-	path := pathFn(subdir)
-	if !filepath.IsAbs(path) {
-		return "", fmt.Errorf("%s directory unavailable: set HOME or %s", kind, envVar)
-	}
-	if err := os.MkdirAll(path, 0o700); err != nil {
-		return "", fmt.Errorf("creating shared %s directory %s: %w", kind, path, err)
-	}
-	return path, nil
-}
-
-// ---------------------------------------------------------------------------
-// Shared config
-// ---------------------------------------------------------------------------
-
-// sharedConfigPath returns the filesystem path $XDG_CONFIG_HOME/marshal/<subdir>.
-// subdir may contain path separators (e.g. "opencode/settings.json").
-func sharedConfigPath(subdir string) string {
-	return filepath.Join(xdgConfigHome(), "marshal", subdir)
-}
-
-// EnsureSharedConfigDir resolves sharedConfigPath(subdir), creates the directory
-// with permissions 0o700 (owner-only, suitable for credentials), and returns
-// the path.
-func EnsureSharedConfigDir(subdir string) (string, error) {
-	return ensureSharedDir(sharedConfigPath, "config", "XDG_CONFIG_HOME", subdir)
-}
-
-// ---------------------------------------------------------------------------
-// Shared data
-// ---------------------------------------------------------------------------
-
-// SharedDataPath returns the filesystem path $XDG_DATA_HOME/marshal/<subdir>.
-// subdir may contain path separators (e.g. "projects/myapp/state").
-func SharedDataPath(subdir string) string {
-	return filepath.Join(xdgDataHome(), "marshal", subdir)
-}
-
-// EnsureSharedDataDir resolves SharedDataPath(subdir), creates the directory
-// with permissions 0o700 (owner-only, suitable for credentials), and returns
-// the path.
-func EnsureSharedDataDir(subdir string) (string, error) {
-	return ensureSharedDir(SharedDataPath, "data", "XDG_DATA_HOME", subdir)
 }

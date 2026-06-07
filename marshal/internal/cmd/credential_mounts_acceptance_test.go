@@ -760,7 +760,7 @@ func TestDefaultCmd_ConfigDirEmptyDataHomeFallback(t *testing.T) {
 		Getuid:                func() int { return 1001 },
 		Getgid:                func() int { return 1002 },
 		EnsureSharedConfigDir: func(string) (string, error) { return t.TempDir(), nil },
-		// EnsureSharedDataDir is nil so it falls back to config.EnsureSharedDataDir
+		// EnsureSharedDataDir is nil so it falls back to hostinfo.EnsureSharedDataDir
 	}
 
 	root := cmd.NewRootCmd(deps)
