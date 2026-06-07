@@ -269,10 +269,11 @@ func ensureContainerAndStart(cmd *cobra.Command, deps Deps, projectFlag string) 
 	if err != nil {
 		return err
 	}
-	if err := ensureHostState(deps, project); err != nil {
+	paths, err := ensureHostState(deps, project)
+	if err != nil {
 		return err
 	}
-	p, err := resolveContainerParams(deps, projectFlag)
+	p, err := resolveContainerParams(deps, projectFlag, paths)
 	if err != nil {
 		return err
 	}
@@ -301,10 +302,11 @@ func ensureContainerAndExec(cmd *cobra.Command, deps Deps, projectFlag string) e
 	if err != nil {
 		return err
 	}
-	if err := ensureHostState(deps, project); err != nil {
+	paths, err := ensureHostState(deps, project)
+	if err != nil {
 		return err
 	}
-	p, err := resolveContainerParams(deps, projectFlag)
+	p, err := resolveContainerParams(deps, projectFlag, paths)
 	if err != nil {
 		return err
 	}

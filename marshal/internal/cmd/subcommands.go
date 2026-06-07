@@ -95,11 +95,12 @@ func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValue
 		return fmt.Errorf("saving config: %w", err)
 	}
 
-	if err := ensureHostState(deps, project); err != nil {
+	paths, err := ensureHostState(deps, project)
+	if err != nil {
 		return err
 	}
 
-	p, err := resolveContainerParams(deps, projectFlag)
+	p, err := resolveContainerParams(deps, projectFlag, paths)
 	if err != nil {
 		return err
 	}
@@ -334,10 +335,11 @@ func runRecreate(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	if err != nil {
 		return err
 	}
-	if err := ensureHostState(deps, project); err != nil {
+	paths, err := ensureHostState(deps, project)
+	if err != nil {
 		return err
 	}
-	p, err := resolveContainerParams(deps, projectFlag)
+	p, err := resolveContainerParams(deps, projectFlag, paths)
 	if err != nil {
 		return err
 	}

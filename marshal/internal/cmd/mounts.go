@@ -197,7 +197,10 @@ type containerParams struct {
 // before calling this function.
 // It is the single source of truth for how a container is configured and is
 // called by ensureContainerAndStart/Exec and runRecreate.
-func resolveContainerParams(deps Deps, projectFlag string) (params containerParams, err error) {
+//
+// The 'paths' parameter carries the per-project host directory paths from
+// ensureHostState so buildContainerMounts does not need to re-derive them.
+func resolveContainerParams(deps Deps, projectFlag string, paths projectDirPaths) (params containerParams, err error) {
 	project, containerName, err := resolveContainer(deps, projectFlag)
 	if err != nil {
 		return containerParams{}, err
@@ -228,7 +231,7 @@ func resolveContainerParams(deps Deps, projectFlag string) (params containerPara
 
 	workdir := container.WorkdirFromMounts(mountSpecs)
 
-	containerMounts, err := buildContainerMounts(deps, project)
+	containerMounts, err := buildContainerMounts(deps, paths)
 	if err != nil {
 		return containerParams{}, err
 	}

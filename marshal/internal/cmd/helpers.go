@@ -37,81 +37,57 @@ type projectDirPaths struct {
 	state  string
 }
 
-// projectPaths derives the three per-project host dir paths by calling
-// ensureSharedDataDir (the same function used by provisionProjectDir). The
-// call is idempotent: when invoked after provisionProjectDir the directories
-// already exist, so ensureSharedDataDir is a no-op apart from path
-// computation. Using ensureSharedDataDir (rather than sharedDataPath) keeps
-// the returned paths consistent with the source of truth in production and
-// with test fakes that inject EnsureSharedDataDir.
-//
-// Returns an error if any ensure step fails.
-func projectPaths(deps Deps, project string) (projectDirPaths, error) {
-	configDir, err := deps.ensureSharedDataDir()("projects/" + project + "/opencode/config")
-	if err != nil {
-		return projectDirPaths{}, err
-	}
-	shareDir, err := deps.ensureSharedDataDir()("projects/" + project + "/opencode/share")
-	if err != nil {
-		return projectDirPaths{}, err
-	}
-	stateDir, err := deps.ensureSharedDataDir()("projects/" + project + "/opencode/state")
-	if err != nil {
-		return projectDirPaths{}, err
-	}
-	return projectDirPaths{config: configDir, share: shareDir, state: stateDir}, nil
-}
-
 // provisionProjectDir ensures the per-project host dir tree exists with 0o700
 // permissions and that the config dir is writeable. This is the host-side
 // state needed before the container is built. Callers (each subcommand) must
 // invoke ensureHostState before resolveContainerParams so that
-// buildContainerMounts can assume the dirs already exist.
+// buildContainerMounts can use the paths directly.
 //
-// Returns an error if any ensure, harden, or access step fails. Error
-// wrapping matches the original buildContainerMounts verbatim so existing
+// Returns the resolved per-project host directory paths (config, share,
+// state) and an error if any ensure, harden, or access step fails. Error
+// wrapping is preserved verbatim from the original extraction so existing
 // tests and operators see the same diagnostics.
-func provisionProjectDir(deps Deps, project string) error {
+func provisionProjectDir(deps Deps, project string) (projectDirPaths, error) {
 	// User-editable config files — project-specific config directory.
 	configDir, err := deps.ensureSharedDataDir()("projects/" + project + "/opencode/config")
 	if err != nil {
 		if os.IsPermission(err) {
-			return fmt.Errorf("permission denied: %w", err)
+			return projectDirPaths{}, fmt.Errorf("permission denied: %w", err)
 		}
-		return fmt.Errorf("ensuring project config dir for project %s: %w", project, err)
+		return projectDirPaths{}, fmt.Errorf("ensuring project config dir for project %s: %w", project, err)
 	}
 	if err := hardenProjectDir(configDir); err != nil {
-		return fmt.Errorf("enforcing permissions on config dir: %w", err)
+		return projectDirPaths{}, fmt.Errorf("enforcing permissions on config dir: %w", err)
 	}
 
 	// Verify write permissions on the config directory. syscall.Access is a
 	// stateless check that doesn't create any files in the target directory.
 	if err := syscall.Access(configDir, writePermissionBit); err != nil {
 		if os.IsPermission(err) {
-			return fmt.Errorf("permission denied: %s", configDir)
+			return projectDirPaths{}, fmt.Errorf("permission denied: %s", configDir)
 		}
-		return fmt.Errorf("verifying write permissions on config dir: %w", err)
+		return projectDirPaths{}, fmt.Errorf("verifying write permissions on config dir: %w", err)
 	}
 
 	// Per-project session store — both isolated by project.
 	projectShareDir, err := deps.ensureSharedDataDir()("projects/" + project + "/opencode/share")
 	if err != nil {
-		return fmt.Errorf("ensuring project share dir for %s: %w", project, err)
+		return projectDirPaths{}, fmt.Errorf("ensuring project share dir for %s: %w", project, err)
 	}
 	if err := hardenProjectDir(projectShareDir); err != nil {
-		return fmt.Errorf("enforcing permissions on share dir: %w", err)
+		return projectDirPaths{}, fmt.Errorf("enforcing permissions on share dir: %w", err)
 	}
 
 	// Per-project session state — isolated by project.
 	projectStateDir, err := deps.ensureSharedDataDir()("projects/" + project + "/opencode/state")
 	if err != nil {
-		return fmt.Errorf("ensuring project state dir for project %s: %w", project, err)
+		return projectDirPaths{}, fmt.Errorf("ensuring project state dir for project %s: %w", project, err)
 	}
 	if err := hardenProjectDir(projectStateDir); err != nil {
-		return fmt.Errorf("enforcing permissions on state dir: %w", err)
+		return projectDirPaths{}, fmt.Errorf("enforcing permissions on state dir: %w", err)
 	}
 
-	return nil
+	return projectDirPaths{config: configDir, share: projectShareDir, state: projectStateDir}, nil
 }
 
 // ensureHostState ensures all host-side state needed before the container is
@@ -122,13 +98,16 @@ func provisionProjectDir(deps Deps, project string) error {
 // This function is the single entry point for host-state setup; it is called
 // by each subcommand (runCreate, runRecreate, ensureContainerAndStart,
 // ensureContainerAndExec) before resolveContainerParams.
-func ensureHostState(deps Deps, project string) error {
+//
+// Returns the per-project host directory paths from provisionProjectDir so
+// callers can thread them into resolveContainerParams and avoid redundant
+// I/O in buildContainerMounts.
+func ensureHostState(deps Deps, project string) (projectDirPaths, error) {
 	return provisionProjectDir(deps, project)
 }
 
-// buildContainerMounts returns MountSpec values that bind host credential
-// files and directories into the container. These mounts are shared across
-// all projects unless noted.
+// buildContainerMounts returns MountSpec values that bind host credentials
+// and per-project opencode directories into the container.
 //
 // Git config comes from XDG_CONFIG_HOME so backup tools and dotfile managers
 // handle it. The opencode configuration directory (settings.json,
@@ -142,34 +121,28 @@ func ensureHostState(deps Deps, project string) error {
 // The agents/ and skills/ directories baked into the container image are
 // left untouched — no whole-directory /opt/cadre mount is used.
 //
-// The per-project host dirs (config, share, state) are assumed to have
-// already been ensured, hardened, and write-checked by ensureHostState (called
-// by the subcommand before resolveContainerParams). buildContainerMounts is
-// therefore a pure spec builder for the per-project dirs; the only I/O it
-// performs is the git config setup under XDG_CONFIG_HOME.
-func buildContainerMounts(deps Deps, project string) ([]container.MountSpec, error) {
-	specs := make([]container.MountSpec, 0, 4)
-
+// The per-project host dir paths are passed in as the 'paths' parameter
+// (already ensured, hardened, and write-checked by ensureHostState, which
+// is called by each subcommand before resolveContainerParams).
+// buildContainerMounts performs no I/O for the per-project dirs. The only
+// I/O is the git config setup under XDG_CONFIG_HOME, which writes the file
+// if missing on first run.
+func buildContainerMounts(deps Deps, paths projectDirPaths) ([]container.MountSpec, error) {
 	// User git config — overrides /etc/gitconfig baked into the image.
+	// This is the only I/O in this function: setupGitConfigMount writes the
+	// git config file to disk if it does not yet exist on first run.
 	gitSpec, err := setupGitConfigMount(deps.ensureSharedConfigDirFn(), deps.lookupGitConfigFn())
 	if err != nil {
 		return nil, err
 	}
-	specs = append(specs, gitSpec)
 
-	// Per-project host dirs — pre-created by provisionProjectDir (called via
-	// ensureHostState from each subcommand before resolveContainerParams).
-	paths, err := projectPaths(deps, project)
-	if err != nil {
-		return nil, err
-	}
-	specs = append(specs,
-		container.MountSpec{HostPath: paths.config, ContainerPath: container.ContainerOpencodeConfigDir},
-		container.MountSpec{HostPath: paths.share, ContainerPath: container.ContainerOpencodeDataDir},
-		container.MountSpec{HostPath: paths.state, ContainerPath: container.ContainerOpencodeStateDir},
-	)
-
-	return specs, nil
+	// Per-project host dirs — paths passed in by ensureHostState.
+	return []container.MountSpec{
+		gitSpec,
+		{HostPath: paths.config, ContainerPath: container.ContainerOpencodeConfigDir},
+		{HostPath: paths.share, ContainerPath: container.ContainerOpencodeDataDir},
+		{HostPath: paths.state, ContainerPath: container.ContainerOpencodeStateDir},
+	}, nil
 }
 
 // setupGitConfigMount ensures the git config file exists with host user info and returns its mount spec.
