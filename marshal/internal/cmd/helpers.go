@@ -66,10 +66,10 @@ func projectPaths(deps Deps, project string) (projectDirPaths, error) {
 // permissions and that the config dir is writeable. This is the host-side
 // state needed before the container is built. Callers (each subcommand) must
 // invoke ensureHostState before resolveContainerParams so that
-// buildCredentialMounts can assume the dirs already exist.
+// buildContainerMounts can assume the dirs already exist.
 //
 // Returns an error if any ensure, harden, or access step fails. Error
-// wrapping matches the original buildCredentialMounts verbatim so existing
+// wrapping matches the original buildContainerMounts verbatim so existing
 // tests and operators see the same diagnostics.
 func provisionProjectDir(deps Deps, project string) error {
 	// User-editable config files — project-specific config directory.
@@ -126,7 +126,7 @@ func ensureHostState(deps Deps, project string) error {
 	return provisionProjectDir(deps, project)
 }
 
-// buildCredentialMounts returns MountSpec values that bind host credential
+// buildContainerMounts returns MountSpec values that bind host credential
 // files and directories into the container. These mounts are shared across
 // all projects unless noted.
 //
@@ -144,10 +144,10 @@ func ensureHostState(deps Deps, project string) error {
 //
 // The per-project host dirs (config, share, state) are assumed to have
 // already been ensured, hardened, and write-checked by ensureHostState (called
-// by the subcommand before resolveContainerParams). buildCredentialMounts is
+// by the subcommand before resolveContainerParams). buildContainerMounts is
 // therefore a pure spec builder for the per-project dirs; the only I/O it
 // performs is the git config setup under XDG_CONFIG_HOME.
-func buildCredentialMounts(deps Deps, project string) ([]container.MountSpec, error) {
+func buildContainerMounts(deps Deps, project string) ([]container.MountSpec, error) {
 	specs := make([]container.MountSpec, 0, 4)
 
 	// User git config — overrides /etc/gitconfig baked into the image.

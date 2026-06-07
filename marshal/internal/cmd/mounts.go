@@ -228,11 +228,11 @@ func resolveContainerParams(deps Deps, projectFlag string) (params containerPara
 
 	workdir := container.WorkdirFromMounts(mountSpecs)
 
-	credMounts, err := buildCredentialMounts(deps, project)
+	containerMounts, err := buildContainerMounts(deps, project)
 	if err != nil {
 		return containerParams{}, err
 	}
-	mountSpecs = append(mountSpecs, credMounts...)
+	mountSpecs = append(mountSpecs, containerMounts...)
 
 	uc, err := buildUserConfig(deps)
 	if err != nil {
