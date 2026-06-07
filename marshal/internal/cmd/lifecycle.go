@@ -265,6 +265,13 @@ func prepareContainer(cmd *cobra.Command, deps Deps, p containerParams) (contain
 // ensureContainerAndStart ensures the container exists then starts it in the background
 // if it is stopped or non-existent, or prints informational status if it is already running.
 func ensureContainerAndStart(cmd *cobra.Command, deps Deps, projectFlag string) error {
+	project, _, err := resolveContainer(deps, projectFlag)
+	if err != nil {
+		return err
+	}
+	if err := ensureHostState(deps, project); err != nil {
+		return err
+	}
 	p, err := resolveContainerParams(deps, projectFlag)
 	if err != nil {
 		return err
@@ -290,6 +297,13 @@ func ensureContainerAndStart(cmd *cobra.Command, deps Deps, projectFlag string) 
 // When the container is stopped it is started via the runner first.
 // This function is used exclusively by the shell subcommand.
 func ensureContainerAndExec(cmd *cobra.Command, deps Deps, projectFlag string) error {
+	project, _, err := resolveContainer(deps, projectFlag)
+	if err != nil {
+		return err
+	}
+	if err := ensureHostState(deps, project); err != nil {
+		return err
+	}
 	p, err := resolveContainerParams(deps, projectFlag)
 	if err != nil {
 		return err

@@ -95,6 +95,10 @@ func runCreate(cmd *cobra.Command, deps Deps, projectFlag string, mountFlagValue
 		return fmt.Errorf("saving config: %w", err)
 	}
 
+	if err := ensureHostState(deps, project); err != nil {
+		return err
+	}
+
 	p, err := resolveContainerParams(deps, projectFlag)
 	if err != nil {
 		return err
@@ -326,6 +330,13 @@ Named volumes (Nix store, uv cache, and any mask volumes) are preserved across r
 // resolves mounts from saved config, removes the existing container (if any),
 // and creates a replacement, leaving the Nix store volume intact.
 func runRecreate(cmd *cobra.Command, deps Deps, projectFlag string) error {
+	project, _, err := resolveContainer(deps, projectFlag)
+	if err != nil {
+		return err
+	}
+	if err := ensureHostState(deps, project); err != nil {
+		return err
+	}
 	p, err := resolveContainerParams(deps, projectFlag)
 	if err != nil {
 		return err
