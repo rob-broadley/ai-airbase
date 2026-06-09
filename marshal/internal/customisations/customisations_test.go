@@ -285,9 +285,167 @@ func TestEnsure_ConcurrentCalls_AllSucceed(t *testing.T) {
 	}
 }
 
+// --- HardenSourceTree allows empty source tree ---
+
+func TestHardenSourceTree_EmptySourceTree_NoError(t *testing.T) {
+	// Given an empty source tree (no files, no symlinks)
+	root := t.TempDir()
+
+	// When the source tree is checked for symlink escapes
+	err := customisations.HardenSourceTree(root)
+
+	// Then no error is returned
+	if err != nil {
+		t.Fatalf("expected no error for empty source tree, got: %v", err)
+	}
+}
+
+// --- HardenSourceTree detects relative symlink with ".." escaping root ---
+
+func TestHardenSourceTree_DotDotSymlinkEscapingRoot_ReturnsSecurityViolation(t *testing.T) {
+	// Given a source tree containing a relative symlink with ".." traversal that escapes the source root
+	root := t.TempDir()
+	outsideFile := createOutsideFile(t)
+	// Create a symlink that uses ".." to escape: root/escape -> ../<outsideDir>/secret.txt
+	relTarget, err := filepath.Rel(root, outsideFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	symlinkPath := filepath.Join(root, "escape")
+	if err := os.Symlink(relTarget, symlinkPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// When the source tree is checked for symlink escapes
+	err = customisations.HardenSourceTree(root)
+
+	// Then an error is returned containing "security violation"
+	if err == nil {
+		t.Fatal("expected an error for symlink with .. escaping source root, got nil")
+	}
+	if !strings.Contains(err.Error(), "security violation") {
+		t.Errorf("error %q should contain %q", err.Error(), "security violation")
+	}
+}
+
+// --- HardenSourceTree detects symlink chain escaping root ---
+
+func TestHardenSourceTree_SymlinkChainEscapingRoot_ReturnsSecurityViolation(t *testing.T) {
+	// Given a source tree containing a symlink chain (A -> B -> outside)
+	root := t.TempDir()
+	outsideFile := createOutsideFile(t)
+	// B points outside
+	linkB := filepath.Join(root, "linkB")
+	if err := os.Symlink(outsideFile, linkB); err != nil {
+		t.Fatal(err)
+	}
+	// A points to B (chain: A -> B -> outside)
+	linkA := filepath.Join(root, "linkA")
+	if err := os.Symlink("linkB", linkA); err != nil {
+		t.Fatal(err)
+	}
+
+	// When the source tree is checked for symlink escapes
+	err := customisations.HardenSourceTree(root)
+
+	// Then an error is returned containing "security violation"
+	if err == nil {
+		t.Fatal("expected an error for symlink chain escaping source root, got nil")
+	}
+	if !strings.Contains(err.Error(), "security violation") {
+		t.Errorf("error %q should contain %q", err.Error(), "security violation")
+	}
+}
+
+// --- HardenSourceTree allows broken symlink ---
+
+func TestHardenSourceTree_BrokenSymlink_NoError(t *testing.T) {
+	// Given a source tree containing a broken symlink (target does not exist)
+	root := t.TempDir()
+	symlinkPath := filepath.Join(root, "broken")
+	if err := os.Symlink("/nonexistent/target", symlinkPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// When the source tree is checked for symlink escapes
+	err := customisations.HardenSourceTree(root)
+
+	// Then no error is returned
+	if err != nil {
+		t.Fatalf("expected no error for broken symlink, got: %v", err)
+	}
+}
+
+// --- HardenSourceTree allows relative symlink staying inside root ---
+
+func TestHardenSourceTree_RelativeSymlinkInsideRoot_NoError(t *testing.T) {
+	// Given a source tree containing a relative symlink whose target stays inside the source root
+	root := t.TempDir()
+	subdir := filepath.Join(root, "sub")
+	if err := os.MkdirAll(subdir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(subdir, "target.txt")
+	if err := os.WriteFile(target, []byte("data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	symlinkPath := filepath.Join(root, "link")
+	if err := os.Symlink("sub/target.txt", symlinkPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// When the source tree is checked for symlink escapes
+	err := customisations.HardenSourceTree(root)
+
+	// Then no error is returned
+	if err != nil {
+		t.Fatalf("expected no error for symlink inside root, got: %v", err)
+	}
+}
+
+// --- HardenSourceTree detects symlink escaping source root ---
+
+func TestHardenSourceTree_SymlinkEscapingRoot_ReturnsSecurityViolation(t *testing.T) {
+	// Given a source tree containing a symlink whose resolved target falls outside the source root
+	root := t.TempDir()
+	outsideFile := createOutsideFile(t)
+	symlinkPath := filepath.Join(root, "escape")
+	if err := os.Symlink(outsideFile, symlinkPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// When the source tree is checked for symlink escapes
+	err := customisations.HardenSourceTree(root)
+
+	// Then an error is returned containing "security violation", the offending path, and the resolved target
+	if err == nil {
+		t.Fatal("expected an error for symlink escaping source root, got nil")
+	}
+	if !strings.Contains(err.Error(), "security violation") {
+		t.Errorf("error %q should contain %q", err.Error(), "security violation")
+	}
+	if !strings.Contains(err.Error(), symlinkPath) {
+		t.Errorf("error %q should mention the offending path %q", err.Error(), symlinkPath)
+	}
+	if !strings.Contains(err.Error(), outsideFile) {
+		t.Errorf("error %q should mention the resolved target %q", err.Error(), outsideFile)
+	}
+}
+
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
+}
+
+// createOutsideFile creates a temp directory with a file and returns its path.
+func createOutsideFile(t *testing.T) string {
+	t.Helper()
+	outsideDir := t.TempDir()
+	outsideFile := filepath.Join(outsideDir, "secret.txt")
+	if err := os.WriteFile(outsideFile, []byte("secret"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return outsideFile
 }
