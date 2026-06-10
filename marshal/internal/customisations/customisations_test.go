@@ -626,10 +626,10 @@ func TestCopyDefaults_EmptyDirectory_CopiesToDestination(t *testing.T) {
 	}
 }
 
-// --- CopyDefaults follows symlink and copies resolved file content ---
+// --- CopyDefaults preserves relative symlink to file ---
 
-func TestCopyDefaults_SymlinkToFile_CopiesResolvedContent(t *testing.T) {
-	// Given a source tree containing a file and a symlink to that file
+func TestCopyDefaults_SymlinkToFile_PreservesSymlink(t *testing.T) {
+	// Given a source tree containing a relative symlink config/link.json -> real.json
 	src := t.TempDir()
 	realContent := []byte(`{"real":"data"}`)
 	realFile := filepath.Join(src, "config", "real.json")
@@ -640,16 +640,433 @@ func TestCopyDefaults_SymlinkToFile_CopiesResolvedContent(t *testing.T) {
 	// And an empty destination directory
 	dst := t.TempDir()
 
-	// When the copy function is called
+	// When CopyDefaults copies the tree to the destination
 	assertNoError(t, customisations.CopyDefaults(src, dst))
 
-	// Then the symlink target's content is copied to the destination at the symlink path
-	gotContent, err := os.ReadFile(filepath.Join(dst, "config", "link.json"))
+	// Then config/link.json at the destination is a symlink (not a regular file)
+	dstLink := filepath.Join(dst, "config", "link.json")
+	info, err := os.Lstat(dstLink)
 	if err != nil {
 		t.Fatalf("expected link.json to exist in destination: %v", err)
 	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("expected link.json to be a symlink, got mode %v", info.Mode())
+	}
+
+	// And os.Readlink on the destination symlink returns "real.json"
+	gotTarget, err := os.Readlink(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read symlink target: %v", err)
+	}
+	if gotTarget != "real.json" {
+		t.Errorf("symlink target = %q, want %q", gotTarget, "real.json")
+	}
+
+	// And reading through the destination symlink produces the same content as source real.json
+	gotContent, err := os.ReadFile(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read through symlink: %v", err)
+	}
 	if string(gotContent) != string(realContent) {
-		t.Errorf("link.json content mismatch: got %q, want %q", gotContent, realContent)
+		t.Errorf("content through symlink = %q, want %q", gotContent, realContent)
+	}
+}
+
+// --- CopyDefaults preserves relative symlink to directory ---
+
+func TestCopyDefaults_SymlinkToDir_PreservesSymlink(t *testing.T) {
+	// Given a source tree containing a relative symlink config/subdir/link -> sibling
+	src := t.TempDir()
+	siblingDir := filepath.Join(src, "config", "subdir", "sibling")
+	assertNoError(t, os.MkdirAll(siblingDir, 0o700))
+	symlinkPath := filepath.Join(src, "config", "subdir", "link")
+	assertNoError(t, os.Symlink("sibling", symlinkPath))
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When CopyDefaults copies the tree to the destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then config/subdir/link at the destination is a symlink
+	dstLink := filepath.Join(dst, "config", "subdir", "link")
+	info, err := os.Lstat(dstLink)
+	if err != nil {
+		t.Fatalf("expected link to exist in destination: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("expected link to be a symlink, got mode %v", info.Mode())
+	}
+
+	// And os.Readlink on the destination symlink returns "sibling"
+	gotTarget, err := os.Readlink(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read symlink target: %v", err)
+	}
+	if gotTarget != "sibling" {
+		t.Errorf("symlink target = %q, want %q", gotTarget, "sibling")
+	}
+
+	// And resolving the destination symlink yields a directory
+	resolved, err := filepath.EvalSymlinks(dstLink)
+	if err != nil {
+		t.Fatalf("expected to resolve symlink: %v", err)
+	}
+	resolvedInfo, err := os.Stat(resolved)
+	if err != nil {
+		t.Fatalf("expected resolved path to exist: %v", err)
+	}
+	if !resolvedInfo.IsDir() {
+		t.Errorf("resolved symlink should be a directory, got %v", resolvedInfo.Mode())
+	}
+}
+
+// --- CopyDefaults preserves broken relative symlink ---
+
+func TestCopyDefaults_BrokenSymlink_PreservesSymlink(t *testing.T) {
+	// Given a source tree containing a broken relative symlink config/dead -> nonexistent
+	src := t.TempDir()
+	assertNoError(t, os.MkdirAll(filepath.Join(src, "config"), 0o700))
+	symlinkPath := filepath.Join(src, "config", "dead")
+	assertNoError(t, os.Symlink("nonexistent", symlinkPath))
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When CopyDefaults copies the tree to the destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then config/dead at the destination is a symlink
+	dstLink := filepath.Join(dst, "config", "dead")
+	info, err := os.Lstat(dstLink)
+	if err != nil {
+		t.Fatalf("expected dead to exist in destination: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("expected dead to be a symlink, got mode %v", info.Mode())
+	}
+
+	// And os.Readlink on the destination symlink returns "nonexistent"
+	gotTarget, err := os.Readlink(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read symlink target: %v", err)
+	}
+	if gotTarget != "nonexistent" {
+		t.Errorf("symlink target = %q, want %q", gotTarget, "nonexistent")
+	}
+
+	// And os.Stat on the destination symlink returns a "not exist" error
+	_, err = os.Stat(dstLink)
+	if err == nil {
+		t.Fatal("expected Stat on broken symlink to return error, got nil")
+	}
+	if !os.IsNotExist(err) {
+		t.Errorf("expected IsNotExist error, got: %v", err)
+	}
+}
+
+// --- CopyDefaults leaves existing regular file untouched when source has symlink ---
+
+func TestCopyDefaults_ExistingFile_NotOverwrittenBySymlink(t *testing.T) {
+	// Given a source tree containing a relative symlink config/link.json -> real.json
+	src := t.TempDir()
+	realContent := []byte(`{"real":"data"}`)
+	writeTestFile(t, filepath.Join(src, "config", "real.json"), realContent)
+	symlinkPath := filepath.Join(src, "config", "link.json")
+	assertNoError(t, os.Symlink("real.json", symlinkPath))
+
+	// And the destination already contains a regular file config/link.json with different content
+	dst := t.TempDir()
+	dstContent := []byte(`{"existing":"file"}`)
+	dstFile := filepath.Join(dst, "config", "link.json")
+	writeTestFile(t, dstFile, dstContent)
+
+	// When CopyDefaults copies the tree to the destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then the existing config/link.json at the destination is left untouched
+	info, err := os.Lstat(dstFile)
+	if err != nil {
+		t.Fatalf("expected link.json to exist in destination: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		t.Fatalf("expected link.json to remain a regular file, got symlink")
+	}
+	gotContent, err := os.ReadFile(dstFile)
+	if err != nil {
+		t.Fatalf("expected to read destination file: %v", err)
+	}
+	if string(gotContent) != string(dstContent) {
+		t.Errorf("destination file was overwritten: got %q, want %q", gotContent, dstContent)
+	}
+
+	// And the source real.json was still copied to the destination
+	gotReal, err := os.ReadFile(filepath.Join(dst, "config", "real.json"))
+	if err != nil {
+		t.Fatalf("expected real.json to exist in destination: %v", err)
+	}
+	if string(gotReal) != string(realContent) {
+		t.Errorf("real.json content mismatch: got %q, want %q", gotReal, realContent)
+	}
+}
+
+// --- CopyDefaults leaves existing symlink untouched when source has symlink ---
+
+func TestCopyDefaults_ExistingSymlink_NotOverwrittenBySymlink(t *testing.T) {
+	// Given a source tree containing a relative symlink config/link.json -> real.json
+	src := t.TempDir()
+	realContent := []byte(`{"real":"data"}`)
+	writeTestFile(t, filepath.Join(src, "config", "real.json"), realContent)
+	symlinkPath := filepath.Join(src, "config", "link.json")
+	assertNoError(t, os.Symlink("real.json", symlinkPath))
+
+	// And the destination already contains a symlink config/link.json pointing to a different target
+	dst := t.TempDir()
+	assertNoError(t, os.MkdirAll(filepath.Join(dst, "config"), 0o700))
+	dstLink := filepath.Join(dst, "config", "link.json")
+	assertNoError(t, os.Symlink("other-target", dstLink))
+
+	// When CopyDefaults copies the tree to the destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then the existing config/link.json at the destination is left untouched
+	gotTarget, err := os.Readlink(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read destination symlink: %v", err)
+	}
+	if gotTarget != "other-target" {
+		t.Errorf("destination symlink was changed: got target %q, want %q", gotTarget, "other-target")
+	}
+
+	// And the source real.json was still copied to the destination
+	gotReal, err := os.ReadFile(filepath.Join(dst, "config", "real.json"))
+	if err != nil {
+		t.Fatalf("expected real.json to exist in destination: %v", err)
+	}
+	if string(gotReal) != string(realContent) {
+		t.Errorf("real.json content mismatch: got %q, want %q", gotReal, realContent)
+	}
+}
+
+// --- CopyDefaults converts absolute symlink to relative when copying ---
+
+func TestCopyDefaults_AbsoluteSymlinkToFile_ConvertedToRelative(t *testing.T) {
+	// Given a source defaults tree at src containing a file config/z/y with content
+	// and an absolute symlink config/x -> <src>/config/z/y
+	src := t.TempDir()
+	wantContent := []byte("hello")
+	writeTestFile(t, filepath.Join(src, "config", "z", "y"), wantContent)
+	symlinkPath := filepath.Join(src, "config", "x")
+	assertNoError(t, os.Symlink(filepath.Join(src, "config", "z", "y"), symlinkPath))
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When CopyDefaults copies the tree to the destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then config/x at the destination is a symlink
+	dstLink := filepath.Join(dst, "config", "x")
+	info, err := os.Lstat(dstLink)
+	if err != nil {
+		t.Fatalf("expected config/x to exist in destination: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("expected config/x to be a symlink, got mode %v", info.Mode())
+	}
+
+	// And os.Readlink on the destination symlink returns "z/y"
+	gotTarget, err := os.Readlink(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read symlink target: %v", err)
+	}
+	if gotTarget != "z/y" {
+		t.Errorf("symlink target = %q, want %q", gotTarget, "z/y")
+	}
+
+	// And resolving the destination symlink yields the same content as the source target
+	gotContent, err := os.ReadFile(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read through symlink: %v", err)
+	}
+	if string(gotContent) != string(wantContent) {
+		t.Errorf("content through symlink = %q, want %q", gotContent, wantContent)
+	}
+}
+
+func TestCopyDefaults_AbsoluteSymlinkToDir_ConvertedToRelative(t *testing.T) {
+	// Given a source defaults tree at src containing a directory config/targetdir
+	// and an absolute symlink config/link -> <src>/config/targetdir
+	src := t.TempDir()
+	targetDir := filepath.Join(src, "config", "targetdir")
+	assertNoError(t, os.MkdirAll(targetDir, 0o700))
+	symlinkPath := filepath.Join(src, "config", "link")
+	assertNoError(t, os.Symlink(targetDir, symlinkPath))
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When CopyDefaults copies the tree to the destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then config/link at the destination is a symlink
+	dstLink := filepath.Join(dst, "config", "link")
+	info, err := os.Lstat(dstLink)
+	if err != nil {
+		t.Fatalf("expected config/link to exist in destination: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("expected config/link to be a symlink, got mode %v", info.Mode())
+	}
+
+	// And os.Readlink on the destination symlink returns "targetdir"
+	gotTarget, err := os.Readlink(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read symlink target: %v", err)
+	}
+	if gotTarget != "targetdir" {
+		t.Errorf("symlink target = %q, want %q", gotTarget, "targetdir")
+	}
+
+	// And resolving the destination symlink yields a directory
+	resolved, err := filepath.EvalSymlinks(dstLink)
+	if err != nil {
+		t.Fatalf("expected to resolve symlink: %v", err)
+	}
+	resolvedInfo, err := os.Stat(resolved)
+	if err != nil {
+		t.Fatalf("expected resolved path to exist: %v", err)
+	}
+	if !resolvedInfo.IsDir() {
+		t.Errorf("resolved symlink should be a directory, got %v", resolvedInfo.Mode())
+	}
+}
+
+func TestCopyDefaults_AbsoluteSymlinkDeepNested_ConvertedToRelative(t *testing.T) {
+	// Given a source defaults tree at src containing a file config/shallow/target.txt
+	// and an absolute symlink config/deep/nested/link -> <src>/config/shallow/target.txt
+	src := t.TempDir()
+	wantContent := []byte("nested content")
+	writeTestFile(t, filepath.Join(src, "config", "shallow", "target.txt"), wantContent)
+	symlinkPath := filepath.Join(src, "config", "deep", "nested", "link")
+	assertNoError(t, os.MkdirAll(filepath.Dir(symlinkPath), 0o700))
+	assertNoError(t, os.Symlink(filepath.Join(src, "config", "shallow", "target.txt"), symlinkPath))
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When CopyDefaults copies the tree to the destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then config/deep/nested/link at the destination is a symlink
+	dstLink := filepath.Join(dst, "config", "deep", "nested", "link")
+	info, err := os.Lstat(dstLink)
+	if err != nil {
+		t.Fatalf("expected config/deep/nested/link to exist in destination: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("expected config/deep/nested/link to be a symlink, got mode %v", info.Mode())
+	}
+
+	// And os.Readlink on the destination symlink returns "../../shallow/target.txt"
+	gotTarget, err := os.Readlink(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read symlink target: %v", err)
+	}
+	if gotTarget != "../../shallow/target.txt" {
+		t.Errorf("symlink target = %q, want %q", gotTarget, "../../shallow/target.txt")
+	}
+
+	// And the relative path correctly traverses from the symlink's location to the target
+	gotContent, err := os.ReadFile(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read through symlink: %v", err)
+	}
+	if string(gotContent) != string(wantContent) {
+		t.Errorf("content through symlink = %q, want %q", gotContent, wantContent)
+	}
+}
+
+func TestCopyDefaults_AbsoluteSymlinkSibling_ConvertedToRelative(t *testing.T) {
+	// Given a source defaults tree at src containing a file config/y
+	// and an absolute symlink config/x -> <src>/config/y where x and y are siblings
+	src := t.TempDir()
+	wantContent := []byte("sibling content")
+	writeTestFile(t, filepath.Join(src, "config", "y"), wantContent)
+	symlinkPath := filepath.Join(src, "config", "x")
+	assertNoError(t, os.Symlink(filepath.Join(src, "config", "y"), symlinkPath))
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When CopyDefaults copies the tree to the destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then config/x at the destination is a symlink
+	dstLink := filepath.Join(dst, "config", "x")
+	info, err := os.Lstat(dstLink)
+	if err != nil {
+		t.Fatalf("expected config/x to exist in destination: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("expected config/x to be a symlink, got mode %v", info.Mode())
+	}
+
+	// And os.Readlink on the destination symlink returns "y"
+	gotTarget, err := os.Readlink(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read symlink target: %v", err)
+	}
+	if gotTarget != "y" {
+		t.Errorf("symlink target = %q, want %q", gotTarget, "y")
+	}
+
+	// And resolving the destination symlink yields the same content as the source target
+	gotContent, err := os.ReadFile(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read through symlink: %v", err)
+	}
+	if string(gotContent) != string(wantContent) {
+		t.Errorf("content through symlink = %q, want %q", gotContent, wantContent)
+	}
+}
+
+// --- CopyDefaults leaves existing dangling symlink untouched when source has regular file ---
+
+func TestCopyDefaults_DanglingSymlinkNeverOverwrites(t *testing.T) {
+	// Given a source defaults tree containing a regular file config/link.json
+	src := t.TempDir()
+	wantContent := []byte(`{"real":"data"}`)
+	writeTestFile(t, filepath.Join(src, "config", "link.json"), wantContent)
+
+	// And the destination already contains a dangling symlink config/link.json
+	dst := t.TempDir()
+	assertNoError(t, os.MkdirAll(filepath.Join(dst, "config"), 0o700))
+	dstLink := filepath.Join(dst, "config", "link.json")
+	assertNoError(t, os.Symlink("/nonexistent/target", dstLink))
+
+	// When CopyDefaults copies the tree to the destination
+	err := customisations.CopyDefaults(src, dst)
+
+	// Then no error is returned
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	// And the existing dangling symlink at the destination is left untouched
+	info, err := os.Lstat(dstLink)
+	if err != nil {
+		t.Fatalf("expected dangling symlink to exist: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("expected config/link.json to remain a symlink, got mode %v", info.Mode())
+	}
+	gotTarget, err := os.Readlink(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read symlink target: %v", err)
+	}
+	if gotTarget != "/nonexistent/target" {
+		t.Errorf("symlink target changed: got %q, want %q", gotTarget, "/nonexistent/target")
 	}
 }
 

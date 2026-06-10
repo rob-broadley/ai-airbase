@@ -89,33 +89,16 @@ func CopyDefaults(src, dst string) error {
 			return err
 		}
 		if d.Type()&os.ModeSymlink != 0 {
-			return nil
+			return copySymlinkToDest(path, src, dst)
 		}
 		if d.IsDir() {
-			rel, err := filepath.Rel(src, path)
-			if err != nil {
-				return err
-			}
-			if rel == "." {
-				return nil
-			}
-			return os.MkdirAll(filepath.Join(dst, rel), 0o700)
+			return copyDirToDest(path, src, dst)
 		}
-		rel, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		dstPath := filepath.Join(dst, rel)
-		if _, err := os.Stat(dstPath); err == nil {
-			return nil // never overwrite
-		}
-		if err := os.MkdirAll(filepath.Dir(dstPath), 0o700); err != nil {
-			return err
-		}
-		return copyFile(path, dstPath)
+		return copyFileToDest(path, path, src, dst)
 	})
 }
 
+// copyFile copies src to dst, overwriting dst.
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {
@@ -129,6 +112,70 @@ func copyFile(src, dst string) error {
 	defer out.Close()
 	_, err = io.Copy(out, in)
 	return err
+}
+
+// copyFileToDest copies srcPath into dstRoot, preserving the relative path
+// under srcRoot. Files that already exist at the destination are skipped.
+func copyFileToDest(srcPath, relBase, srcRoot, dstRoot string) error {
+	rel, err := filepath.Rel(srcRoot, relBase)
+	if err != nil {
+		return err
+	}
+	dstPath := filepath.Join(dstRoot, rel)
+	if _, err := os.Lstat(dstPath); err == nil {
+		return nil // never overwrite
+	}
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0o700); err != nil {
+		return err
+	}
+	return copyFile(srcPath, dstPath)
+}
+
+// copyDirToDest creates a directory in dstRoot mirroring the path under srcRoot.
+func copyDirToDest(path, srcRoot, dstRoot string) error {
+	rel, err := filepath.Rel(srcRoot, path)
+	if err != nil {
+		return err
+	}
+	if rel == "." {
+		return nil
+	}
+	return os.MkdirAll(filepath.Join(dstRoot, rel), 0o700)
+}
+
+// copySymlinkToDest reads the symlink target and recreates it at the
+// destination, preserving the relative target path. Absolute targets are
+// converted to relative paths from the destination symlink's location.
+// Broken symlinks and symlinked directories are preserved as-is. Existing
+// entries at the destination are never overwritten.
+func copySymlinkToDest(path, srcRoot, dstRoot string) error {
+	target, err := os.Readlink(path)
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(srcRoot, path)
+	if err != nil {
+		return err
+	}
+	dstPath := filepath.Join(dstRoot, rel)
+	if _, err := os.Lstat(dstPath); err == nil {
+		return nil // never overwrite
+	}
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0o700); err != nil {
+		return err
+	}
+	if filepath.IsAbs(target) {
+		// The absolute target is within the source tree. Compute its
+		// relative path from the symlink's directory in the source tree,
+		// which is the same relative path needed from the destination
+		// symlink's directory.
+		targetRel, err := filepath.Rel(filepath.Dir(path), target)
+		if err != nil {
+			return err
+		}
+		target = targetRel
+	}
+	return os.Symlink(target, dstPath)
 }
 
 func ensureDefaultsSubdir(path string) error {
