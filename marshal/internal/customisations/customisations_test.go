@@ -432,11 +432,187 @@ func TestHardenSourceTree_SymlinkEscapingRoot_ReturnsSecurityViolation(t *testin
 	}
 }
 
+// --- CopyDefaults copies a single file into empty destination ---
+
+func TestCopyDefaults_SingleFile_CopiesToEmptyDestination(t *testing.T) {
+	// Given a source tree containing config/settings.json
+	src := t.TempDir()
+	wantContent := []byte(`{"theme":"dark"}`)
+	writeTestFile(t, filepath.Join(src, "config", "settings.json"), wantContent)
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When the copy function is called with source and destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then config/settings.json exists in the destination with the same content
+	gotContent, err := os.ReadFile(filepath.Join(dst, "config", "settings.json"))
+	if err != nil {
+		t.Fatalf("expected file to exist in destination: %v", err)
+	}
+	if string(gotContent) != string(wantContent) {
+		t.Errorf("file content mismatch: got %q, want %q", gotContent, wantContent)
+	}
+}
+
+// --- CopyDefaults never overwrites existing destination file ---
+
+func TestCopyDefaults_ExistingFile_NeverOverwrites(t *testing.T) {
+	// Given a source tree containing config/settings.json
+	src := t.TempDir()
+	srcContent := []byte(`{"theme":"light"}`)
+	writeTestFile(t, filepath.Join(src, "config", "settings.json"), srcContent)
+
+	// And the destination already contains config/settings.json with different content
+	dst := t.TempDir()
+	dstContent := []byte(`{"theme":"dark"}`)
+	dstFile := filepath.Join(dst, "config", "settings.json")
+	writeTestFile(t, dstFile, dstContent)
+
+	// When the copy function is called with source and destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then the destination file is unchanged
+	gotContent, err := os.ReadFile(dstFile)
+	if err != nil {
+		t.Fatalf("expected to read destination file: %v", err)
+	}
+	if string(gotContent) != string(dstContent) {
+		t.Errorf("destination file was overwritten: got %q, want %q", gotContent, dstContent)
+	}
+}
+
+// --- CopyDefaults copies nested subdir file to empty destination ---
+
+func TestCopyDefaults_NestedSubdir_CopiesToEmptyDestination(t *testing.T) {
+	// Given a source tree containing config/subdir/nested.json
+	src := t.TempDir()
+	wantContent := []byte(`{"key":"value"}`)
+	writeTestFile(t, filepath.Join(src, "config", "subdir", "nested.json"), wantContent)
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When the copy function is called with source and destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then config/subdir/nested.json exists in the destination with the same content
+	gotContent, err := os.ReadFile(filepath.Join(dst, "config", "subdir", "nested.json"))
+	if err != nil {
+		t.Fatalf("expected file to exist in destination: %v", err)
+	}
+	if string(gotContent) != string(wantContent) {
+		t.Errorf("file content mismatch: got %q, want %q", gotContent, wantContent)
+	}
+}
+
+// --- CopyDefaults copies multiple files from different subdirs ---
+
+func TestCopyDefaults_MultipleSubdirs_CopiesAllFiles(t *testing.T) {
+	// Given a source tree containing config/a.json and share/b.json
+	src := t.TempDir()
+	aContent := []byte(`{"a":1}`)
+	bContent := []byte(`{"b":2}`)
+	writeTestFile(t, filepath.Join(src, "config", "a.json"), aContent)
+	writeTestFile(t, filepath.Join(src, "share", "b.json"), bContent)
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When the copy function is called with source and destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then both files exist in the destination
+	gotA, err := os.ReadFile(filepath.Join(dst, "config", "a.json"))
+	if err != nil {
+		t.Fatalf("expected config/a.json to exist: %v", err)
+	}
+	if string(gotA) != string(aContent) {
+		t.Errorf("config/a.json content mismatch: got %q, want %q", gotA, aContent)
+	}
+	gotB, err := os.ReadFile(filepath.Join(dst, "share", "b.json"))
+	if err != nil {
+		t.Fatalf("expected share/b.json to exist: %v", err)
+	}
+	if string(gotB) != string(bContent) {
+		t.Errorf("share/b.json content mismatch: got %q, want %q", gotB, bContent)
+	}
+}
+
+// --- CopyDefaults with empty source is a no-op ---
+
+func TestCopyDefaults_EmptySource_DestinationUnchanged(t *testing.T) {
+	// Given an empty source tree (no files)
+	src := t.TempDir()
+
+	// And a destination directory with pre-existing files
+	dst := t.TempDir()
+	dstFile := filepath.Join(dst, "existing.txt")
+	dstContent := []byte("keep me")
+	assertNoError(t, os.WriteFile(dstFile, dstContent, 0o644))
+
+	// When the copy function is called
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then the destination directory is unchanged
+	gotContent, err := os.ReadFile(dstFile)
+	if err != nil {
+		t.Fatalf("expected existing file to still exist: %v", err)
+	}
+	if string(gotContent) != string(dstContent) {
+		t.Errorf("existing file was modified: got %q, want %q", gotContent, dstContent)
+	}
+}
+
+// --- CopyDefaults never deletes pre-existing destination files ---
+
+func TestCopyDefaults_PreExistingFiles_NotDeleted(t *testing.T) {
+	// Given a source tree containing config/a.json
+	src := t.TempDir()
+	srcContent := []byte(`{"src":"yes"}`)
+	writeTestFile(t, filepath.Join(src, "config", "a.json"), srcContent)
+
+	// And a destination with pre-existing files not in the source
+	dst := t.TempDir()
+	unrelatedContent := []byte("do not delete me")
+	unrelatedFile := filepath.Join(dst, "unrelated.txt")
+	assertNoError(t, os.WriteFile(unrelatedFile, unrelatedContent, 0o644))
+
+	// When the copy function is called
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then the pre-existing destination files are left untouched
+	gotContent, err := os.ReadFile(unrelatedFile)
+	if err != nil {
+		t.Fatalf("expected unrelated file to still exist: %v", err)
+	}
+	if string(gotContent) != string(unrelatedContent) {
+		t.Errorf("unrelated file was modified: got %q, want %q", gotContent, unrelatedContent)
+	}
+
+	// And the source file was copied
+	gotSrc, err := os.ReadFile(filepath.Join(dst, "config", "a.json"))
+	if err != nil {
+		t.Fatalf("expected source file to exist in destination: %v", err)
+	}
+	if string(gotSrc) != string(srcContent) {
+		t.Errorf("source file content mismatch: got %q, want %q", gotSrc, srcContent)
+	}
+}
+
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
+}
+
+// writeTestFile creates parent directories and writes content to path.
+func writeTestFile(t *testing.T, path string, content []byte) {
+	t.Helper()
+	assertNoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+	assertNoError(t, os.WriteFile(path, content, 0o644))
 }
 
 // createOutsideFile creates a temp directory with a file and returns its path.

@@ -5,6 +5,7 @@ package customisations
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,6 +74,51 @@ func isPathUnder(child, parent string) bool {
 		return true
 	}
 	return strings.HasPrefix(child, parentWithSep)
+}
+
+// CopyDefaults copies every file in the source tree into the destination tree,
+// creating intermediate directories as needed. Files that already exist at the
+// destination are never overwritten. The source tree is hardened before copying.
+// Destination file permissions are not modified — hardenProjectDir handles that.
+func CopyDefaults(src, dst string) error {
+	if err := HardenSourceTree(src); err != nil {
+		return err
+	}
+	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || d.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		dstPath := filepath.Join(dst, rel)
+		if _, err := os.Stat(dstPath); err == nil {
+			return nil // never overwrite
+		}
+		if err := os.MkdirAll(filepath.Dir(dstPath), 0o700); err != nil {
+			return err
+		}
+		return copyFile(path, dstPath)
+	})
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	return err
 }
 
 func ensureDefaultsSubdir(path string) error {
