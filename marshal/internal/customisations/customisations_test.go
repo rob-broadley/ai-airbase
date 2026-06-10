@@ -601,6 +601,58 @@ func TestCopyDefaults_PreExistingFiles_NotDeleted(t *testing.T) {
 	}
 }
 
+// --- CopyDefaults copies empty directory from source to destination ---
+
+func TestCopyDefaults_EmptyDirectory_CopiesToDestination(t *testing.T) {
+	// Given a source tree containing an empty directory config/empty/
+	src := t.TempDir()
+	emptyDir := filepath.Join(src, "config", "empty")
+	assertNoError(t, os.MkdirAll(emptyDir, 0o700))
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When the copy function is called with source and destination
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then config/empty/ exists in the destination as a directory
+	dstEmptyDir := filepath.Join(dst, "config", "empty")
+	info, err := os.Stat(dstEmptyDir)
+	if err != nil {
+		t.Fatalf("expected config/empty/ to exist in destination: %v", err)
+	}
+	if !info.IsDir() {
+		t.Errorf("expected config/empty/ to be a directory, got %v", info.Mode())
+	}
+}
+
+// --- CopyDefaults follows symlink and copies resolved file content ---
+
+func TestCopyDefaults_SymlinkToFile_CopiesResolvedContent(t *testing.T) {
+	// Given a source tree containing a file and a symlink to that file
+	src := t.TempDir()
+	realContent := []byte(`{"real":"data"}`)
+	realFile := filepath.Join(src, "config", "real.json")
+	writeTestFile(t, realFile, realContent)
+	symlinkPath := filepath.Join(src, "config", "link.json")
+	assertNoError(t, os.Symlink("real.json", symlinkPath))
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When the copy function is called
+	assertNoError(t, customisations.CopyDefaults(src, dst))
+
+	// Then the symlink target's content is copied to the destination at the symlink path
+	gotContent, err := os.ReadFile(filepath.Join(dst, "config", "link.json"))
+	if err != nil {
+		t.Fatalf("expected link.json to exist in destination: %v", err)
+	}
+	if string(gotContent) != string(realContent) {
+		t.Errorf("link.json content mismatch: got %q, want %q", gotContent, realContent)
+	}
+}
+
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {

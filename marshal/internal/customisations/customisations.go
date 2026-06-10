@@ -88,8 +88,18 @@ func CopyDefaults(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() || d.Type()&os.ModeSymlink != 0 {
+		if d.Type()&os.ModeSymlink != 0 {
 			return nil
+		}
+		if d.IsDir() {
+			rel, err := filepath.Rel(src, path)
+			if err != nil {
+				return err
+			}
+			if rel == "." {
+				return nil
+			}
+			return os.MkdirAll(filepath.Join(dst, rel), 0o700)
 		}
 		rel, err := filepath.Rel(src, path)
 		if err != nil {
