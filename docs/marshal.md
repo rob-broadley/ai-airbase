@@ -576,7 +576,11 @@ ______________________________________________________________________
 
 ### User defaults directory
 
-marshal maintains a user defaults directory tree at `$XDG_DATA_HOME/marshal/defaults/opencode/{config,share,state}` (which resolves to `~/.local/share/marshal/defaults/opencode/{config,share,state}` when `XDG_DATA_HOME` is not set). The directory is automatically created with `0o700` permissions on every `marshal create`, `marshal recreate`, and the default `marshal` command. Currently the directory structure is created empty; no files are placed inside it. This directory tree serves as the foundation for future populate-from-defaults behaviour.
+marshal maintains a user defaults directory at `$XDG_DATA_HOME/marshal/defaults/` (which resolves to `~/.local/share/marshal/defaults/` when `XDG_DATA_HOME` is not set). Subdirectories under this tree correspond to the bind-mounted tool directories that marshal scaffolds for each project — every subdirectory is automatically created with `0o700` permissions on each `marshal create`, `marshal recreate`, `marshal shell`, and the default `marshal` command.
+
+Files placed in a defaults subdirectory are copied into the matching per-project subdirectory on the next `marshal create` or `marshal recreate`. The copy uses never-overwrite semantics: existing per-project files are never modified or deleted. Symlinks in the defaults source tree are preserved as symlinks at the destination — they are not followed or replaced with file content. Absolute symlinks are converted to relative symlinks so the project directory is self-contained. Symlinks that escape the source root cause the operation to abort with a security error.
+
+To opt out, leave the defaults directory empty.
 
 ______________________________________________________________________
 
