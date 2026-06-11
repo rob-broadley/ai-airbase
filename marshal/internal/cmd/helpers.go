@@ -93,8 +93,10 @@ func provisionProjectDir(deps Deps, project string) (projectDirPaths, error) {
 }
 
 // ensureHostState ensures all host-side state needed before the container is
-// built: the per-project host dir tree (provisionProjectDir) and the
-// on-host user defaults directory tree (customisations.Ensure).
+// built: the per-project host dir tree (provisionProjectDir), the
+// on-host user defaults directory tree (customisations.Ensure), and
+// the copy of defaults files into the per-project directory
+// (customisations.CopyDefaults).
 //
 // This function is the single entry point for host-state setup; it is called
 // by each subcommand (runCreate, runRecreate, ensureContainerAndStart,
@@ -108,7 +110,12 @@ func ensureHostState(deps Deps, project string) (projectDirPaths, error) {
 	if err != nil {
 		return paths, err
 	}
-	if err := customisations.Ensure(hostinfo.XDGDataHome); err != nil {
+	xdgDataHome := hostinfo.XDGDataHome()
+	if err := customisations.Ensure(func() string { return xdgDataHome }); err != nil {
+		return paths, fmt.Errorf("ensuring user defaults tree: %w", err)
+	}
+	defaultsDir := customisations.DefaultsDir(xdgDataHome)
+	if err := customisations.CopyDefaults(filepath.Join(defaultsDir, "opencode"), filepath.Dir(paths.config)); err != nil {
 		return paths, err
 	}
 	return paths, nil
