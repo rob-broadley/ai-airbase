@@ -11,8 +11,13 @@ import (
 	"strings"
 )
 
+// MountDirs lists all bind-mounted subdirectories that marshal scaffolds
+// under $XDG_DATA_HOME/marshal/defaults. Adding a new tool requires only
+// appending an entry here.
+var MountDirs = []string{"opencode/config", "opencode/share", "opencode/state"}
+
 // Ensure creates the user defaults directory tree at
-// $XDG_DATA_HOME/marshal/defaults/opencode/{config,share,state} with
+// $XDG_DATA_HOME/marshal/defaults for every entry in MountDirs with
 // 0o700 permissions. Returns an error if the base is unavailable,
 // a symlink exists at any subdir path, or a non-directory file
 // exists at any subdir path. Pre-existing directories are left alone.
@@ -22,8 +27,8 @@ func Ensure(xdgDataHome func() string) error {
 		return fmt.Errorf("data directory unavailable: set HOME or XDG_DATA_HOME")
 	}
 	defaultsDir := DefaultsDir(base)
-	for _, sub := range []string{"config", "share", "state"} {
-		path := filepath.Join(defaultsDir, "opencode", sub)
+	for _, sub := range MountDirs {
+		path := filepath.Join(defaultsDir, sub)
 		if err := ensureDefaultsSubdir(path); err != nil {
 			return err
 		}
@@ -76,14 +81,34 @@ func isPathUnder(child, parent string) bool {
 	return strings.HasPrefix(child, parentWithSep)
 }
 
-// CopyDefaults copies every file in the source tree into the destination tree,
-// creating intermediate directories as needed. Files that already exist at the
-// destination are never overwritten. The source tree is hardened before copying.
-// Destination file permissions are not modified — hardenProjectDir handles that.
-func CopyDefaults(src, dst string) error {
-	if err := HardenSourceTree(src); err != nil {
-		return err
+// CopyDefaults iterates MountDirs and copies each source subdirectory from
+// defaultsDir into dst. For each entry in MountDirs (e.g. "opencode/config"),
+// the source is defaultsDir/<entry> and the destination is dst/<entry>.
+// Source subdirectories that don't exist are silently skipped. Files that
+// already exist at the destination are never overwritten. Each source
+// subdirectory is hardened before copying. Destination file permissions are
+// not modified — hardenProjectDir handles that.
+func CopyDefaults(defaultsDir, dst string) error {
+	for _, entry := range MountDirs {
+		src := filepath.Join(defaultsDir, entry)
+		if _, err := os.Stat(src); os.IsNotExist(err) {
+			continue
+		}
+		if err := HardenSourceTree(src); err != nil {
+			return err
+		}
+		dstDir := filepath.Join(dst, entry)
+		if err := copyTree(src, dstDir); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+// copyTree copies the entire source tree into dst, preserving symlinks,
+// never overwriting existing entries, and creating intermediate directories
+// as needed.
+func copyTree(src, dst string) error {
 	return filepath.WalkDir(src, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err

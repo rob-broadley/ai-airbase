@@ -5,11 +5,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/cmd"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
+	"github.com/rob-broadley/ai-airbase/marshal/internal/customisations"
 )
 
 // TestCreate_CreatesContainerWithCWD verifies that marshal create creates the
@@ -719,5 +722,55 @@ func TestCreate_NoPortFlag_SavesConfigExactlyOnce(t *testing.T) {
 	}
 	if lastSavedProject != "myapp" {
 		t.Errorf("expected saved project name to be %q, got %q", "myapp", lastSavedProject)
+	}
+}
+
+// TestCreate_PerProjectDirsExist verifies that marshal create creates the
+// per-project host directories for each entry in MountDirs under
+// XDG_DATA_HOME/marshal/projects/<project>/opencode/.
+func TestCreate_PerProjectDirsExist(t *testing.T) {
+	// Given XDG_DATA_HOME is set to a fresh temp directory
+	xdgDataHome := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+
+	// And EnsureSharedDataDir mirrors the real hostinfo behaviour by
+	// prepending "marshal/" to the subdir, so provisionProjectDir creates
+	// per-project directories at the expected XDG_DATA_HOME path.
+	// Directories are created with 0o755 so hardenProjectDir must correct
+	// them to 0o700 — verifying the production code's permission enforcement.
+	cf := newCredFakes(t)
+	cf.dataBase = xdgDataHome
+	cf.dataDirFn = func(subdir string) (string, error) {
+		cf.calls = append(cf.calls, "data:"+subdir)
+		p := filepath.Join(xdgDataHome, "marshal", subdir)
+		if err := os.MkdirAll(p, 0o755); err != nil {
+			return "", err
+		}
+		return p, nil
+	}
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
+	deps := newCredentialTestDeps(cf, runner)
+
+	root := cmd.NewRootCmd(deps)
+	root.SetArgs([]string{"--project", "myapp", "create"})
+
+	// When the user runs `marshal create`
+	assertNoError(t, root.Execute())
+
+	// Then projects/myapp directories exist under the data directory
+	wantBase := filepath.Join(xdgDataHome, "marshal", "projects", "myapp")
+	for _, entry := range customisations.MountDirs() {
+		p := filepath.Join(wantBase, entry)
+		info, err := os.Stat(p)
+		if err != nil {
+			t.Fatalf("expected %s to exist: %v", p, err)
+		}
+		if !info.IsDir() {
+			t.Errorf("expected %s to be a directory", p)
+		}
+		// And all directories have 0o700 permissions
+		if perm := info.Mode().Perm(); perm != 0o700 {
+			t.Errorf("expected %s to have permissions 0o700, got %04o", p, perm)
+		}
 	}
 }

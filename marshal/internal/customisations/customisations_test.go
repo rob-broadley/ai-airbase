@@ -10,6 +10,61 @@ import (
 	"github.com/rob-broadley/ai-airbase/marshal/internal/customisations"
 )
 
+// --- MountDirs contains expected entries ---
+
+func TestMountDirs_ContainsExpectedEntries(t *testing.T) {
+	// Given the customisations package is imported
+	// When the package is initialised
+	// Then MountDirs contains exactly the three expected bind-mount directories
+	want := []string{"opencode/config", "opencode/share", "opencode/state"}
+	if len(customisations.MountDirs) != len(want) {
+		t.Fatalf("MountDirs has %d entries, want %d: %v", len(customisations.MountDirs), len(want), customisations.MountDirs)
+	}
+	for i, got := range customisations.MountDirs {
+		if got != want[i] {
+			t.Errorf("MountDirs[%d] = %q, want %q", i, got, want[i])
+		}
+	}
+}
+
+// --- Ensure creates subdirs from MountDirs ---
+
+func TestEnsure_CreatesSubdirsFromMountDirs(t *testing.T) {
+	// Given a developer appends a new entry to MountDirs
+	orig := customisations.MountDirs
+	origCopy := make([]string, len(orig))
+	copy(origCopy, orig)
+	defer func() { customisations.MountDirs = origCopy }()
+
+	customisations.MountDirs = append(customisations.MountDirs, "opencode/tools")
+
+	// And an injected xdgDataHome function that returns a t.TempDir()-based path
+	base := t.TempDir()
+	xdgDataHome := func() string { return base }
+
+	// When Ensure is called
+	err := customisations.Ensure(xdgDataHome)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	// Then all MountDirs entries exist as directories with 0o700 permissions
+	wantBase := filepath.Join(base, "marshal", "defaults")
+	for _, entry := range customisations.MountDirs {
+		p := filepath.Join(wantBase, entry)
+		info, err := os.Stat(p)
+		if err != nil {
+			t.Fatalf("expected %s to exist: %v", p, err)
+		}
+		if !info.IsDir() {
+			t.Errorf("expected %s to be a directory", p)
+		}
+		if perm := info.Mode().Perm(); perm != 0o700 {
+			t.Errorf("expected %s to have permissions 0o700, got %04o", p, perm)
+		}
+	}
+}
+
 // --- Ensure creates subdirs ---
 
 func TestEnsure_CreatesThreeSubdirsWith0o700(t *testing.T) {
@@ -435,19 +490,19 @@ func TestHardenSourceTree_SymlinkEscapingRoot_ReturnsSecurityViolation(t *testin
 // --- CopyDefaults copies a single file into empty destination ---
 
 func TestCopyDefaults_SingleFile_CopiesToEmptyDestination(t *testing.T) {
-	// Given a source tree containing config/settings.json
-	src := t.TempDir()
+	// Given a defaultsDir containing opencode/config/settings.json
+	defaultsDir := t.TempDir()
 	wantContent := []byte(`{"theme":"dark"}`)
-	writeTestFile(t, filepath.Join(src, "config", "settings.json"), wantContent)
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "settings.json"), wantContent)
 
 	// And an empty destination directory
 	dst := t.TempDir()
 
-	// When the copy function is called with source and destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	// When CopyDefaults is called with defaultsDir and dst
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then config/settings.json exists in the destination with the same content
-	gotContent, err := os.ReadFile(filepath.Join(dst, "config", "settings.json"))
+	// Then dst/opencode/config/settings.json exists with the same content
+	gotContent, err := os.ReadFile(filepath.Join(dst, "opencode", "config", "settings.json"))
 	if err != nil {
 		t.Fatalf("expected file to exist in destination: %v", err)
 	}
@@ -459,19 +514,19 @@ func TestCopyDefaults_SingleFile_CopiesToEmptyDestination(t *testing.T) {
 // --- CopyDefaults never overwrites existing destination file ---
 
 func TestCopyDefaults_ExistingFile_NeverOverwrites(t *testing.T) {
-	// Given a source tree containing config/settings.json
-	src := t.TempDir()
+	// Given a defaultsDir containing opencode/config/settings.json
+	defaultsDir := t.TempDir()
 	srcContent := []byte(`{"theme":"light"}`)
-	writeTestFile(t, filepath.Join(src, "config", "settings.json"), srcContent)
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "settings.json"), srcContent)
 
-	// And the destination already contains config/settings.json with different content
+	// And the destination already contains opencode/config/settings.json with different content
 	dst := t.TempDir()
 	dstContent := []byte(`{"theme":"dark"}`)
-	dstFile := filepath.Join(dst, "config", "settings.json")
+	dstFile := filepath.Join(dst, "opencode", "config", "settings.json")
 	writeTestFile(t, dstFile, dstContent)
 
-	// When the copy function is called with source and destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	// When CopyDefaults is called with defaultsDir and dst
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
 	// Then the destination file is unchanged
 	gotContent, err := os.ReadFile(dstFile)
@@ -486,19 +541,19 @@ func TestCopyDefaults_ExistingFile_NeverOverwrites(t *testing.T) {
 // --- CopyDefaults copies nested subdir file to empty destination ---
 
 func TestCopyDefaults_NestedSubdir_CopiesToEmptyDestination(t *testing.T) {
-	// Given a source tree containing config/subdir/nested.json
-	src := t.TempDir()
+	// Given a defaultsDir containing opencode/config/subdir/nested.json
+	defaultsDir := t.TempDir()
 	wantContent := []byte(`{"key":"value"}`)
-	writeTestFile(t, filepath.Join(src, "config", "subdir", "nested.json"), wantContent)
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "subdir", "nested.json"), wantContent)
 
 	// And an empty destination directory
 	dst := t.TempDir()
 
-	// When the copy function is called with source and destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	// When CopyDefaults is called with defaultsDir and dst
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then config/subdir/nested.json exists in the destination with the same content
-	gotContent, err := os.ReadFile(filepath.Join(dst, "config", "subdir", "nested.json"))
+	// Then dst/opencode/config/subdir/nested.json exists with the same content
+	gotContent, err := os.ReadFile(filepath.Join(dst, "opencode", "config", "subdir", "nested.json"))
 	if err != nil {
 		t.Fatalf("expected file to exist in destination: %v", err)
 	}
@@ -510,41 +565,41 @@ func TestCopyDefaults_NestedSubdir_CopiesToEmptyDestination(t *testing.T) {
 // --- CopyDefaults copies multiple files from different subdirs ---
 
 func TestCopyDefaults_MultipleSubdirs_CopiesAllFiles(t *testing.T) {
-	// Given a source tree containing config/a.json and share/b.json
-	src := t.TempDir()
+	// Given a defaultsDir containing opencode/config/a.json and opencode/share/b.json
+	defaultsDir := t.TempDir()
 	aContent := []byte(`{"a":1}`)
 	bContent := []byte(`{"b":2}`)
-	writeTestFile(t, filepath.Join(src, "config", "a.json"), aContent)
-	writeTestFile(t, filepath.Join(src, "share", "b.json"), bContent)
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "a.json"), aContent)
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "share", "b.json"), bContent)
 
 	// And an empty destination directory
 	dst := t.TempDir()
 
-	// When the copy function is called with source and destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	// When CopyDefaults is called with defaultsDir and dst
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
 	// Then both files exist in the destination
-	gotA, err := os.ReadFile(filepath.Join(dst, "config", "a.json"))
+	gotA, err := os.ReadFile(filepath.Join(dst, "opencode", "config", "a.json"))
 	if err != nil {
-		t.Fatalf("expected config/a.json to exist: %v", err)
+		t.Fatalf("expected opencode/config/a.json to exist: %v", err)
 	}
 	if string(gotA) != string(aContent) {
-		t.Errorf("config/a.json content mismatch: got %q, want %q", gotA, aContent)
+		t.Errorf("opencode/config/a.json content mismatch: got %q, want %q", gotA, aContent)
 	}
-	gotB, err := os.ReadFile(filepath.Join(dst, "share", "b.json"))
+	gotB, err := os.ReadFile(filepath.Join(dst, "opencode", "share", "b.json"))
 	if err != nil {
-		t.Fatalf("expected share/b.json to exist: %v", err)
+		t.Fatalf("expected opencode/share/b.json to exist: %v", err)
 	}
 	if string(gotB) != string(bContent) {
-		t.Errorf("share/b.json content mismatch: got %q, want %q", gotB, bContent)
+		t.Errorf("opencode/share/b.json content mismatch: got %q, want %q", gotB, bContent)
 	}
 }
 
 // --- CopyDefaults with empty source is a no-op ---
 
 func TestCopyDefaults_EmptySource_DestinationUnchanged(t *testing.T) {
-	// Given an empty source tree (no files)
-	src := t.TempDir()
+	// Given an empty defaultsDir (no files)
+	defaultsDir := t.TempDir()
 
 	// And a destination directory with pre-existing files
 	dst := t.TempDir()
@@ -552,8 +607,8 @@ func TestCopyDefaults_EmptySource_DestinationUnchanged(t *testing.T) {
 	dstContent := []byte("keep me")
 	assertNoError(t, os.WriteFile(dstFile, dstContent, 0o644))
 
-	// When the copy function is called
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	// When CopyDefaults is called
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
 	// Then the destination directory is unchanged
 	gotContent, err := os.ReadFile(dstFile)
@@ -568,10 +623,10 @@ func TestCopyDefaults_EmptySource_DestinationUnchanged(t *testing.T) {
 // --- CopyDefaults never deletes pre-existing destination files ---
 
 func TestCopyDefaults_PreExistingFiles_NotDeleted(t *testing.T) {
-	// Given a source tree containing config/a.json
-	src := t.TempDir()
+	// Given a defaultsDir containing opencode/config/a.json
+	defaultsDir := t.TempDir()
 	srcContent := []byte(`{"src":"yes"}`)
-	writeTestFile(t, filepath.Join(src, "config", "a.json"), srcContent)
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "a.json"), srcContent)
 
 	// And a destination with pre-existing files not in the source
 	dst := t.TempDir()
@@ -579,8 +634,8 @@ func TestCopyDefaults_PreExistingFiles_NotDeleted(t *testing.T) {
 	unrelatedFile := filepath.Join(dst, "unrelated.txt")
 	assertNoError(t, os.WriteFile(unrelatedFile, unrelatedContent, 0o644))
 
-	// When the copy function is called
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	// When CopyDefaults is called
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
 	// Then the pre-existing destination files are left untouched
 	gotContent, err := os.ReadFile(unrelatedFile)
@@ -592,7 +647,7 @@ func TestCopyDefaults_PreExistingFiles_NotDeleted(t *testing.T) {
 	}
 
 	// And the source file was copied
-	gotSrc, err := os.ReadFile(filepath.Join(dst, "config", "a.json"))
+	gotSrc, err := os.ReadFile(filepath.Join(dst, "opencode", "config", "a.json"))
 	if err != nil {
 		t.Fatalf("expected source file to exist in destination: %v", err)
 	}
@@ -604,47 +659,47 @@ func TestCopyDefaults_PreExistingFiles_NotDeleted(t *testing.T) {
 // --- CopyDefaults copies empty directory from source to destination ---
 
 func TestCopyDefaults_EmptyDirectory_CopiesToDestination(t *testing.T) {
-	// Given a source tree containing an empty directory config/empty/
-	src := t.TempDir()
-	emptyDir := filepath.Join(src, "config", "empty")
+	// Given a defaultsDir containing an empty directory opencode/config/empty/
+	defaultsDir := t.TempDir()
+	emptyDir := filepath.Join(defaultsDir, "opencode", "config", "empty")
 	assertNoError(t, os.MkdirAll(emptyDir, 0o700))
 
 	// And an empty destination directory
 	dst := t.TempDir()
 
-	// When the copy function is called with source and destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	// When CopyDefaults is called with defaultsDir and dst
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then config/empty/ exists in the destination as a directory
-	dstEmptyDir := filepath.Join(dst, "config", "empty")
+	// Then dst/opencode/config/empty/ exists in the destination as a directory
+	dstEmptyDir := filepath.Join(dst, "opencode", "config", "empty")
 	info, err := os.Stat(dstEmptyDir)
 	if err != nil {
-		t.Fatalf("expected config/empty/ to exist in destination: %v", err)
+		t.Fatalf("expected dst/opencode/config/empty/ to exist in destination: %v", err)
 	}
 	if !info.IsDir() {
-		t.Errorf("expected config/empty/ to be a directory, got %v", info.Mode())
+		t.Errorf("expected dst/opencode/config/empty/ to be a directory, got %v", info.Mode())
 	}
 }
 
 // --- CopyDefaults preserves relative symlink to file ---
 
 func TestCopyDefaults_SymlinkToFile_PreservesSymlink(t *testing.T) {
-	// Given a source tree containing a relative symlink config/link.json -> real.json
-	src := t.TempDir()
+	// Given a defaultsDir containing a relative symlink opencode/config/link.json -> real.json
+	defaultsDir := t.TempDir()
 	realContent := []byte(`{"real":"data"}`)
-	realFile := filepath.Join(src, "config", "real.json")
+	realFile := filepath.Join(defaultsDir, "opencode", "config", "real.json")
 	writeTestFile(t, realFile, realContent)
-	symlinkPath := filepath.Join(src, "config", "link.json")
+	symlinkPath := filepath.Join(defaultsDir, "opencode", "config", "link.json")
 	assertNoError(t, os.Symlink("real.json", symlinkPath))
 
 	// And an empty destination directory
 	dst := t.TempDir()
 
 	// When CopyDefaults copies the tree to the destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then config/link.json at the destination is a symlink (not a regular file)
-	dstLink := filepath.Join(dst, "config", "link.json")
+	// Then opencode/config/link.json at the destination is a symlink (not a regular file)
+	dstLink := filepath.Join(dst, "opencode", "config", "link.json")
 	info, err := os.Lstat(dstLink)
 	if err != nil {
 		t.Fatalf("expected link.json to exist in destination: %v", err)
@@ -675,21 +730,21 @@ func TestCopyDefaults_SymlinkToFile_PreservesSymlink(t *testing.T) {
 // --- CopyDefaults preserves relative symlink to directory ---
 
 func TestCopyDefaults_SymlinkToDir_PreservesSymlink(t *testing.T) {
-	// Given a source tree containing a relative symlink config/subdir/link -> sibling
-	src := t.TempDir()
-	siblingDir := filepath.Join(src, "config", "subdir", "sibling")
+	// Given a defaultsDir containing a relative symlink opencode/config/subdir/link -> sibling
+	defaultsDir := t.TempDir()
+	siblingDir := filepath.Join(defaultsDir, "opencode", "config", "subdir", "sibling")
 	assertNoError(t, os.MkdirAll(siblingDir, 0o700))
-	symlinkPath := filepath.Join(src, "config", "subdir", "link")
+	symlinkPath := filepath.Join(defaultsDir, "opencode", "config", "subdir", "link")
 	assertNoError(t, os.Symlink("sibling", symlinkPath))
 
 	// And an empty destination directory
 	dst := t.TempDir()
 
 	// When CopyDefaults copies the tree to the destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then config/subdir/link at the destination is a symlink
-	dstLink := filepath.Join(dst, "config", "subdir", "link")
+	// Then opencode/config/subdir/link at the destination is a symlink
+	dstLink := filepath.Join(dst, "opencode", "config", "subdir", "link")
 	info, err := os.Lstat(dstLink)
 	if err != nil {
 		t.Fatalf("expected link to exist in destination: %v", err)
@@ -724,20 +779,20 @@ func TestCopyDefaults_SymlinkToDir_PreservesSymlink(t *testing.T) {
 // --- CopyDefaults preserves broken relative symlink ---
 
 func TestCopyDefaults_BrokenSymlink_PreservesSymlink(t *testing.T) {
-	// Given a source tree containing a broken relative symlink config/dead -> nonexistent
-	src := t.TempDir()
-	assertNoError(t, os.MkdirAll(filepath.Join(src, "config"), 0o700))
-	symlinkPath := filepath.Join(src, "config", "dead")
+	// Given a defaultsDir containing a broken relative symlink opencode/config/dead -> nonexistent
+	defaultsDir := t.TempDir()
+	assertNoError(t, os.MkdirAll(filepath.Join(defaultsDir, "opencode", "config"), 0o700))
+	symlinkPath := filepath.Join(defaultsDir, "opencode", "config", "dead")
 	assertNoError(t, os.Symlink("nonexistent", symlinkPath))
 
 	// And an empty destination directory
 	dst := t.TempDir()
 
 	// When CopyDefaults copies the tree to the destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then config/dead at the destination is a symlink
-	dstLink := filepath.Join(dst, "config", "dead")
+	// Then opencode/config/dead at the destination is a symlink
+	dstLink := filepath.Join(dst, "opencode", "config", "dead")
 	info, err := os.Lstat(dstLink)
 	if err != nil {
 		t.Fatalf("expected dead to exist in destination: %v", err)
@@ -768,23 +823,23 @@ func TestCopyDefaults_BrokenSymlink_PreservesSymlink(t *testing.T) {
 // --- CopyDefaults leaves existing regular file untouched when source has symlink ---
 
 func TestCopyDefaults_ExistingFile_NotOverwrittenBySymlink(t *testing.T) {
-	// Given a source tree containing a relative symlink config/link.json -> real.json
-	src := t.TempDir()
+	// Given a defaultsDir containing a relative symlink opencode/config/link.json -> real.json
+	defaultsDir := t.TempDir()
 	realContent := []byte(`{"real":"data"}`)
-	writeTestFile(t, filepath.Join(src, "config", "real.json"), realContent)
-	symlinkPath := filepath.Join(src, "config", "link.json")
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "real.json"), realContent)
+	symlinkPath := filepath.Join(defaultsDir, "opencode", "config", "link.json")
 	assertNoError(t, os.Symlink("real.json", symlinkPath))
 
-	// And the destination already contains a regular file config/link.json with different content
+	// And the destination already contains a regular file opencode/config/link.json with different content
 	dst := t.TempDir()
 	dstContent := []byte(`{"existing":"file"}`)
-	dstFile := filepath.Join(dst, "config", "link.json")
+	dstFile := filepath.Join(dst, "opencode", "config", "link.json")
 	writeTestFile(t, dstFile, dstContent)
 
 	// When CopyDefaults copies the tree to the destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then the existing config/link.json at the destination is left untouched
+	// Then the existing opencode/config/link.json at the destination is left untouched
 	info, err := os.Lstat(dstFile)
 	if err != nil {
 		t.Fatalf("expected link.json to exist in destination: %v", err)
@@ -801,7 +856,7 @@ func TestCopyDefaults_ExistingFile_NotOverwrittenBySymlink(t *testing.T) {
 	}
 
 	// And the source real.json was still copied to the destination
-	gotReal, err := os.ReadFile(filepath.Join(dst, "config", "real.json"))
+	gotReal, err := os.ReadFile(filepath.Join(dst, "opencode", "config", "real.json"))
 	if err != nil {
 		t.Fatalf("expected real.json to exist in destination: %v", err)
 	}
@@ -813,23 +868,23 @@ func TestCopyDefaults_ExistingFile_NotOverwrittenBySymlink(t *testing.T) {
 // --- CopyDefaults leaves existing symlink untouched when source has symlink ---
 
 func TestCopyDefaults_ExistingSymlink_NotOverwrittenBySymlink(t *testing.T) {
-	// Given a source tree containing a relative symlink config/link.json -> real.json
-	src := t.TempDir()
+	// Given a defaultsDir containing a relative symlink opencode/config/link.json -> real.json
+	defaultsDir := t.TempDir()
 	realContent := []byte(`{"real":"data"}`)
-	writeTestFile(t, filepath.Join(src, "config", "real.json"), realContent)
-	symlinkPath := filepath.Join(src, "config", "link.json")
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "real.json"), realContent)
+	symlinkPath := filepath.Join(defaultsDir, "opencode", "config", "link.json")
 	assertNoError(t, os.Symlink("real.json", symlinkPath))
 
-	// And the destination already contains a symlink config/link.json pointing to a different target
+	// And the destination already contains a symlink opencode/config/link.json pointing to a different target
 	dst := t.TempDir()
-	assertNoError(t, os.MkdirAll(filepath.Join(dst, "config"), 0o700))
-	dstLink := filepath.Join(dst, "config", "link.json")
+	assertNoError(t, os.MkdirAll(filepath.Join(dst, "opencode", "config"), 0o700))
+	dstLink := filepath.Join(dst, "opencode", "config", "link.json")
 	assertNoError(t, os.Symlink("other-target", dstLink))
 
 	// When CopyDefaults copies the tree to the destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then the existing config/link.json at the destination is left untouched
+	// Then the existing opencode/config/link.json at the destination is left untouched
 	gotTarget, err := os.Readlink(dstLink)
 	if err != nil {
 		t.Fatalf("expected to read destination symlink: %v", err)
@@ -839,7 +894,7 @@ func TestCopyDefaults_ExistingSymlink_NotOverwrittenBySymlink(t *testing.T) {
 	}
 
 	// And the source real.json was still copied to the destination
-	gotReal, err := os.ReadFile(filepath.Join(dst, "config", "real.json"))
+	gotReal, err := os.ReadFile(filepath.Join(dst, "opencode", "config", "real.json"))
 	if err != nil {
 		t.Fatalf("expected real.json to exist in destination: %v", err)
 	}
@@ -851,28 +906,28 @@ func TestCopyDefaults_ExistingSymlink_NotOverwrittenBySymlink(t *testing.T) {
 // --- CopyDefaults converts absolute symlink to relative when copying ---
 
 func TestCopyDefaults_AbsoluteSymlinkToFile_ConvertedToRelative(t *testing.T) {
-	// Given a source defaults tree at src containing a file config/z/y with content
-	// and an absolute symlink config/x -> <src>/config/z/y
-	src := t.TempDir()
+	// Given a defaultsDir containing a file opencode/config/z/y with content
+	// and an absolute symlink opencode/config/x -> <defaultsDir>/opencode/config/z/y
+	defaultsDir := t.TempDir()
 	wantContent := []byte("hello")
-	writeTestFile(t, filepath.Join(src, "config", "z", "y"), wantContent)
-	symlinkPath := filepath.Join(src, "config", "x")
-	assertNoError(t, os.Symlink(filepath.Join(src, "config", "z", "y"), symlinkPath))
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "z", "y"), wantContent)
+	symlinkPath := filepath.Join(defaultsDir, "opencode", "config", "x")
+	assertNoError(t, os.Symlink(filepath.Join(defaultsDir, "opencode", "config", "z", "y"), symlinkPath))
 
 	// And an empty destination directory
 	dst := t.TempDir()
 
 	// When CopyDefaults copies the tree to the destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then config/x at the destination is a symlink
-	dstLink := filepath.Join(dst, "config", "x")
+	// Then opencode/config/x at the destination is a symlink
+	dstLink := filepath.Join(dst, "opencode", "config", "x")
 	info, err := os.Lstat(dstLink)
 	if err != nil {
-		t.Fatalf("expected config/x to exist in destination: %v", err)
+		t.Fatalf("expected opencode/config/x to exist in destination: %v", err)
 	}
 	if info.Mode()&os.ModeSymlink == 0 {
-		t.Fatalf("expected config/x to be a symlink, got mode %v", info.Mode())
+		t.Fatalf("expected opencode/config/x to be a symlink, got mode %v", info.Mode())
 	}
 
 	// And os.Readlink on the destination symlink returns "z/y"
@@ -895,28 +950,28 @@ func TestCopyDefaults_AbsoluteSymlinkToFile_ConvertedToRelative(t *testing.T) {
 }
 
 func TestCopyDefaults_AbsoluteSymlinkToDir_ConvertedToRelative(t *testing.T) {
-	// Given a source defaults tree at src containing a directory config/targetdir
-	// and an absolute symlink config/link -> <src>/config/targetdir
-	src := t.TempDir()
-	targetDir := filepath.Join(src, "config", "targetdir")
+	// Given a defaultsDir containing a directory opencode/config/targetdir
+	// and an absolute symlink opencode/config/link -> <defaultsDir>/opencode/config/targetdir
+	defaultsDir := t.TempDir()
+	targetDir := filepath.Join(defaultsDir, "opencode", "config", "targetdir")
 	assertNoError(t, os.MkdirAll(targetDir, 0o700))
-	symlinkPath := filepath.Join(src, "config", "link")
+	symlinkPath := filepath.Join(defaultsDir, "opencode", "config", "link")
 	assertNoError(t, os.Symlink(targetDir, symlinkPath))
 
 	// And an empty destination directory
 	dst := t.TempDir()
 
 	// When CopyDefaults copies the tree to the destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then config/link at the destination is a symlink
-	dstLink := filepath.Join(dst, "config", "link")
+	// Then opencode/config/link at the destination is a symlink
+	dstLink := filepath.Join(dst, "opencode", "config", "link")
 	info, err := os.Lstat(dstLink)
 	if err != nil {
-		t.Fatalf("expected config/link to exist in destination: %v", err)
+		t.Fatalf("expected opencode/config/link to exist in destination: %v", err)
 	}
 	if info.Mode()&os.ModeSymlink == 0 {
-		t.Fatalf("expected config/link to be a symlink, got mode %v", info.Mode())
+		t.Fatalf("expected opencode/config/link to be a symlink, got mode %v", info.Mode())
 	}
 
 	// And os.Readlink on the destination symlink returns "targetdir"
@@ -943,29 +998,29 @@ func TestCopyDefaults_AbsoluteSymlinkToDir_ConvertedToRelative(t *testing.T) {
 }
 
 func TestCopyDefaults_AbsoluteSymlinkDeepNested_ConvertedToRelative(t *testing.T) {
-	// Given a source defaults tree at src containing a file config/shallow/target.txt
-	// and an absolute symlink config/deep/nested/link -> <src>/config/shallow/target.txt
-	src := t.TempDir()
+	// Given a defaultsDir containing a file opencode/config/shallow/target.txt
+	// and an absolute symlink opencode/config/deep/nested/link -> <defaultsDir>/opencode/config/shallow/target.txt
+	defaultsDir := t.TempDir()
 	wantContent := []byte("nested content")
-	writeTestFile(t, filepath.Join(src, "config", "shallow", "target.txt"), wantContent)
-	symlinkPath := filepath.Join(src, "config", "deep", "nested", "link")
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "shallow", "target.txt"), wantContent)
+	symlinkPath := filepath.Join(defaultsDir, "opencode", "config", "deep", "nested", "link")
 	assertNoError(t, os.MkdirAll(filepath.Dir(symlinkPath), 0o700))
-	assertNoError(t, os.Symlink(filepath.Join(src, "config", "shallow", "target.txt"), symlinkPath))
+	assertNoError(t, os.Symlink(filepath.Join(defaultsDir, "opencode", "config", "shallow", "target.txt"), symlinkPath))
 
 	// And an empty destination directory
 	dst := t.TempDir()
 
 	// When CopyDefaults copies the tree to the destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then config/deep/nested/link at the destination is a symlink
-	dstLink := filepath.Join(dst, "config", "deep", "nested", "link")
+	// Then opencode/config/deep/nested/link at the destination is a symlink
+	dstLink := filepath.Join(dst, "opencode", "config", "deep", "nested", "link")
 	info, err := os.Lstat(dstLink)
 	if err != nil {
-		t.Fatalf("expected config/deep/nested/link to exist in destination: %v", err)
+		t.Fatalf("expected opencode/config/deep/nested/link to exist in destination: %v", err)
 	}
 	if info.Mode()&os.ModeSymlink == 0 {
-		t.Fatalf("expected config/deep/nested/link to be a symlink, got mode %v", info.Mode())
+		t.Fatalf("expected opencode/config/deep/nested/link to be a symlink, got mode %v", info.Mode())
 	}
 
 	// And os.Readlink on the destination symlink returns "../../shallow/target.txt"
@@ -988,28 +1043,28 @@ func TestCopyDefaults_AbsoluteSymlinkDeepNested_ConvertedToRelative(t *testing.T
 }
 
 func TestCopyDefaults_AbsoluteSymlinkSibling_ConvertedToRelative(t *testing.T) {
-	// Given a source defaults tree at src containing a file config/y
-	// and an absolute symlink config/x -> <src>/config/y where x and y are siblings
-	src := t.TempDir()
+	// Given a defaultsDir containing a file opencode/config/y
+	defaultsDir := t.TempDir()
 	wantContent := []byte("sibling content")
-	writeTestFile(t, filepath.Join(src, "config", "y"), wantContent)
-	symlinkPath := filepath.Join(src, "config", "x")
-	assertNoError(t, os.Symlink(filepath.Join(src, "config", "y"), symlinkPath))
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "y"), wantContent)
+	// and an absolute symlink opencode/config/x -> <defaultsDir>/opencode/config/y
+	symlinkPath := filepath.Join(defaultsDir, "opencode", "config", "x")
+	assertNoError(t, os.Symlink(filepath.Join(defaultsDir, "opencode", "config", "y"), symlinkPath))
 
 	// And an empty destination directory
 	dst := t.TempDir()
 
 	// When CopyDefaults copies the tree to the destination
-	assertNoError(t, customisations.CopyDefaults(src, dst))
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then config/x at the destination is a symlink
-	dstLink := filepath.Join(dst, "config", "x")
+	// Then opencode/config/x at the destination is a symlink
+	dstLink := filepath.Join(dst, "opencode", "config", "x")
 	info, err := os.Lstat(dstLink)
 	if err != nil {
-		t.Fatalf("expected config/x to exist in destination: %v", err)
+		t.Fatalf("expected opencode/config/x to exist in destination: %v", err)
 	}
 	if info.Mode()&os.ModeSymlink == 0 {
-		t.Fatalf("expected config/x to be a symlink, got mode %v", info.Mode())
+		t.Fatalf("expected opencode/config/x to be a symlink, got mode %v", info.Mode())
 	}
 
 	// And os.Readlink on the destination symlink returns "y"
@@ -1031,22 +1086,113 @@ func TestCopyDefaults_AbsoluteSymlinkSibling_ConvertedToRelative(t *testing.T) {
 	}
 }
 
+// --- CopyDefaults skips file in non-MountDirs subdirectory ---
+
+func TestCopyDefaults_FileOutsideMountDirs_NotCopied(t *testing.T) {
+	// Given a defaultsDir containing a file logs/debug.log inside a path not listed in MountDirs
+	defaultsDir := t.TempDir()
+	debugContent := []byte("should not be copied")
+	writeTestFile(t, filepath.Join(defaultsDir, "logs", "debug.log"), debugContent)
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When CopyDefaults is called
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
+
+	// Then logs/debug.log does NOT exist in the destination
+	_, err := os.Stat(filepath.Join(dst, "logs", "debug.log"))
+	if err == nil {
+		t.Fatal("expected logs/debug.log to NOT exist in destination, but it does")
+	}
+	if !os.IsNotExist(err) {
+		t.Fatalf("expected IsNotExist error, got: %v", err)
+	}
+}
+
+// --- CopyDefaults skips file at source root not inside MountDirs path ---
+
+func TestCopyDefaults_StrayFileAtRoot_NotCopied(t *testing.T) {
+	// Given a defaultsDir containing a file stray.txt at the root (not inside any MountDirs path)
+	defaultsDir := t.TempDir()
+	strayContent := []byte("should not be copied")
+	writeTestFile(t, filepath.Join(defaultsDir, "stray.txt"), strayContent)
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When CopyDefaults is called
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
+
+	// Then stray.txt does NOT exist in the destination
+	_, err := os.Stat(filepath.Join(dst, "stray.txt"))
+	if err == nil {
+		t.Fatal("expected stray.txt to NOT exist in destination, but it does")
+	}
+	if !os.IsNotExist(err) {
+		t.Fatalf("expected IsNotExist error, got: %v", err)
+	}
+}
+
+func TestCopyDefaults_SymlinkToFile_XtoY_PreservesSymlink(t *testing.T) {
+	// Given a defaultsDir containing a relative symlink opencode/config/x -> y
+	defaultsDir := t.TempDir()
+	wantContent := []byte("resolved-y-content")
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "y"), wantContent)
+	assertNoError(t, os.Symlink("y", filepath.Join(defaultsDir, "opencode", "config", "x")))
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When CopyDefaults copies the tree to the destination
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
+
+	// Then opencode/config/x at the destination is a symlink
+	dstLink := filepath.Join(dst, "opencode", "config", "x")
+	info, err := os.Lstat(dstLink)
+	if err != nil {
+		t.Fatalf("expected opencode/config/x to exist in destination: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("expected opencode/config/x to be a symlink, got mode %v", info.Mode())
+	}
+
+	// And os.Readlink on the destination symlink returns "y"
+	gotTarget, err := os.Readlink(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read symlink target: %v", err)
+	}
+	if gotTarget != "y" {
+		t.Errorf("symlink target = %q, want %q", gotTarget, "y")
+	}
+
+	// And resolving the destination symlink yields the same content as the source target
+	gotContent, err := os.ReadFile(dstLink)
+	if err != nil {
+		t.Fatalf("expected to read through symlink: %v", err)
+	}
+	if string(gotContent) != string(wantContent) {
+		t.Errorf("content through symlink = %q, want %q", gotContent, wantContent)
+	}
+}
+
+
 // --- CopyDefaults leaves existing dangling symlink untouched when source has regular file ---
 
 func TestCopyDefaults_DanglingSymlinkNeverOverwrites(t *testing.T) {
-	// Given a source defaults tree containing a regular file config/link.json
-	src := t.TempDir()
+	// Given a defaultsDir containing a regular file opencode/config/link.json
+	defaultsDir := t.TempDir()
 	wantContent := []byte(`{"real":"data"}`)
-	writeTestFile(t, filepath.Join(src, "config", "link.json"), wantContent)
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "link.json"), wantContent)
 
-	// And the destination already contains a dangling symlink config/link.json
+	// And the destination already contains a dangling symlink opencode/config/link.json
 	dst := t.TempDir()
-	assertNoError(t, os.MkdirAll(filepath.Join(dst, "config"), 0o700))
-	dstLink := filepath.Join(dst, "config", "link.json")
+	assertNoError(t, os.MkdirAll(filepath.Join(dst, "opencode", "config"), 0o700))
+	dstLink := filepath.Join(dst, "opencode", "config", "link.json")
 	assertNoError(t, os.Symlink("/nonexistent/target", dstLink))
 
 	// When CopyDefaults copies the tree to the destination
-	err := customisations.CopyDefaults(src, dst)
+	err := customisations.CopyDefaults(defaultsDir, dst)
 
 	// Then no error is returned
 	if err != nil {
@@ -1059,7 +1205,7 @@ func TestCopyDefaults_DanglingSymlinkNeverOverwrites(t *testing.T) {
 		t.Fatalf("expected dangling symlink to exist: %v", err)
 	}
 	if info.Mode()&os.ModeSymlink == 0 {
-		t.Fatalf("expected config/link.json to remain a symlink, got mode %v", info.Mode())
+		t.Fatalf("expected link.json to remain a symlink, got mode %v", info.Mode())
 	}
 	gotTarget, err := os.Readlink(dstLink)
 	if err != nil {
@@ -1093,4 +1239,49 @@ func createOutsideFile(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return outsideFile
+}
+
+// --- CopyDefaults copies files to correct project root for all app MountDirs ---
+
+// TestCopyDefaults_MultipleApps_CopiesAll verifies that CopyDefaults copies
+// files for every entry in MountDirs, not just the first, and skips files
+// outside MountDirs.
+func TestCopyDefaults_MultipleApps_CopiesAll(t *testing.T) {
+	// Given MountDirs contains entries for two apps
+	orig := customisations.MountDirs
+	defer func() { customisations.MountDirs = orig }()
+	customisations.MountDirs = []string{"app1/config", "app2/config"}
+
+	// And defaults exist for both apps plus a file outside MountDirs
+	defaultsDir := t.TempDir()
+	writeTestFile(t, filepath.Join(defaultsDir, "app1", "config", "a.json"), []byte("aaa"))
+	writeTestFile(t, filepath.Join(defaultsDir, "app2", "config", "b.json"), []byte("bbb"))
+	writeTestFile(t, filepath.Join(defaultsDir, "logs", "debug.log"), []byte("skip"))
+
+	// When CopyDefaults is called
+	dst := t.TempDir()
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
+
+	// Then files land under each app's directory
+	for _, want := range []struct{ path, content string }{
+		{"app1/config/a.json", "aaa"},
+		{"app2/config/b.json", "bbb"},
+	} {
+		got, err := os.ReadFile(filepath.Join(dst, want.path))
+		if err != nil {
+			t.Fatalf("expected %s to exist: %v", want.path, err)
+		}
+		if string(got) != want.content {
+			t.Errorf("%s content mismatch: got %q, want %q", want.path, got, want.content)
+		}
+	}
+
+	// And the file outside MountDirs is not copied
+	_, err := os.Stat(filepath.Join(dst, "logs", "debug.log"))
+	if err == nil {
+		t.Fatal("expected logs/debug.log to NOT exist in destination, but it does")
+	}
+	if !os.IsNotExist(err) {
+		t.Fatalf("expected IsNotExist error, got: %v", err)
+	}
 }
