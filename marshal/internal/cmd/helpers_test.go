@@ -16,6 +16,7 @@ import (
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
+	"github.com/rob-broadley/ai-airbase/marshal/internal/customisations"
 )
 
 // ---------------------------------------------------------------------------
@@ -1215,5 +1216,74 @@ func TestIsPathUnder_ParentAlreadyHasTrailingSeparator(t *testing.T) {
 func TestIsPathUnder_ChildOutsideParent(t *testing.T) {
 	if isPathUnder("/x/y", "/a/b") {
 		t.Error("expected /x/y to NOT be under /a/b")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Unit tests for ensureHostState — project root derivation
+// ---------------------------------------------------------------------------
+
+// TestEnsureHostState_ProjectRootMatchesCopyDefaults verifies that the project
+// root passed to customisations.CopyDefaults is correct regardless of the
+// depth of MountDirs entries. The previous implementation derived the project
+// root via filepath.Dir(filepath.Dir(paths[MountDirs[0]])), which assumes all
+// entries have exactly two path components (e.g. "opencode/config"). This test
+// reorders MountDirs so a depth-1 entry comes first and verifies that
+// CopyDefaults still receives the correct project root.
+func TestEnsureHostState_ProjectRootMatchesCopyDefaults(t *testing.T) {
+	// Given XDG_DATA_HOME is a fresh temp directory
+	xdgDataHome := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+
+	// And defaults files exist under both opencode/ and opencode/config/
+	defaultsDir := filepath.Join(xdgDataHome, "marshal", "defaults")
+	for _, sub := range []string{"opencode", "opencode/config"} {
+		if err := os.MkdirAll(filepath.Join(defaultsDir, sub), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(defaultsDir, sub, "settings.json"), []byte(`{}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// And MountDirs[0] is a depth-1 entry ("opencode"), which is the scenario
+	// that breaks the filepath.Dir(filepath.Dir(...)) two-level assumption.
+	orig := customisations.MountDirs
+	customisations.MountDirs = []string{"opencode", "opencode/config"}
+	defer func() { customisations.MountDirs = orig }()
+
+	// And ensureSharedDataDir mirrors real hostinfo by prepending "marshal/"
+	dataDirFn := func(subdir string) (string, error) {
+		p := filepath.Join(xdgDataHome, "marshal", subdir)
+		if err := os.MkdirAll(p, 0o700); err != nil {
+			return "", err
+		}
+		return p, nil
+	}
+	deps := Deps{
+		EnsureSharedDataDir: dataDirFn,
+	}
+
+	// When ensureHostState is called
+	_, err := ensureHostState(deps, "myapp")
+
+	// Then no error is returned
+	if err != nil {
+		t.Fatalf("ensureHostState: %v", err)
+	}
+
+	// And the defaults were copied to the correct project root.
+	// The project root must be <XDG_DATA_HOME>/marshal/projects/myapp,
+	// NOT <XDG_DATA_HOME>/marshal/projects (the wrong root derived by
+	// the old two-level Dir assumption).
+	wantFile := filepath.Join(xdgDataHome, "marshal", "projects", "myapp", "opencode", "settings.json")
+	if _, err := os.Stat(wantFile); err != nil {
+		t.Errorf("expected defaults copied to %s, got error: %v", wantFile, err)
+	}
+
+	// And files must NOT appear at the incorrect (shallower) root
+	wrongFile := filepath.Join(xdgDataHome, "marshal", "projects", "opencode", "settings.json")
+	if _, err := os.Stat(wrongFile); err == nil {
+		t.Errorf("defaults must NOT be copied to wrong root %s", wrongFile)
 	}
 }
