@@ -4,6 +4,7 @@ package cmd_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/cmd"
@@ -157,7 +158,7 @@ func TestCreate_SymlinkEscape_AbortsWithSecurityViolation(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected Execute() to return error due to symlink escaping source root")
 	}
-	if !containsSubstr(err.Error(), "security violation") {
+	if !strings.Contains(err.Error(), "security violation") {
 		t.Errorf("expected error to contain %q, got: %q", "security violation", err.Error())
 	}
 }
@@ -374,7 +375,7 @@ func TestRecreate_CopyFailure_AbortsWithError(t *testing.T) {
 		t.Fatal("expected Execute() to return error due to copy failure on read-only directory")
 	}
 	// The error message should indicate a permission/write failure
-	if !containsSubstr(recreateErr.Error(), "permission denied") && !containsSubstr(recreateErr.Error(), "read-only") {
+	if !strings.Contains(recreateErr.Error(), "permission denied") && !strings.Contains(recreateErr.Error(), "read-only") {
 		t.Errorf("expected error to indicate write/permission failure, got: %q", recreateErr.Error())
 	}
 }
@@ -499,18 +500,4 @@ func writeDefaultsFile(t *testing.T, path string, content []byte) {
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatal(err)
 	}
-}
-
-// containsSubstr reports whether s contains substr.
-func containsSubstr(s, substr string) bool {
-	return len(substr) == 0 || (len(s) >= len(substr) && searchSubstr(s, substr))
-}
-
-func searchSubstr(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

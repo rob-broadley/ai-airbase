@@ -2,7 +2,6 @@
 package pathutil
 
 import (
-	"path/filepath"
 	"testing"
 )
 
@@ -54,15 +53,4 @@ func TestIsPathUnder_ChildOutsideParent(t *testing.T) {
 	if IsPathUnder("/x/y", "/a/b") {
 		t.Error("expected /x/y to NOT be under /a/b")
 	}
-}
-
-// TestIsPathUnder_PathWithSymlinkComponents is a placeholder for the
-// security-critical test that hardenProjectDir relies on. The actual
-// symlink-resolution tests live in helpers_test.go where the full
-// EvalSymlinks integration is exercised.
-func TestIsPathUnder_PathWithSymlinkComponents(t *testing.T) {
-	// This test exists to document that isPathUnder must work correctly
-	// with paths that have symlink components resolved. The actual
-	// integration tests are in helpers_test.go.
-	_ = filepath.EvalSymlinks
 }

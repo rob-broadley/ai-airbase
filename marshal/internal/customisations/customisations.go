@@ -157,10 +157,7 @@ func copyFileToDest(srcPath, dstPath string) error {
 
 // copyDirToDest creates a directory at dstPath.
 func copyDirToDest(dstPath string) error {
-	if err := os.MkdirAll(dstPath, 0o700); err != nil {
-		return err
-	}
-	return nil
+	return os.MkdirAll(dstPath, 0o700)
 }
 
 // copySymlinkToDest reads the symlink at srcPath and recreates it at
