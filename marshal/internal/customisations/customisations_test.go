@@ -17,12 +17,13 @@ func TestMountDirs_ContainsExpectedEntries(t *testing.T) {
 	// When the package is initialised
 	// Then MountDirs contains exactly the three expected bind-mount directories
 	want := []string{"opencode/config", "opencode/share", "opencode/state"}
-	if len(customisations.MountDirs) != len(want) {
-		t.Fatalf("MountDirs has %d entries, want %d: %v", len(customisations.MountDirs), len(want), customisations.MountDirs)
+	got := customisations.MountDirs()
+	if len(got) != len(want) {
+		t.Fatalf("MountDirs has %d entries, want %d: %v", len(got), len(want), got)
 	}
-	for i, got := range customisations.MountDirs {
-		if got != want[i] {
-			t.Errorf("MountDirs[%d] = %q, want %q", i, got, want[i])
+	for i, v := range got {
+		if v != want[i] {
+			t.Errorf("MountDirs[%d] = %q, want %q", i, v, want[i])
 		}
 	}
 }
@@ -30,15 +31,7 @@ func TestMountDirs_ContainsExpectedEntries(t *testing.T) {
 // --- Ensure creates subdirs from MountDirs ---
 
 func TestEnsure_CreatesSubdirsFromMountDirs(t *testing.T) {
-	// Given a developer appends a new entry to MountDirs
-	orig := customisations.MountDirs
-	origCopy := make([]string, len(orig))
-	copy(origCopy, orig)
-	defer func() { customisations.MountDirs = origCopy }()
-
-	customisations.MountDirs = append(customisations.MountDirs, "opencode/tools")
-
-	// And an injected xdgDataHome function that returns a t.TempDir()-based path
+	// Given an injected xdgDataHome function that returns a t.TempDir()-based path
 	base := t.TempDir()
 	xdgDataHome := func() string { return base }
 
@@ -50,7 +43,7 @@ func TestEnsure_CreatesSubdirsFromMountDirs(t *testing.T) {
 
 	// Then all MountDirs entries exist as directories with 0o700 permissions
 	wantBase := filepath.Join(base, "marshal", "defaults")
-	for _, entry := range customisations.MountDirs {
+	for _, entry := range customisations.MountDirs() {
 		p := filepath.Join(wantBase, entry)
 		info, err := os.Stat(p)
 		if err != nil {
@@ -1247,32 +1240,27 @@ func createOutsideFile(t *testing.T) string {
 // files for every entry in MountDirs, not just the first, and skips files
 // outside MountDirs.
 func TestCopyDefaults_MultipleApps_CopiesAll(t *testing.T) {
-	// Given MountDirs contains entries for two apps
-	orig := customisations.MountDirs
-	defer func() { customisations.MountDirs = orig }()
-	customisations.MountDirs = []string{"app1/config", "app2/config"}
-
-	// And defaults exist for both apps plus a file outside MountDirs
+	// Given defaults exist for all MountDirs entries plus a file outside MountDirs
 	defaultsDir := t.TempDir()
-	writeTestFile(t, filepath.Join(defaultsDir, "app1", "config", "a.json"), []byte("aaa"))
-	writeTestFile(t, filepath.Join(defaultsDir, "app2", "config", "b.json"), []byte("bbb"))
+	for _, entry := range customisations.MountDirs() {
+		writeTestFile(t, filepath.Join(defaultsDir, entry, "test.json"), []byte(entry))
+	}
 	writeTestFile(t, filepath.Join(defaultsDir, "logs", "debug.log"), []byte("skip"))
 
 	// When CopyDefaults is called
 	dst := t.TempDir()
 	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
 
-	// Then files land under each app's directory
-	for _, want := range []struct{ path, content string }{
-		{"app1/config/a.json", "aaa"},
-		{"app2/config/b.json", "bbb"},
-	} {
-		got, err := os.ReadFile(filepath.Join(dst, want.path))
+	// Then files land under each MountDirs entry
+	for _, entry := range customisations.MountDirs() {
+		wantPath := filepath.Join(entry, "test.json")
+		wantContent := []byte(entry)
+		got, err := os.ReadFile(filepath.Join(dst, wantPath))
 		if err != nil {
-			t.Fatalf("expected %s to exist: %v", want.path, err)
+			t.Fatalf("expected %s to exist: %v", wantPath, err)
 		}
-		if string(got) != want.content {
-			t.Errorf("%s content mismatch: got %q, want %q", want.path, got, want.content)
+		if string(got) != string(wantContent) {
+			t.Errorf("%s content mismatch: got %q, want %q", wantPath, got, wantContent)
 		}
 	}
 

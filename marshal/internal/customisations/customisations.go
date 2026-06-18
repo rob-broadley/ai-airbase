@@ -8,13 +8,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/rob-broadley/ai-airbase/marshal/internal/pathutil"
 )
 
-// MountDirs lists all bind-mounted subdirectories that marshal scaffolds
-// under $XDG_DATA_HOME/marshal/defaults. Adding a new tool requires only
-// appending an entry here.
-var MountDirs = []string{"opencode/config", "opencode/share", "opencode/state"}
+// MountDirs returns all bind-mounted subdirectories that marshal scaffolds
+// under $XDG_DATA_HOME/marshal/defaults. Returns a copy to prevent mutation.
+func MountDirs() []string {
+	return []string{"opencode/config", "opencode/share", "opencode/state"}
+}
 
 // Ensure creates the user defaults directory tree at
 // $XDG_DATA_HOME/marshal/defaults for every entry in MountDirs with
@@ -27,7 +29,7 @@ func Ensure(xdgDataHome func() string) error {
 		return fmt.Errorf("data directory unavailable: set HOME or XDG_DATA_HOME")
 	}
 	defaultsDir := DefaultsDir(base)
-	for _, sub := range MountDirs {
+	for _, sub := range MountDirs() {
 		path := filepath.Join(defaultsDir, sub)
 		if err := ensureDefaultsSubdir(path); err != nil {
 			return err
@@ -60,25 +62,12 @@ func HardenSourceTree(dir string) error {
 				}
 				return fmt.Errorf("resolving symlink %s: %w", path, err)
 			}
-			if !isPathUnder(targetResolved, rootResolved) {
+			if !pathutil.IsPathUnder(targetResolved, rootResolved) {
 				return fmt.Errorf("security violation: symlink %s escapes the source root (resolves to %s)", path, targetResolved)
 			}
 		}
 		return nil
 	})
-}
-
-// isPathUnder reports whether child is the same as parent or sits inside it.
-// Both paths must be cleaned and absolute.
-func isPathUnder(child, parent string) bool {
-	parentWithSep := parent
-	if !strings.HasSuffix(parentWithSep, string(filepath.Separator)) {
-		parentWithSep += string(filepath.Separator)
-	}
-	if child == parent {
-		return true
-	}
-	return strings.HasPrefix(child, parentWithSep)
 }
 
 // CopyDefaults iterates MountDirs and copies each source subdirectory from
@@ -89,7 +78,7 @@ func isPathUnder(child, parent string) bool {
 // subdirectory is hardened before copying. Destination file permissions are
 // not modified — hardenProjectDir handles that.
 func CopyDefaults(defaultsDir, dst string) error {
-	for _, entry := range MountDirs {
+	for _, entry := range MountDirs() {
 		src := filepath.Join(defaultsDir, entry)
 		if _, err := os.Stat(src); os.IsNotExist(err) {
 			continue
@@ -113,13 +102,18 @@ func copyTree(src, dst string) error {
 		if err != nil {
 			return err
 		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		dstPath := filepath.Join(dst, rel)
 		if d.Type()&os.ModeSymlink != 0 {
-			return copySymlinkToDest(path, src, dst)
+			return copySymlinkToDest(path, dstPath)
 		}
 		if d.IsDir() {
-			return copyDirToDest(path, src, dst)
+			return copyDirToDest(dstPath)
 		}
-		return copyFileToDest(path, path, src, dst)
+		return copyFileToDest(path, dstPath)
 	})
 }
 
@@ -130,23 +124,28 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	defer in.Close()
+
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
-	_, err = io.Copy(out, in)
-	return err
-}
 
-// copyFileToDest copies srcPath into dstRoot, preserving the relative path
-// under srcRoot. Files that already exist at the destination are skipped.
-func copyFileToDest(srcPath, relBase, srcRoot, dstRoot string) error {
-	rel, err := filepath.Rel(srcRoot, relBase)
+	_, err = io.Copy(out, in)
 	if err != nil {
+		_ = out.Close()
+		_ = os.Remove(dst)
 		return err
 	}
-	dstPath := filepath.Join(dstRoot, rel)
+	if err := out.Close(); err != nil {
+		_ = os.Remove(dst)
+		return err
+	}
+	return nil
+}
+
+// copyFileToDest copies srcPath to dstPath. Files that already exist at the
+// destination are skipped.
+func copyFileToDest(srcPath, dstPath string) error {
 	if _, err := os.Lstat(dstPath); err == nil {
 		return nil // never overwrite
 	}
@@ -156,33 +155,24 @@ func copyFileToDest(srcPath, relBase, srcRoot, dstRoot string) error {
 	return copyFile(srcPath, dstPath)
 }
 
-// copyDirToDest creates a directory in dstRoot mirroring the path under srcRoot.
-func copyDirToDest(path, srcRoot, dstRoot string) error {
-	rel, err := filepath.Rel(srcRoot, path)
-	if err != nil {
+// copyDirToDest creates a directory at dstPath.
+func copyDirToDest(dstPath string) error {
+	if err := os.MkdirAll(dstPath, 0o700); err != nil {
 		return err
 	}
-	if rel == "." {
-		return nil
-	}
-	return os.MkdirAll(filepath.Join(dstRoot, rel), 0o700)
+	return nil
 }
 
-// copySymlinkToDest reads the symlink target and recreates it at the
-// destination, preserving the relative target path. Absolute targets are
+// copySymlinkToDest reads the symlink at srcPath and recreates it at
+// dstPath, preserving the relative target path. Absolute targets are
 // converted to relative paths from the destination symlink's location.
 // Broken symlinks and symlinked directories are preserved as-is. Existing
 // entries at the destination are never overwritten.
-func copySymlinkToDest(path, srcRoot, dstRoot string) error {
-	target, err := os.Readlink(path)
+func copySymlinkToDest(srcPath, dstPath string) error {
+	target, err := os.Readlink(srcPath)
 	if err != nil {
 		return err
 	}
-	rel, err := filepath.Rel(srcRoot, path)
-	if err != nil {
-		return err
-	}
-	dstPath := filepath.Join(dstRoot, rel)
 	if _, err := os.Lstat(dstPath); err == nil {
 		return nil // never overwrite
 	}
@@ -191,10 +181,9 @@ func copySymlinkToDest(path, srcRoot, dstRoot string) error {
 	}
 	if filepath.IsAbs(target) {
 		// The absolute target is within the source tree. Compute its
-		// relative path from the symlink's directory in the source tree,
-		// which is the same relative path needed from the destination
-		// symlink's directory.
-		targetRel, err := filepath.Rel(filepath.Dir(path), target)
+		// relative path from the symlink's directory, which is the same
+		// relative path needed from the destination symlink's directory.
+		targetRel, err := filepath.Rel(filepath.Dir(srcPath), target)
 		if err != nil {
 			return err
 		}

@@ -14,6 +14,7 @@ import (
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/customisations"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/hostinfo"
+	"github.com/rob-broadley/ai-airbase/marshal/internal/pathutil"
 )
 
 // ---------------------------------------------------------------------------
@@ -54,8 +55,8 @@ func projectRootDir(deps Deps, project string) (string, error) {
 // entry) and an error if any ensure or harden step fails. Error wrapping is
 // preserved verbatim so existing tests and operators see the same diagnostics.
 func provisionProjectDir(deps Deps, project, root string) (projectDirPaths, error) {
-	paths := make(projectDirPaths, len(customisations.MountDirs))
-	for _, dir := range customisations.MountDirs {
+	paths := make(projectDirPaths, len(customisations.MountDirs()))
+	for _, dir := range customisations.MountDirs() {
 		resolved := filepath.Join(root, dir)
 		if err := os.MkdirAll(resolved, 0o700); err != nil {
 			return nil, fmt.Errorf("ensuring project %s dir for project %s: %w", dir, project, err)
@@ -106,6 +107,8 @@ func ensureHostState(deps Deps, project string) (projectDirPaths, error) {
 }
 
 // mountDirToContainerPath maps a MountDirs entry to its container-side path.
+// All MountDirs entries MUST have an explicit case here. Adding a new entry
+// to MountDirs without a corresponding case is a bug and will panic.
 func mountDirToContainerPath(dir string) string {
 	switch dir {
 	case "opencode/config":
@@ -115,7 +118,7 @@ func mountDirToContainerPath(dir string) string {
 	case "opencode/state":
 		return container.ContainerOpencodeStateDir
 	default:
-		return containerWorkspaceDir + "/" + filepath.Base(dir)
+		panic("mountDirToContainerPath: unknown MountDirs entry " + dir + " — add explicit case")
 	}
 }
 
@@ -151,7 +154,7 @@ func buildContainerMounts(deps Deps, paths projectDirPaths) ([]container.MountSp
 
 	// Per-project host dirs — paths passed in by ensureHostState.
 	mounts := []container.MountSpec{gitSpec}
-	for _, dir := range customisations.MountDirs {
+	for _, dir := range customisations.MountDirs() {
 		mounts = append(mounts, container.MountSpec{
 			HostPath:      paths[dir],
 			ContainerPath: mountDirToContainerPath(dir),
@@ -530,7 +533,7 @@ func hardenProjectDir(dir string) error {
 				}
 				return fmt.Errorf("resolving symlink %s: %w", path, err)
 			}
-			if !isPathUnder(targetResolved, rootResolved) {
+			if !pathutil.IsPathUnder(targetResolved, rootResolved) {
 				return fmt.Errorf("security violation: symlink %s escapes the bind mount (resolves to %s)", path, targetResolved)
 			}
 			return nil
@@ -552,19 +555,4 @@ func hardenProjectDir(dir string) error {
 		}
 		return nil
 	})
-}
-
-// isPathUnder reports whether child is the same as parent or sits inside it.
-// Both paths must be cleaned and absolute.
-func isPathUnder(child, parent string) bool {
-	// Ensure parent has a trailing separator so prefix matching is safe
-	// (e.g. /a/b should not match /a/bc).
-	parentWithSep := parent
-	if !strings.HasSuffix(parentWithSep, string(filepath.Separator)) {
-		parentWithSep += string(filepath.Separator)
-	}
-	if child == parent {
-		return true
-	}
-	return strings.HasPrefix(child, parentWithSep)
 }

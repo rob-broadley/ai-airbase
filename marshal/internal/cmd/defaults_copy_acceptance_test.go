@@ -327,9 +327,13 @@ func TestCreate_IdempotentRunningTwice(t *testing.T) {
 	}
 }
 
-// TestCreate_CopyFailure_AbortsWithError verifies that marshal create aborts
-// with an error when the copy of a defaults file fails (e.g. read-only destination).
-func TestCreate_CopyFailure_AbortsWithError(t *testing.T) {
+// TestRecreate_CopyFailure_AbortsWithError verifies that marshal recreate aborts
+// with an error when CopyDefaults fails because the destination directory
+// is not writable. The test first creates a project successfully (so
+// hardenProjectDir passes), then makes the config directory read-only,
+// adds a new file to defaults, and runs recreate which should fail trying
+// to copy the new file.
+func TestRecreate_CopyFailure_AbortsWithError(t *testing.T) {
 	// Given a user defaults tree containing config/auth.json
 	base := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", base)
@@ -341,28 +345,37 @@ func TestCreate_CopyFailure_AbortsWithError(t *testing.T) {
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
 
-	// Pre-create the per-project config directory with read-only permissions
-	// so that the copy of config/auth.json fails
-	projectDir := filepath.Join(cf.dataBase, "projects", "myapp", "opencode")
-	if err := os.MkdirAll(projectDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	configDir := filepath.Join(projectDir, "config")
-	if err := os.MkdirAll(configDir, 0o500); err != nil {
-		t.Fatal(err)
-	}
-	// Restore permissions after test so t.TempDir cleanup works
-	t.Cleanup(func() { _ = os.Chmod(configDir, 0o700) })
-
+	// When marshal create is run for the project (provisions dirs, copies defaults)
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp", "create"})
+	assertNoError(t, root.Execute())
 
-	// When marshal create is run and the copy fails
-	err := root.Execute()
+	// And a new file is added to the defaults tree (config/newfile.json)
+	newDefaultsFile := filepath.Join(base, "marshal", "defaults", "opencode", "config", "newfile.json")
+	writeDefaultsFile(t, newDefaultsFile, []byte(`{"new":"data"}`))
 
-	// Then marshal create aborts with a non-nil error
-	if err == nil {
-		t.Fatal("expected Execute() to return error due to copy failure")
+	// And the destination config directory is made read-only AFTER the initial
+	// provisionProjectDir completed successfully, so the new file cannot be
+	// created inside it.
+	destConfigDir := filepath.Join(cf.dataBase, "projects", "myapp", "opencode", "config")
+	if err := os.Chmod(destConfigDir, 0o500); err != nil {
+		t.Fatalf("failed to make destination directory read-only: %v", err)
+	}
+	// Restore permissions after test so t.TempDir cleanup works
+	t.Cleanup(func() { _ = os.Chmod(destConfigDir, 0o700) })
+
+	// When marshal recreate runs (which calls CopyDefaults again)
+	root = cmd.NewRootCmd(deps)
+	root.SetArgs([]string{"--project", "myapp", "recreate"})
+	recreateErr := root.Execute()
+
+	// Then CopyDefaults fails with a write error
+	if recreateErr == nil {
+		t.Fatal("expected Execute() to return error due to copy failure on read-only directory")
+	}
+	// The error message should indicate a permission/write failure
+	if !containsSubstr(recreateErr.Error(), "permission denied") && !containsSubstr(recreateErr.Error(), "read-only") {
+		t.Errorf("expected error to indicate write/permission failure, got: %q", recreateErr.Error())
 	}
 }
 

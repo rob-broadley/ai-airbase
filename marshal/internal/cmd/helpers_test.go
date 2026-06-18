@@ -1174,83 +1174,27 @@ func TestHardenProjectDir_PreservesAlreadyCorrectPermissions(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Unit tests for isPathUnder
-// ---------------------------------------------------------------------------
-
-// TestIsPathUnder_EqualPaths verifies that child == parent is treated as "under".
-// The bind mount root itself is the first path the walk visits (via d.IsDir()),
-// and it must be considered inside its own bound.
-func TestIsPathUnder_EqualPaths(t *testing.T) {
-	if !isPathUnder("/a/b", "/a/b") {
-		t.Error("expected /a/b to be under /a/b (equal)")
-	}
-}
-
-// TestIsPathUnder_ChildUnderParent verifies the basic containment case.
-func TestIsPathUnder_ChildUnderParent(t *testing.T) {
-	if !isPathUnder("/a/b/c", "/a/b") {
-		t.Error("expected /a/b/c to be under /a/b")
-	}
-}
-
-// TestIsPathUnder_PrefixBoundaryNotMatched verifies that /a/bc is NOT considered
-// under /a/b. This is the safety property the trailing-separator logic enforces.
-func TestIsPathUnder_PrefixBoundaryNotMatched(t *testing.T) {
-	if isPathUnder("/a/bc", "/a/b") {
-		t.Error("expected /a/bc to NOT be under /a/b (prefix boundary)")
-	}
-}
-
-// TestIsPathUnder_ParentAlreadyHasTrailingSeparator verifies that the function
-// is robust to the caller having already appended a separator to parent.
-func TestIsPathUnder_ParentAlreadyHasTrailingSeparator(t *testing.T) {
-	if !isPathUnder("/a/b/c", "/a/b/") {
-		t.Error("expected /a/b/c to be under /a/b/")
-	}
-	if isPathUnder("/a/bc", "/a/b/") {
-		t.Error("expected /a/bc to NOT be under /a/b/ (prefix boundary)")
-	}
-}
-
-// TestIsPathUnder_ChildOutsideParent verifies the negative case.
-func TestIsPathUnder_ChildOutsideParent(t *testing.T) {
-	if isPathUnder("/x/y", "/a/b") {
-		t.Error("expected /x/y to NOT be under /a/b")
-	}
-}
-
-// ---------------------------------------------------------------------------
 // Unit tests for ensureHostState — project root derivation
 // ---------------------------------------------------------------------------
 
 // TestEnsureHostState_ProjectRootMatchesCopyDefaults verifies that the project
-// root passed to customisations.CopyDefaults is correct regardless of the
-// depth of MountDirs entries. The previous implementation derived the project
-// root via filepath.Dir(filepath.Dir(paths[MountDirs[0]])), which assumes all
-// entries have exactly two path components (e.g. "opencode/config"). This test
-// reorders MountDirs so a depth-1 entry comes first and verifies that
-// CopyDefaults still receives the correct project root.
+// root passed to customisations.CopyDefaults is correct. The project root is
+// derived from the per-project directory, not from MountDirs entry depth.
 func TestEnsureHostState_ProjectRootMatchesCopyDefaults(t *testing.T) {
 	// Given XDG_DATA_HOME is a fresh temp directory
 	xdgDataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", xdgDataHome)
 
-	// And defaults files exist under both opencode/ and opencode/config/
+	// And defaults files exist under the standard MountDirs entries
 	defaultsDir := filepath.Join(xdgDataHome, "marshal", "defaults")
-	for _, sub := range []string{"opencode", "opencode/config"} {
-		if err := os.MkdirAll(filepath.Join(defaultsDir, sub), 0o700); err != nil {
+	for _, entry := range customisations.MountDirs() {
+		if err := os.MkdirAll(filepath.Join(defaultsDir, entry), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(defaultsDir, sub, "settings.json"), []byte(`{}`), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(defaultsDir, entry, "settings.json"), []byte(`{}`), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-
-	// And MountDirs[0] is a depth-1 entry ("opencode"), which is the scenario
-	// that breaks the filepath.Dir(filepath.Dir(...)) two-level assumption.
-	orig := customisations.MountDirs
-	customisations.MountDirs = []string{"opencode", "opencode/config"}
-	defer func() { customisations.MountDirs = orig }()
 
 	// And ensureSharedDataDir mirrors real hostinfo by prepending "marshal/"
 	dataDirFn := func(subdir string) (string, error) {
@@ -1274,11 +1218,12 @@ func TestEnsureHostState_ProjectRootMatchesCopyDefaults(t *testing.T) {
 
 	// And the defaults were copied to the correct project root.
 	// The project root must be <XDG_DATA_HOME>/marshal/projects/myapp,
-	// NOT <XDG_DATA_HOME>/marshal/projects (the wrong root derived by
-	// the old two-level Dir assumption).
-	wantFile := filepath.Join(xdgDataHome, "marshal", "projects", "myapp", "opencode", "settings.json")
-	if _, err := os.Stat(wantFile); err != nil {
-		t.Errorf("expected defaults copied to %s, got error: %v", wantFile, err)
+	// NOT <XDG_DATA_HOME>/marshal/projects.
+	for _, entry := range customisations.MountDirs() {
+		wantFile := filepath.Join(xdgDataHome, "marshal", "projects", "myapp", entry, "settings.json")
+		if _, err := os.Stat(wantFile); err != nil {
+			t.Errorf("expected defaults copied to %s, got error: %v", wantFile, err)
+		}
 	}
 
 	// And files must NOT appear at the incorrect (shallower) root
