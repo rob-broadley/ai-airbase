@@ -84,8 +84,8 @@ func HardenSourceTree(dir string) error {
 // the source is defaultsDir/<entry> and the destination is dst/<entry>.
 // Source subdirectories that don't exist are silently skipped. Files that
 // already exist at the destination are never overwritten. Each source
-// subdirectory is hardened before copying. Destination file permissions are
-// not modified — hardenProjectDir handles that.
+// subdirectory is hardened before copying. Destination files are created
+// with 0600 permissions (owner read+write only).
 func CopyDefaults(defaultsDir, dst string) error {
 	for _, entry := range MountDirs() {
 		src := filepath.Join(defaultsDir, entry)
@@ -137,7 +137,7 @@ func copyFile(src, dst string) error {
 	}
 	defer in.Close()
 
-	out, err := os.Create(dst)
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}

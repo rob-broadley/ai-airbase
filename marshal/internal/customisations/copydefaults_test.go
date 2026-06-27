@@ -33,6 +33,27 @@ func TestCopyDefaults_SingleFile_CopiesToEmptyDestination(t *testing.T) {
 	}
 }
 
+func TestCopyDefaults_SingleFile_HasRestrictedPermissions(t *testing.T) {
+	// Given a defaults directory containing opencode/config/settings.json
+	defaultsDir := t.TempDir()
+	writeTestFile(t, filepath.Join(defaultsDir, "opencode", "config", "settings.json"), []byte(`{}`))
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When CopyDefaults copies it to the destination directory
+	assertNoError(t, customisations.CopyDefaults(defaultsDir, dst))
+
+	// Then the destination file opencode/config/settings.json has permissions 0600
+	info, err := os.Stat(filepath.Join(dst, "opencode", "config", "settings.json"))
+	if err != nil {
+		t.Fatalf("expected to stat destination file: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Errorf("destination file permissions: got %04o, want %04o", got, 0o600)
+	}
+}
+
 func TestCopyDefaults_ExistingFile_NeverOverwrites(t *testing.T) {
 	defaultsDir := t.TempDir()
 	srcContent := []byte(`{"theme":"light"}`)
