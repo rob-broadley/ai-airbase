@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/cmd"
+	"github.com/rob-broadley/ai-airbase/marshal/internal/customisations"
 )
 
 // ---------------------------------------------------------------------------
@@ -100,25 +101,26 @@ func TestCreate_EmptyDefaults_NoFilesCopied(t *testing.T) {
 	assertNoError(t, root.Execute())
 
 	// Then the per-project directory is created with the three subdirs
-	projectBase := filepath.Join(cf.dataBase, "projects", "myapp", "opencode")
-	for _, sub := range []string{"config", "share", "state"} {
-		info, err := os.Stat(filepath.Join(projectBase, sub))
+	projectBase := filepath.Join(cf.dataBase, "projects", "myapp")
+	for _, md := range customisations.MountDirs() {
+		p := filepath.Join(projectBase, md.HostSubdir)
+		info, err := os.Stat(p)
 		if err != nil {
-			t.Errorf("expected subdirectory %s to exist: %v", sub, err)
+			t.Errorf("expected subdirectory %s to exist: %v", md.HostSubdir, err)
 			continue
 		}
 		if !info.IsDir() {
-			t.Errorf("expected %s to be a directory", sub)
+			t.Errorf("expected %s to be a directory", md.HostSubdir)
 		}
 	}
 
 	// And no files are copied (no-op)
 	var files []string
-	err := filepath.Walk(projectBase, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(projectBase, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if !info.IsDir() {
+		if !d.IsDir() {
 			files = append(files, path)
 		}
 		return nil

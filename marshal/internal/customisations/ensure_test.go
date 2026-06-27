@@ -217,13 +217,12 @@ func TestEnsureAndDefaultsDir_AgreeOnLayout(t *testing.T) {
 
 	// When DefaultsDir is called and Ensure is run
 	defaultsDir := customisations.DefaultsDir(base)
-	wantSubdirs := []string{"opencode/config", "opencode/share", "opencode/state"}
 
 	assertNoError(t, customisations.Ensure(xdgDataHome))
 
 	// Then each path matches the corresponding path that Ensure would create
-	for _, sub := range wantSubdirs {
-		wantPath := filepath.Join(defaultsDir, sub)
+	for _, md := range customisations.MountDirs() {
+		wantPath := filepath.Join(defaultsDir, md.HostSubdir)
 		info, err := os.Stat(wantPath)
 		if err != nil {
 			t.Fatalf("expected %s to exist: %v", wantPath, err)
@@ -260,9 +259,8 @@ func TestEnsure_ConcurrentCalls_AllSucceed(t *testing.T) {
 	}
 
 	// And the three subdirs exist on the real filesystem with 0o700 permissions
-	wantBase := filepath.Join(base, "marshal", "defaults", "opencode")
-	for _, sub := range []string{"config", "share", "state"} {
-		p := filepath.Join(wantBase, sub)
+	for _, md := range customisations.MountDirs() {
+		p := filepath.Join(base, "marshal", "defaults", md.HostSubdir)
 		info, err := os.Stat(p)
 		if err != nil {
 			t.Fatalf("expected %s to exist: %v", p, err)
