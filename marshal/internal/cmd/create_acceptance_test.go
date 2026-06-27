@@ -751,6 +751,7 @@ func TestCreate_PerProjectDirsExist(t *testing.T) {
 	}
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return xdgDataHome }
 
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp", "create"})

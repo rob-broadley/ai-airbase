@@ -1206,6 +1206,7 @@ func TestEnsureHostState_ProjectRootMatchesCopyDefaults(t *testing.T) {
 	}
 	deps := Deps{
 		EnsureSharedDataDir: dataDirFn,
+		XDGDataHome:         func() string { return xdgDataHome },
 	}
 
 	// When ensureHostState is called

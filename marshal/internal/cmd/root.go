@@ -62,6 +62,9 @@ type Deps struct {
 	// under XDG_DATA_HOME/marshal/ without creating the directory.
 	// Defaults to hostinfo.SharedDataPath.
 	SharedDataPath func(subdir string) string
+	// XDGDataHome returns the XDG data home directory path.
+	// Defaults to hostinfo.XDGDataHome.
+	XDGDataHome func() string
 }
 
 // sharedDataPath returns the injected SharedDataPath or the
@@ -71,6 +74,14 @@ func (d Deps) sharedDataPath() func(string) string {
 		return d.SharedDataPath
 	}
 	return hostinfo.SharedDataPath
+}
+
+// xdgDataHome returns the injected XDGDataHome or the real one.
+func (d Deps) xdgDataHome() func() string {
+	if d.XDGDataHome != nil {
+		return d.XDGDataHome
+	}
+	return hostinfo.XDGDataHome
 }
 
 // deleteConfig returns the effective config-delete function: the injected one or config.Delete.

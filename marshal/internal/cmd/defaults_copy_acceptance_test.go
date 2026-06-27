@@ -27,6 +27,7 @@ func TestCreate_DefaultsCopiedToProject(t *testing.T) {
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return base }
 
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp", "create"})
@@ -62,6 +63,7 @@ func TestCreate_ExistingProjectFileNotOverwritten(t *testing.T) {
 
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return base }
 
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp", "create"})
@@ -89,11 +91,12 @@ func TestCreate_EmptyDefaults_NoFilesCopied(t *testing.T) {
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return base }
 
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp", "create"})
 
-	// When marshal create is run for a new project
+	// When marshal create is run for the project
 	assertNoError(t, root.Execute())
 
 	// Then the per-project directory is created with the three subdirs
@@ -147,6 +150,7 @@ func TestCreate_SymlinkEscape_AbortsWithSecurityViolation(t *testing.T) {
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return base }
 
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp", "create"})
@@ -181,6 +185,7 @@ func TestRecreate_DefaultsCopiedAndExistingUntouched(t *testing.T) {
 
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return base }
 
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp", "recreate"})
@@ -226,6 +231,7 @@ func TestCreate_DefaultsAndExistingCoexist(t *testing.T) {
 
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return base }
 
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp", "create"})
@@ -264,6 +270,7 @@ func TestDefaultCmd_DefaultsCopiedToProject(t *testing.T) {
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return base }
 
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp"})
@@ -302,6 +309,7 @@ func TestCreate_IdempotentRunningTwice(t *testing.T) {
 
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return base }
 
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp", "create"})
@@ -345,6 +353,7 @@ func TestRecreate_CopyFailure_AbortsWithError(t *testing.T) {
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return base }
 
 	// When marshal create is run for the project (provisions dirs, copies defaults)
 	root := cmd.NewRootCmd(deps)
@@ -399,6 +408,7 @@ func TestCreate_SymlinkPreservation_CopiesSymlinkAsSymlink(t *testing.T) {
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return base }
 
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp", "create"})
@@ -455,6 +465,7 @@ func TestCreate_AbsoluteSymlink_ConvertedToRelative(t *testing.T) {
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return base }
 
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"--project", "myapp", "create"})

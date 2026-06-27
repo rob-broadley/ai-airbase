@@ -13,7 +13,6 @@ import (
 	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/customisations"
-	"github.com/rob-broadley/ai-airbase/marshal/internal/hostinfo"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/pathutil"
 )
 
@@ -95,11 +94,10 @@ func ensureHostState(deps Deps, project string) (projectDirPaths, error) {
 	if err != nil {
 		return paths, err
 	}
-	xdgDataHome := hostinfo.XDGDataHome()
-	if err := customisations.Ensure(func() string { return xdgDataHome }); err != nil {
+	if err := customisations.Ensure(deps.xdgDataHome()); err != nil {
 		return paths, fmt.Errorf("ensuring user defaults tree: %w", err)
 	}
-	defaultsDir := customisations.DefaultsDir(xdgDataHome)
+	defaultsDir := customisations.DefaultsDir(deps.xdgDataHome()())
 	if err := customisations.CopyDefaults(defaultsDir, root); err != nil {
 		return paths, fmt.Errorf("copying defaults to project dir: %w", err)
 	}
