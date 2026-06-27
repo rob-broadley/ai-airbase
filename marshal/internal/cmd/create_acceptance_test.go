@@ -302,8 +302,9 @@ func TestCreate_InvalidProjectName(t *testing.T) {
 	// When create is executed
 	err := root.Execute()
 
-	// Then an error is returned
+	// Then an error is returned mentioning the invalid project name
 	assertError(t, err)
+	assertContains(t, err.Error(), "invalid project")
 }
 
 // TestCreate_MountWithColonErrors verifies that create returns an error when
