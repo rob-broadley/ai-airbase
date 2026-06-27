@@ -84,17 +84,22 @@ func TestHardenSourceTree_SymlinkChainEscapingRoot_ReturnsSecurityViolation(t *t
 	}
 }
 
-func TestHardenSourceTree_BrokenSymlink_NoError(t *testing.T) {
+func TestHardenSourceTree_BrokenAbsoluteSymlinkOutsideRoot_ReturnsSecurityViolation(t *testing.T) {
 	root := t.TempDir()
 	symlinkPath := filepath.Join(root, "broken")
+	// Broken absolute symlink whose raw target is outside the source root;
+	// after the security fix this must be rejected.
 	if err := os.Symlink("/nonexistent/target", symlinkPath); err != nil {
 		t.Fatal(err)
 	}
 
 	err := customisations.HardenSourceTree(root)
 
-	if err != nil {
-		t.Fatalf("expected no error for broken symlink, got: %v", err)
+	if err == nil {
+		t.Fatal("expected security violation for broken absolute symlink outside source root, got nil")
+	}
+	if !strings.Contains(err.Error(), "security violation") {
+		t.Errorf("expected error containing %q, got: %v", "security violation", err)
 	}
 }
 

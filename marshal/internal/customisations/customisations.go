@@ -44,7 +44,9 @@ func DefaultsDir(base string) string {
 }
 
 // HardenSourceTree walks dir and returns an error if any symlink resolves
-// to a path outside dir. Broken symlinks are not treated as escapes.
+// to a path outside dir. Broken relative symlinks are skipped. Broken
+// absolute symlinks whose raw target is outside dir are also rejected as
+// security violations.
 func HardenSourceTree(dir string) error {
 	rootResolved, err := filepath.EvalSymlinks(dir)
 	if err != nil {
@@ -58,6 +60,13 @@ func HardenSourceTree(dir string) error {
 			targetResolved, err := filepath.EvalSymlinks(path)
 			if err != nil {
 				if os.IsNotExist(err) {
+					// Broken symlink — check raw target for absolute escape
+					target, readErr := os.Readlink(path)
+					if readErr == nil && filepath.IsAbs(target) {
+						if !pathutil.IsPathUnder(filepath.Clean(target), rootResolved) {
+							return fmt.Errorf("security violation: broken symlink %s has absolute target outside source root (target: %s)", path, target)
+						}
+					}
 					return nil
 				}
 				return fmt.Errorf("resolving symlink %s: %w", path, err)

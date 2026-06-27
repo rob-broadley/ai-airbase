@@ -325,6 +325,29 @@ func TestCopyDefaults_BrokenSymlink_PreservesSymlink(t *testing.T) {
 	}
 }
 
+func TestCopyDefaults_BrokenAbsoluteSymlinkOutsideRoot_ReturnsSecurityViolation(t *testing.T) {
+	// Given a defaults tree containing a broken absolute symlink inside opencode/config
+	// whose raw target is outside the source root
+	defaultsDir := t.TempDir()
+	assertNoError(t, os.MkdirAll(filepath.Join(defaultsDir, "opencode", "config"), 0o700))
+	symlinkPath := filepath.Join(defaultsDir, "opencode", "config", "escape")
+	assertNoError(t, os.Symlink("/nonexistent/outside", symlinkPath))
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When CopyDefaults is called
+	err := customisations.CopyDefaults(defaultsDir, dst)
+
+	// Then it returns an error containing "security violation"
+	if err == nil {
+		t.Fatal("expected error for broken absolute symlink outside source root, got nil")
+	}
+	if !strings.Contains(err.Error(), "security violation") {
+		t.Errorf("expected error to contain %q, got: %q", "security violation", err.Error())
+	}
+}
+
 func TestCopyDefaults_ExistingFile_NotOverwrittenBySymlink(t *testing.T) {
 	// Given a defaultsDir containing a relative symlink opencode/config/link.json -> real.json
 	defaultsDir := t.TempDir()
