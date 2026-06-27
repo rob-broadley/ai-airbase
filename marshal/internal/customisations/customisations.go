@@ -80,8 +80,11 @@ func HardenSourceTree(dir string) error {
 func CopyDefaults(defaultsDir, dst string) error {
 	for _, entry := range MountDirs() {
 		src := filepath.Join(defaultsDir, entry)
-		if _, err := os.Stat(src); os.IsNotExist(err) {
-			continue
+		if _, err := os.Stat(src); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
 		}
 		if err := HardenSourceTree(src); err != nil {
 			return err

@@ -2,8 +2,10 @@
 package customisations_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/customisations"
@@ -661,6 +663,39 @@ func TestCopyDefaults_DanglingSymlinkNeverOverwrites(t *testing.T) {
 	}
 	if gotTarget != "/nonexistent/target" {
 		t.Errorf("symlink target changed: got %q, want %q", gotTarget, "/nonexistent/target")
+	}
+}
+
+func TestCopyDefaults_StatPermissionDenied_ReturnsError(t *testing.T) {
+	// Given the test process is not running as root
+	if os.Getuid() == 0 {
+		t.Skip("skipping: running as root, permission checks do not apply")
+	}
+
+	// And the opencode subdirectory exists but has mode 0o000,
+	// causing os.Stat on any child path to return permission denied
+	defaultsDir := t.TempDir()
+	restrictedDir := filepath.Join(defaultsDir, "opencode")
+	assertNoError(t, os.MkdirAll(restrictedDir, 0o700))
+	assertNoError(t, os.Chmod(restrictedDir, 0o000))
+	defer func() { _ = os.Chmod(restrictedDir, 0o700) }()
+
+	// And an empty destination directory
+	dst := t.TempDir()
+
+	// When CopyDefaults is called
+	err := customisations.CopyDefaults(defaultsDir, dst)
+
+	// Then it returns a non-nil permission error
+	if err == nil {
+		t.Fatal("expected error for permission-denied stat, got nil")
+	}
+	if !errors.Is(err, os.ErrPermission) {
+		t.Errorf("expected permission error (os.ErrPermission), got: %v", err)
+	}
+	// And the error is the direct stat error, not the HardenSourceTree fall-through error
+	if strings.Contains(err.Error(), "resolving source tree root") {
+		t.Errorf("error should not originate from HardenSourceTree, got: %q", err.Error())
 	}
 }
 
