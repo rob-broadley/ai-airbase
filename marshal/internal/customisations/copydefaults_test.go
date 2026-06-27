@@ -747,7 +747,7 @@ func TestCopyDefaults_MultipleApps_CopiesAll(t *testing.T) {
 	// Given defaults exist for all MountDirs entries plus a file outside MountDirs
 	defaultsDir := t.TempDir()
 	for _, entry := range customisations.MountDirs() {
-		writeTestFile(t, filepath.Join(defaultsDir, entry, "test.json"), []byte(entry))
+		writeTestFile(t, filepath.Join(defaultsDir, entry.HostSubdir, "test.json"), []byte(entry.HostSubdir))
 	}
 	writeTestFile(t, filepath.Join(defaultsDir, "logs", "debug.log"), []byte("skip"))
 
@@ -757,8 +757,8 @@ func TestCopyDefaults_MultipleApps_CopiesAll(t *testing.T) {
 
 	// Then files land under each MountDirs entry
 	for _, entry := range customisations.MountDirs() {
-		wantPath := filepath.Join(entry, "test.json")
-		wantContent := []byte(entry)
+		wantPath := filepath.Join(entry.HostSubdir, "test.json")
+		wantContent := []byte(entry.HostSubdir)
 		got, err := os.ReadFile(filepath.Join(dst, wantPath))
 		if err != nil {
 			t.Fatalf("expected %s to exist: %v", wantPath, err)

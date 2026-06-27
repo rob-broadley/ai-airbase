@@ -761,7 +761,7 @@ func TestCreate_PerProjectDirsExist(t *testing.T) {
 	// Then projects/myapp directories exist under the data directory
 	wantBase := filepath.Join(xdgDataHome, "marshal", "projects", "myapp")
 	for _, entry := range customisations.MountDirs() {
-		p := filepath.Join(wantBase, entry)
+		p := filepath.Join(wantBase, entry.HostSubdir)
 		info, err := os.Stat(p)
 		if err != nil {
 			t.Fatalf("expected %s to exist: %v", p, err)

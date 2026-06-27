@@ -56,15 +56,15 @@ func projectRootDir(deps Deps, project string) (string, error) {
 // preserved verbatim so existing tests and operators see the same diagnostics.
 func provisionProjectDir(deps Deps, project, root string) (projectDirPaths, error) {
 	paths := make(projectDirPaths, len(customisations.MountDirs()))
-	for _, dir := range customisations.MountDirs() {
-		resolved := filepath.Join(root, dir)
+	for _, md := range customisations.MountDirs() {
+		resolved := filepath.Join(root, md.HostSubdir)
 		if err := os.MkdirAll(resolved, 0o700); err != nil {
-			return nil, fmt.Errorf("ensuring project %s dir for project %s: %w", dir, project, err)
+			return nil, fmt.Errorf("ensuring project %s dir for project %s: %w", md.HostSubdir, project, err)
 		}
 		if err := hardenProjectDir(resolved); err != nil {
-			return nil, fmt.Errorf("enforcing permissions on %s dir: %w", dir, err)
+			return nil, fmt.Errorf("enforcing permissions on %s dir: %w", md.HostSubdir, err)
 		}
-		paths[dir] = resolved
+		paths[md.HostSubdir] = resolved
 	}
 
 	return paths, nil
@@ -106,22 +106,6 @@ func ensureHostState(deps Deps, project string) (projectDirPaths, error) {
 	return paths, nil
 }
 
-// mountDirToContainerPath maps a MountDirs entry to its container-side path.
-// All MountDirs entries MUST have an explicit case here. Adding a new entry
-// to MountDirs without a corresponding case is a bug and will panic.
-func mountDirToContainerPath(dir string) string {
-	switch dir {
-	case "opencode/config":
-		return container.ContainerOpencodeConfigDir
-	case "opencode/share":
-		return container.ContainerOpencodeDataDir
-	case "opencode/state":
-		return container.ContainerOpencodeStateDir
-	default:
-		panic("mountDirToContainerPath: unknown MountDirs entry " + dir + " — add explicit case")
-	}
-}
-
 // buildContainerMounts returns MountSpec values that bind host credentials
 // and per-project opencode directories into the container.
 //
@@ -154,10 +138,10 @@ func buildContainerMounts(deps Deps, paths projectDirPaths) ([]container.MountSp
 
 	// Per-project host dirs — paths passed in by ensureHostState.
 	mounts := []container.MountSpec{gitSpec}
-	for _, dir := range customisations.MountDirs() {
+	for _, md := range customisations.MountDirs() {
 		mounts = append(mounts, container.MountSpec{
-			HostPath:      paths[dir],
-			ContainerPath: mountDirToContainerPath(dir),
+			HostPath:      paths[md.HostSubdir],
+			ContainerPath: md.ContainerPath,
 		})
 	}
 	return mounts, nil

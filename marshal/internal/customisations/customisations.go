@@ -9,13 +9,25 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/pathutil"
 )
 
+// MountDir pairs a host-side subdirectory under the project root with its
+// corresponding container-side mount path.
+type MountDir struct {
+	HostSubdir    string
+	ContainerPath string
+}
+
 // MountDirs returns all bind-mounted subdirectories that marshal scaffolds
 // under $XDG_DATA_HOME/marshal/defaults. Returns a copy to prevent mutation.
-func MountDirs() []string {
-	return []string{"opencode/config", "opencode/share", "opencode/state"}
+func MountDirs() []MountDir {
+	return []MountDir{
+		{HostSubdir: "opencode/config", ContainerPath: container.ContainerOpencodeConfigDir},
+		{HostSubdir: "opencode/share", ContainerPath: container.ContainerOpencodeDataDir},
+		{HostSubdir: "opencode/state", ContainerPath: container.ContainerOpencodeStateDir},
+	}
 }
 
 // Ensure creates the user defaults directory tree at
@@ -30,7 +42,7 @@ func Ensure(xdgDataHome func() string) error {
 	}
 	defaultsDir := DefaultsDir(base)
 	for _, sub := range MountDirs() {
-		path := filepath.Join(defaultsDir, sub)
+		path := filepath.Join(defaultsDir, sub.HostSubdir)
 		if err := ensureDefaultsSubdir(path); err != nil {
 			return err
 		}
@@ -88,7 +100,7 @@ func HardenSourceTree(dir string) error {
 // with 0600 permissions (owner read+write only).
 func CopyDefaults(defaultsDir, dst string) error {
 	for _, entry := range MountDirs() {
-		src := filepath.Join(defaultsDir, entry)
+		src := filepath.Join(defaultsDir, entry.HostSubdir)
 		if _, err := os.Stat(src); err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -98,7 +110,7 @@ func CopyDefaults(defaultsDir, dst string) error {
 		if err := HardenSourceTree(src); err != nil {
 			return err
 		}
-		dstDir := filepath.Join(dst, entry)
+		dstDir := filepath.Join(dst, entry.HostSubdir)
 		if err := copyTree(src, dstDir); err != nil {
 			return err
 		}

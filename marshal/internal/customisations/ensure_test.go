@@ -26,7 +26,7 @@ func TestEnsure_CreatesSubdirsFromMountDirs(t *testing.T) {
 	// Then all MountDirs entries exist as directories with 0o700 permissions
 	wantBase := filepath.Join(base, "marshal", "defaults")
 	for _, entry := range customisations.MountDirs() {
-		p := filepath.Join(wantBase, entry)
+		p := filepath.Join(wantBase, entry.HostSubdir)
 		info, err := os.Stat(p)
 		if err != nil {
 			t.Fatalf("expected %s to exist: %v", p, err)

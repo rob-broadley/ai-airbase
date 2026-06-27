@@ -1188,10 +1188,10 @@ func TestEnsureHostState_ProjectRootMatchesCopyDefaults(t *testing.T) {
 	// And defaults files exist under the standard MountDirs entries
 	defaultsDir := filepath.Join(xdgDataHome, "marshal", "defaults")
 	for _, entry := range customisations.MountDirs() {
-		if err := os.MkdirAll(filepath.Join(defaultsDir, entry), 0o700); err != nil {
+		if err := os.MkdirAll(filepath.Join(defaultsDir, entry.HostSubdir), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(defaultsDir, entry, "settings.json"), []byte(`{}`), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(defaultsDir, entry.HostSubdir, "settings.json"), []byte(`{}`), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1220,7 +1220,7 @@ func TestEnsureHostState_ProjectRootMatchesCopyDefaults(t *testing.T) {
 	// The project root must be <XDG_DATA_HOME>/marshal/projects/myapp,
 	// NOT <XDG_DATA_HOME>/marshal/projects.
 	for _, entry := range customisations.MountDirs() {
-		wantFile := filepath.Join(xdgDataHome, "marshal", "projects", "myapp", entry, "settings.json")
+		wantFile := filepath.Join(xdgDataHome, "marshal", "projects", "myapp", entry.HostSubdir, "settings.json")
 		if _, err := os.Stat(wantFile); err != nil {
 			t.Errorf("expected defaults copied to %s, got error: %v", wantFile, err)
 		}
