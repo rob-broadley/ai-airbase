@@ -14,7 +14,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Credential mount location tests — XDG config/data split
+// Per-project directory mount location tests
 // ---------------------------------------------------------------------------
 
 // TestDefaultCmd_ConfigDirRelocatedAndIsolated verifies that the project-specific

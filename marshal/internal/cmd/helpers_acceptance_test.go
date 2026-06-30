@@ -486,36 +486,24 @@ func noopMkdirAll(path string, perm os.FileMode) error { return nil }
 // credFakes — injectable credential dependencies for mount and isolation tests
 // ---------------------------------------------------------------------------
 
-// credFakes bundles injectable credential-related deps so tests can inspect
-// calls and compute expected mount values. It maintains separate base
-// directories for XDG_CONFIG (configBase) and XDG_DATA (dataBase) paths so
-// tests can assert that files end up in the correct XDG location.
+// credFakes bundles injectable data-dir deps so tests can inspect calls and
+// compute expected mount values. dataBase is the root of the per-test
+// XDG_DATA_HOME directory used to derive expected per-project mount paths.
 type credFakes struct {
-	dataDirFn   func(string) (string, error)
-	configDirFn func(string) (string, error)
-	dataBase    string
-	configBase  string
-	calls       []string
+	dataDirFn func(string) (string, error)
+	dataBase  string
+	calls     []string
 }
 
-// newCredFakes returns a credFakes wired to per-test temp directories.
-// Both directories are created so that callers can write files into them.
+// newCredFakes returns a credFakes wired to a per-test temp directory.
+// The directory is created so that callers can write files into it.
 func newCredFakes(t *testing.T) *credFakes {
 	t.Helper()
 	dataBase := t.TempDir()
-	configBase := t.TempDir()
-	cf := &credFakes{dataBase: dataBase, configBase: configBase}
+	cf := &credFakes{dataBase: dataBase}
 	cf.dataDirFn = func(subdir string) (string, error) {
 		cf.calls = append(cf.calls, "data:"+subdir)
 		p := filepath.Join(dataBase, subdir)
-		if err := os.MkdirAll(p, 0o700); err != nil {
-			return "", err
-		}
-		return p, nil
-	}
-	cf.configDirFn = func(subdir string) (string, error) {
-		cf.calls = append(cf.calls, "config:"+subdir)
-		p := filepath.Join(configBase, subdir)
 		if err := os.MkdirAll(p, 0o700); err != nil {
 			return "", err
 		}
