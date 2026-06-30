@@ -70,9 +70,13 @@ const (
 	// ContainerOpencodeStateDir is the container-side path for the opencode session state / snapshots.
 	ContainerOpencodeStateDir = ContainerUserHome + "/.local/state/opencode"
 
+	// ContainerGitConfigDir is the container-side directory for git config.
+	// The git config file lives at ContainerGitConfigDir + "/config".
+	ContainerGitConfigDir = ContainerUserHome + "/.config/git"
+
 	// ContainerGitConfigFile is the XDG user-level git config path inside the container.
 	// This overrides the system /etc/gitconfig baked into the image.
-	ContainerGitConfigFile = ContainerUserHome + "/.config/git/config"
+	ContainerGitConfigFile = ContainerGitConfigDir + "/config"
 )
 
 // DefaultContainerCmd is the command run inside the container when started
