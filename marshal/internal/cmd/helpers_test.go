@@ -1168,3 +1168,103 @@ func TestEnsureHostState_ProjectRootMatchesCopyDefaults(t *testing.T) {
 		t.Errorf("defaults must NOT be copied to wrong root %s", wrongFile)
 	}
 }
+
+// TestEnsureHostState_PropagatesEnsureError verifies that when
+// customisations.Ensure fails (e.g. because a regular file blocks a required
+// subdirectory), ensureHostState propagates the error rather than swallowing it.
+func TestEnsureHostState_PropagatesEnsureError(t *testing.T) {
+	// Given XDG_DATA_HOME points to a fresh temp directory
+	xdgDataHome := t.TempDir()
+
+	// And a regular file at defaultsDir/git prevents Ensure from creating
+	// the git/config subdirectory (ENOTDIR is not treated as ENOENT).
+	defaultsDir := filepath.Join(xdgDataHome, "marshal", "defaults")
+	if err := os.MkdirAll(defaultsDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(defaultsDir, "git"), []byte("blocker"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dataDirFn := func(subdir string) (string, error) {
+		p := filepath.Join(xdgDataHome, "marshal", subdir)
+		if err := os.MkdirAll(p, 0o700); err != nil {
+			return "", err
+		}
+		return p, nil
+	}
+	deps := Deps{
+		EnsureSharedDataDir: dataDirFn,
+		XDGDataHome:         func() string { return xdgDataHome },
+	}
+
+	// When ensureHostState is called
+	_, err := ensureHostState(deps, "myapp")
+
+	// Then the error is propagated (not swallowed)
+	if err == nil {
+		t.Fatal("expected error when Ensure fails, got nil")
+	}
+}
+
+// TestEnsureHostState_PropagatesSeedGitConfigError verifies that when
+// SeedGitConfigDefaults fails, ensureHostState propagates the error rather
+// than swallowing it.
+//
+// The test pre-creates the defaults/git/config directory as non-writable so
+// that customisations.Ensure passes (the directory already exists) but
+// SeedGitConfigDefaults cannot create the config file inside it.
+func TestEnsureHostState_PropagatesSeedGitConfigError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("skipping: running as root, permission checks differ")
+	}
+
+	// Given XDG_DATA_HOME points to a fresh temp directory
+	xdgDataHome := t.TempDir()
+
+	// And defaults/git/config already exists as a non-writable directory so
+	// Ensure succeeds (directory present) but SeedGitConfigDefaults cannot
+	// create the config file inside it.
+	gitConfigDir := filepath.Join(xdgDataHome, "marshal", "defaults", "git", "config")
+	if err := os.MkdirAll(gitConfigDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(gitConfigDir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	// Restore write permission before the temp-dir cleanup runs.
+	t.Cleanup(func() { _ = os.Chmod(gitConfigDir, 0o700) })
+
+	// And LookupGitConfig returns user info so SeedGitConfigDefaults attempts to write.
+	dataDirFn := func(subdir string) (string, error) {
+		p := filepath.Join(xdgDataHome, "marshal", subdir)
+		if err := os.MkdirAll(p, 0o700); err != nil {
+			return "", err
+		}
+		return p, nil
+	}
+	deps := Deps{
+		EnsureSharedDataDir: dataDirFn,
+		XDGDataHome:         func() string { return xdgDataHome },
+		LookupGitConfig: func(key string) string {
+			switch key {
+			case "user.name":
+				return "Test User"
+			case "user.email":
+				return "test@example.com"
+			}
+			return ""
+		},
+	}
+
+	// When ensureHostState is called
+	_, err := ensureHostState(deps, "myapp")
+
+	// Then the error is propagated and names the seeding step
+	if err == nil {
+		t.Fatal("expected error when git config seeding fails, got nil")
+	}
+	if !strings.Contains(err.Error(), "seeding git config defaults") {
+		t.Errorf("expected error to name the seeding step; got: %v", err)
+	}
+}

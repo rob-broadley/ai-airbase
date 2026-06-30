@@ -183,3 +183,48 @@ func TestCreate_UserDefaultsDirError_AbortsCreate(t *testing.T) {
 		t.Error("expected no podman create call, but one was made")
 	}
 }
+
+// --- git config seeding into the defaults tree ---
+
+// Test_Create_SeedsGitConfigInDefaultsTree verifies that when marshal create runs
+// and the user's git identity is available, a git [user] config is written into
+// the defaults tree so it is available to copy into new per-project directories.
+func Test_Create_SeedsGitConfigInDefaultsTree(t *testing.T) {
+	// Given XDG_DATA_HOME points to a fresh temp directory
+	xdgDataHome := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", xdgDataHome)
+
+	// And LookupGitConfig returns name and email
+	cf := newCredFakes(t)
+	runner := &fakeRunner{exists: false, imageExistsResult: true}
+	deps := newCredentialTestDeps(cf, runner)
+	deps.XDGDataHome = func() string { return xdgDataHome }
+	deps.LookupGitConfig = func(key string) string {
+		switch key {
+		case "user.name":
+			return "Test User"
+		case "user.email":
+			return "test@example.com"
+		}
+		return ""
+	}
+
+	root := cmd.NewRootCmd(deps)
+	root.SetArgs([]string{"--project", "myapp", "create"})
+
+	// When marshal create is executed
+	assertNoError(t, root.Execute())
+
+	// Then the git config file is seeded in the defaults tree
+	configPath := filepath.Join(xdgDataHome, "marshal", "defaults", "git", "config", "config")
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("expected git config to be seeded at %s: %v", configPath, err)
+	}
+
+	// And the file contains exactly the expected [user] section
+	wantContent := "[user]\n\tname = \"Test User\"\n\temail = \"test@example.com\"\n"
+	if string(content) != wantContent {
+		t.Errorf("git config content mismatch:\ngot:\n%s\nwant:\n%s", content, wantContent)
+	}
+}

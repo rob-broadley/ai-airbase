@@ -95,10 +95,14 @@ func ensureHostState(deps Deps, project string) (projectDirPaths, error) {
 	if err != nil {
 		return paths, err
 	}
-	if err := customisations.Ensure(deps.xdgDataHome()); err != nil {
+	xdgDataHomeFn := deps.xdgDataHome()
+	defaultsDir := customisations.DefaultsDir(xdgDataHomeFn())
+	if err := customisations.Ensure(xdgDataHomeFn); err != nil {
 		return paths, fmt.Errorf("ensuring user defaults tree: %w", err)
 	}
-	defaultsDir := customisations.DefaultsDir(deps.xdgDataHome()())
+	if err := customisations.SeedGitConfigDefaults(defaultsDir, deps.lookupGitConfigFn()); err != nil {
+		return paths, fmt.Errorf("seeding git config defaults: %w", err)
+	}
 	if err := customisations.CopyDefaults(defaultsDir, root); err != nil {
 		return paths, fmt.Errorf("copying defaults to project dir: %w", err)
 	}
