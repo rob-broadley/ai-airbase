@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
+	"github.com/rob-broadley/ai-airbase/marshal/internal/textutil"
 )
 
 // newCreateCmd returns the cobra.Command for the "create" subcommand, which
@@ -232,7 +233,7 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		if len(cfg.Mounts) > 0 {
 			fmt.Fprintf(w, "Mounts:\n")
 			for _, m := range cfg.Mounts {
-				fmt.Fprintf(w, "  %s\n", sanitizeForTerminal(m))
+				fmt.Fprintf(w, "  %s\n", textutil.SanitiseForTerminal(m))
 			}
 		} else {
 			fmt.Fprintf(w, "Mounts:       none\n")
@@ -240,7 +241,7 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 		if len(cfg.Masks) > 0 {
 			fmt.Fprintf(w, "Masks:\n")
 			for _, m := range cfg.Masks {
-				fmt.Fprintf(w, "  %s\n", sanitizeForTerminal(m))
+				fmt.Fprintf(w, "  %s\n", textutil.SanitiseForTerminal(m))
 			}
 		} else {
 			fmt.Fprintf(w, "Masks:        none\n")
@@ -255,7 +256,7 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	if status.Version == "" {
 		deps.logger().Debug("image version label absent", "container", containerName)
 	}
-	version := sanitizeForTerminal(status.Version)
+	version := textutil.SanitiseForTerminal(status.Version)
 	if version == "" {
 		if status.Version != "" {
 			deps.logger().Debug("image version label stripped (control characters only)", "container", containerName)
@@ -265,7 +266,7 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	if status.ImageDigest == "" {
 		deps.logger().Debug("image digest absent", "container", containerName)
 	}
-	imageDigest := sanitizeForTerminal(status.ImageDigest)
+	imageDigest := textutil.SanitiseForTerminal(status.ImageDigest)
 	if imageDigest == "" {
 		if status.ImageDigest != "" {
 			deps.logger().Debug("image digest stripped (control characters only)", "container", containerName)
@@ -275,18 +276,18 @@ func runStatus(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	if status.ImageRef == "" {
 		deps.logger().Debug("image ref absent", "container", containerName)
 	}
-	imageRef := sanitizeForTerminal(status.ImageRef)
+	imageRef := textutil.SanitiseForTerminal(status.ImageRef)
 	if imageRef == "" {
 		if status.ImageRef != "" {
 			deps.logger().Debug("image ref stripped (control characters only)", "container", containerName)
 		}
 		imageRef = "-"
 	}
-	image := sanitizeForTerminal(status.Image)
+	image := textutil.SanitiseForTerminal(status.Image)
 	if image == "" {
 		image = "-"
 	}
-	created := sanitizeForTerminal(status.Created)
+	created := textutil.SanitiseForTerminal(status.Created)
 	if created == "" {
 		if status.Created != "" {
 			deps.logger().Debug("container created timestamp stripped (control characters only)", "container", containerName)
@@ -526,13 +527,13 @@ func getProjectListStatus(deps Deps, project string) (listRowStatus, error) {
 		if errors.Is(loadErr, os.ErrNotExist) {
 			loadErr = fmt.Errorf("config file disappeared: %w", loadErr)
 		}
-		deps.logger().Warn("config problem for project", "project", project, "error", sanitizeForTerminal(loadErr.Error()))
+		deps.logger().Warn("config problem for project", "project", project, "error", textutil.SanitiseForTerminal(loadErr.Error()))
 		res.configStatus = "error"
 	}
 
 	cStatus, statusErr := container.GetStatus(deps.Runner, containerNameForProject(project))
 	if statusErr != nil {
-		deps.logger().Warn("failed to query container for project", "project", project, "container", containerNameForProject(project), "error", sanitizeForTerminal(statusErr.Error()))
+		deps.logger().Warn("failed to query container for project", "project", project, "container", containerNameForProject(project), "error", textutil.SanitiseForTerminal(statusErr.Error()))
 		return res, statusErr
 	}
 

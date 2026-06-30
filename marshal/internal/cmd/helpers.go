@@ -14,6 +14,7 @@ import (
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/customisations"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/pathutil"
+	"github.com/rob-broadley/ai-airbase/marshal/internal/textutil"
 )
 
 // ---------------------------------------------------------------------------
@@ -152,69 +153,13 @@ func setupGitConfigMount(ensureConfigDir func(string) (string, error), lookupGit
 		return container.MountSpec{}, fmt.Errorf("ensuring config dir git: %w", err)
 	}
 	gitConfigPath := filepath.Join(gitConfigDir, "config")
-	if err := ensureConfigFile(gitConfigPath, buildGitConfigContent(lookupGit)); err != nil {
+	if err := ensureConfigFile(gitConfigPath, customisations.BuildGitConfigContent(lookupGit)); err != nil {
 		return container.MountSpec{}, fmt.Errorf("ensuring git config file: %w", err)
 	}
 	return container.MountSpec{
 		HostPath:      gitConfigPath,
 		ContainerPath: container.ContainerGitConfigFile,
 	}, nil
-}
-
-// buildGitConfigContent generates a minimal git [user] section from the host
-// git configuration. Values are double-quoted per the gitconfig spec to handle
-// backslashes, semicolons, and hash characters safely. Control characters are
-// stripped before quoting. Returns an empty byte slice when neither value is
-// set so the file is still created, allowing the user to populate it manually.
-func buildGitConfigContent(lookup func(string) string) []byte {
-	name := sanitizeForTerminal(lookup("user.name"))
-	email := sanitizeForTerminal(lookup("user.email"))
-	if name == "" && email == "" {
-		return []byte{}
-	}
-	var b strings.Builder
-	b.WriteString("[user]\n")
-	if name != "" {
-		fmt.Fprintf(&b, "\tname = %s\n", gitQuote(name))
-	}
-	if email != "" {
-		fmt.Fprintf(&b, "\temail = %s\n", gitQuote(email))
-	}
-	return []byte(b.String())
-}
-
-// gitQuote wraps a git config value in double quotes and escapes the four
-// sequences the gitconfig spec recognises inside double-quoted strings: \\ \" \n \t.
-func gitQuote(v string) string {
-	v = strings.ReplaceAll(v, `\`, `\\`)
-	v = strings.ReplaceAll(v, `"`, `\"`)
-	v = strings.ReplaceAll(v, "\n", `\n`)
-	v = strings.ReplaceAll(v, "\t", `\t`)
-	return `"` + v + `"`
-}
-
-// sanitizeForTerminal strips C0 control characters (< 0x20), DEL (0x7f), C1
-// control characters (0x80–0x9F, including the 8-bit CSI U+009B), Unicode
-// bidirectional formatting characters (U+200E–U+200F, U+202A–U+202E,
-// U+2066–U+2069), line/paragraph separators (U+2028–U+2029), zero-width
-// characters (U+200B Zero Width Space, U+200C Zero Width Non-Joiner,
-// U+200D Zero Width Joiner, U+FEFF BOM/Zero Width No-Break Space), and the
-// Arabic Letter Mark (U+061C) from a string before writing it to terminal
-// output, guarding against escape sequence injection and Trojan-source
-// visual-spoof attacks from untrusted sources such as OCI image labels.
-func sanitizeForTerminal(v string) string {
-	return strings.Map(func(r rune) rune {
-		if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) ||
-			(r >= 0x200e && r <= 0x200f) || // LRM, RLM
-			(r >= 0x202a && r <= 0x202e) || // bidi embedding/override
-			(r >= 0x2066 && r <= 0x2069) || // bidi isolates
-			r == 0x2028 || r == 0x2029 || // line/paragraph separator
-			r == 0x200b || r == 0x200c || r == 0x200d || r == 0xfeff || // zero-width chars
-			r == 0x061c { // Arabic Letter Mark
-			return -1 // drop control and bidi formatting characters
-		}
-		return r
-	}, v)
 }
 
 // ensureConfigFile creates the file at path with defaultContent if it does not
@@ -355,7 +300,7 @@ func renderMountsAndMasks(logger *slog.Logger, w io.Writer, configuredMounts, co
 		if activeBind[mountContainerDest[m]] == m {
 			sym = "✓"
 		}
-		mountEntries = append(mountEntries, statusEntry{sym, sanitizeForTerminal(m)})
+		mountEntries = append(mountEntries, statusEntry{sym, textutil.SanitiseForTerminal(m)})
 	}
 	for _, am := range actualMounts {
 		if am.Type != "bind" || !strings.HasPrefix(am.Destination, containerWorkspaceDir+"/") {
@@ -364,7 +309,7 @@ func renderMountsAndMasks(logger *slog.Logger, w io.Writer, configuredMounts, co
 		if _, ok := mountContainerDest[am.Source]; ok {
 			continue // tracked
 		}
-		mountEntries = append(mountEntries, statusEntry{"?", sanitizeForTerminal(am.Source)})
+		mountEntries = append(mountEntries, statusEntry{"?", textutil.SanitiseForTerminal(am.Source)})
 	}
 
 	// Compute container destination for each configured mask and reconcile.
@@ -380,7 +325,7 @@ func renderMountsAndMasks(logger *slog.Logger, w io.Writer, configuredMounts, co
 			sym = "✓"
 			accountedVolumes[containerDest] = true
 		}
-		maskEntries = append(maskEntries, statusEntry{sym, sanitizeForTerminal(mask)})
+		maskEntries = append(maskEntries, statusEntry{sym, textutil.SanitiseForTerminal(mask)})
 	}
 
 	// Collect untracked volume mounts.
@@ -395,7 +340,7 @@ func renderMountsAndMasks(logger *slog.Logger, w io.Writer, configuredMounts, co
 		if hostPath == am.Destination {
 			logger.Debug("untracked mask path not resolved to host path", "path", am.Destination)
 		}
-		maskEntries = append(maskEntries, statusEntry{"?", sanitizeForTerminal(hostPath)})
+		maskEntries = append(maskEntries, statusEntry{"?", textutil.SanitiseForTerminal(hostPath)})
 	}
 
 	writeStatusSection(w, "Mounts", "Mounts:       none", mountEntries)

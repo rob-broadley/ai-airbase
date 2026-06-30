@@ -8,9 +8,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/rob-broadley/ai-airbase/marshal/internal/container"
 	"github.com/rob-broadley/ai-airbase/marshal/internal/pathutil"
+	"github.com/rob-broadley/ai-airbase/marshal/internal/textutil"
 )
 
 // MountDir pairs a host-side subdirectory under the project root with its
@@ -213,6 +215,38 @@ func copySymlinkToDest(srcPath, dstPath string) error {
 		target = targetRel
 	}
 	return os.Symlink(target, dstPath)
+}
+
+// GitQuote wraps a git config value in double quotes and escapes the four
+// sequences the gitconfig spec recognises inside double-quoted strings: \\ \" \n \t.
+func GitQuote(v string) string {
+	v = strings.ReplaceAll(v, `\`, `\\`)
+	v = strings.ReplaceAll(v, `"`, `\"`)
+	v = strings.ReplaceAll(v, "\n", `\n`)
+	v = strings.ReplaceAll(v, "\t", `\t`)
+	return `"` + v + `"`
+}
+
+// BuildGitConfigContent generates a minimal git [user] section from the host
+// git configuration. Values are double-quoted per the gitconfig spec to handle
+// backslashes, semicolons, and hash characters safely. Control characters are
+// stripped before quoting. Returns an empty byte slice when neither value is
+// set so the file is still created, allowing the user to populate it manually.
+func BuildGitConfigContent(lookup func(string) string) []byte {
+	name := textutil.SanitiseForTerminal(lookup("user.name"))
+	email := textutil.SanitiseForTerminal(lookup("user.email"))
+	if name == "" && email == "" {
+		return []byte{}
+	}
+	var b strings.Builder
+	b.WriteString("[user]\n")
+	if name != "" {
+		fmt.Fprintf(&b, "\tname = %s\n", GitQuote(name))
+	}
+	if email != "" {
+		fmt.Fprintf(&b, "\temail = %s\n", GitQuote(email))
+	}
+	return []byte(b.String())
 }
 
 func ensureDefaultsSubdir(path string) error {
