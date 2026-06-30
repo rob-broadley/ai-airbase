@@ -230,8 +230,8 @@ func GitQuote(v string) string {
 // BuildGitConfigContent generates a minimal git [user] section from the host
 // git configuration. Values are double-quoted per the gitconfig spec to handle
 // backslashes, semicolons, and hash characters safely. Control characters are
-// stripped before quoting. Returns an empty byte slice when neither value is
-// set so the file is still created, allowing the user to populate it manually.
+// stripped before quoting. Returns an empty byte slice when neither name nor
+// email is set.
 func BuildGitConfigContent(lookup func(string) string) []byte {
 	name := textutil.SanitiseForTerminal(lookup("user.name"))
 	email := textutil.SanitiseForTerminal(lookup("user.email"))
@@ -247,6 +247,48 @@ func BuildGitConfigContent(lookup func(string) string) []byte {
 		fmt.Fprintf(&b, "\temail = %s\n", GitQuote(email))
 	}
 	return []byte(b.String())
+}
+
+// SeedGitConfigDefaults writes a git [user] config section into the defaults tree at
+// defaultsDir/git/config/config when the file does not yet exist. Content is
+// generated via BuildGitConfigContent. Returns nil when the file already
+// exists, when a concurrent invocation creates the file between the existence
+// check and the write (O_EXCL race), or when the lookup returns no values
+// (nothing to seed).
+func SeedGitConfigDefaults(defaultsDir string, lookupUserInfo func(string) string) error {
+	content := BuildGitConfigContent(lookupUserInfo)
+	if len(content) == 0 {
+		return nil
+	}
+
+	targetPath := filepath.Join(defaultsDir, "git", "config", "config")
+
+	// Check if file already exists — if so, don't overwrite.
+	if _, err := os.Lstat(targetPath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	// Create parent directories.
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o700); err != nil {
+		return err
+	}
+
+	// Create the file.
+	f, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		if os.IsExist(err) {
+			return nil // concurrent create: another process won the O_EXCL race; file now exists
+		}
+		return err
+	}
+	if _, err = f.Write(content); err != nil {
+		_ = f.Close()
+		_ = os.Remove(targetPath) // best-effort removal of partial file
+		return err
+	}
+	return f.Close()
 }
 
 func ensureDefaultsSubdir(path string) error {
