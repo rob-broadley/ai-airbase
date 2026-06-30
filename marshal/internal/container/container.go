@@ -96,9 +96,11 @@ type Status struct {
 }
 
 // MountSpec describes a single bind-mount: a host path mapped to a container path.
+// When ReadOnly is true, the mount is flagged as read-only in the container.
 type MountSpec struct {
 	HostPath      string
 	ContainerPath string
+	ReadOnly      bool
 }
 
 // ImageVolumeSpec describes a volume declared by an image: the name suffix
@@ -549,9 +551,14 @@ func Exec(execFn func([]string) error, containerName string, command ...string) 
 // ---------------------------------------------------------------------------
 
 // mountFlag formats m as the value for a single -v flag:
-// "hostPath:containerPath:Z". The :Z suffix requests SELinux relabelling so
-// the container process can read and write the bind-mounted directory.
+// "hostPath:containerPath:Z" (or ":ro,Z" when ReadOnly is true).
+// The :Z suffix requests SELinux relabelling so the container process can
+// read and write the bind-mounted directory. The :ro flag makes the mount
+// read-only inside the container.
 func mountFlag(m MountSpec) string {
+	if m.ReadOnly {
+		return m.HostPath + ":" + m.ContainerPath + ":ro,Z"
+	}
 	return m.HostPath + ":" + m.ContainerPath + ":Z"
 }
 

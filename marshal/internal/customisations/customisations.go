@@ -14,10 +14,12 @@ import (
 )
 
 // MountDir pairs a host-side subdirectory under the project root with its
-// corresponding container-side mount path.
+// corresponding container-side mount path. When ReadOnly is true, the mount
+// is flagged as read-only inside the container.
 type MountDir struct {
 	HostSubdir    string
 	ContainerPath string
+	ReadOnly      bool
 }
 
 // MountDirs returns all bind-mounted subdirectories that marshal scaffolds

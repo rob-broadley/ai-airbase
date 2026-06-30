@@ -565,13 +565,15 @@ func TestCreate_RunnerError_PropagatesError(t *testing.T) {
 }
 
 // TestCreate_AllMountsHaveZSELinuxSuffix verifies that every bind mount passed
-// to Create includes the :Z SELinux relabelling suffix.
+// to Create includes the :Z SELinux relabelling suffix, and that ReadOnly
+// mounts also include :ro before :Z.
 func TestCreate_AllMountsHaveZSELinuxSuffix(t *testing.T) {
-	// Given a runner that succeeds and multiple mount specs
+	// Given a runner that succeeds and multiple mount specs including a ReadOnly mount
 	r := newFake(okEmpty())
 	mounts := []container.MountSpec{
 		{HostPath: "/host/creds", ContainerPath: "/run/creds"},
 		{HostPath: "/host/work", ContainerPath: "/workspace"},
+		{HostPath: "/host/readonly-data", ContainerPath: "/data", ReadOnly: true},
 	}
 
 	// When Create is called
@@ -580,14 +582,26 @@ func TestCreate_AllMountsHaveZSELinuxSuffix(t *testing.T) {
 	// Then every mount argument includes the :Z SELinux suffix
 	args := r.calls[0].args
 	for _, m := range mounts {
-		want := m.HostPath + ":" + m.ContainerPath + ":Z"
-		if !hasArg(args, want) {
-			t.Errorf("expected mount arg %q with :Z suffix; full args: %v", want, args)
-		}
-		// The plain form without :Z must NOT appear.
-		plain := m.HostPath + ":" + m.ContainerPath
-		if hasArg(args, plain) {
-			t.Errorf("mount arg %q must not appear without :Z suffix; full args: %v", plain, args)
+		if m.ReadOnly {
+			want := m.HostPath + ":" + m.ContainerPath + ":ro,Z"
+			if !hasArg(args, want) {
+				t.Errorf("expected mount arg %q for ReadOnly mount; full args: %v", want, args)
+			}
+			// The plain form without :ro or :Z must NOT appear.
+			plain := m.HostPath + ":" + m.ContainerPath
+			if hasArg(args, plain) {
+				t.Errorf("mount arg %q must not appear without suffix; full args: %v", plain, args)
+			}
+		} else {
+			want := m.HostPath + ":" + m.ContainerPath + ":Z"
+			if !hasArg(args, want) {
+				t.Errorf("expected mount arg %q with :Z suffix; full args: %v", want, args)
+			}
+			// The plain form without :Z must NOT appear.
+			plain := m.HostPath + ":" + m.ContainerPath
+			if hasArg(args, plain) {
+				t.Errorf("mount arg %q must not appear without :Z suffix; full args: %v", plain, args)
+			}
 		}
 	}
 }
