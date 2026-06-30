@@ -73,10 +73,6 @@ const (
 	// ContainerGitConfigDir is the container-side directory for git config.
 	// The git config file lives at ContainerGitConfigDir + "/config".
 	ContainerGitConfigDir = ContainerUserHome + "/.config/git"
-
-	// ContainerGitConfigFile is the XDG user-level git config path inside the container.
-	// This overrides the system /etc/gitconfig baked into the image.
-	ContainerGitConfigFile = ContainerGitConfigDir + "/config"
 )
 
 // DefaultContainerCmd is the command run inside the container when started

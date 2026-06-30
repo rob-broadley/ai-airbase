@@ -109,17 +109,18 @@ func ensureHostState(deps Deps, project string) (projectDirPaths, error) {
 	return paths, nil
 }
 
-// buildContainerMounts returns MountSpec values that bind host credentials
-// and per-project opencode directories into the container.
+// buildContainerMounts returns MountSpec values that bind the per-project
+// opencode and git config directories into the container.
 //
-// Git config comes from XDG_CONFIG_HOME so backup tools and dotfile managers
-// handle it. The opencode configuration directory (settings.json,
-// mcp-config.json) is per-project under XDG_DATA_HOME at
-// projects/<project>/opencode/config/.
+// The opencode configuration directory (settings.json, mcp-config.json) is
+// per-project under XDG_DATA_HOME at projects/<project>/opencode/config/.
 //
 // The share/ (containing opencode.db) and state/ directories are both
 // per-project under XDG_DATA_HOME so conversation history and checkpoints
 // survive container recreates.
+//
+// The git/config directory is per-project under XDG_DATA_HOME and is mounted
+// read-only so the container can read the user's git identity but cannot modify it.
 //
 // The agents/ and skills/ directories baked into the container image are
 // left untouched — no whole-directory /opt/cadre mount is used.
@@ -127,80 +128,17 @@ func ensureHostState(deps Deps, project string) (projectDirPaths, error) {
 // The per-project host dir paths are passed in as the 'paths' parameter
 // (already ensured, hardened, and write-checked by ensureHostState, which
 // is called by each subcommand before resolveContainerParams).
-// buildContainerMounts performs no I/O for the per-project dirs. The only
-// I/O is the git config setup under XDG_CONFIG_HOME, which writes the file
-// if missing on first run.
-func buildContainerMounts(deps Deps, paths projectDirPaths) ([]container.MountSpec, error) {
-	// User git config — overrides /etc/gitconfig baked into the image.
-	// This is the only I/O in this function: setupGitConfigMount writes the
-	// git config file to disk if it does not yet exist on first run.
-	gitSpec, err := setupGitConfigMount(deps.ensureSharedConfigDirFn(), deps.lookupGitConfigFn())
-	if err != nil {
-		return nil, err
-	}
-
-	// Per-project host dirs — paths passed in by ensureHostState.
-	mounts := []container.MountSpec{gitSpec}
+// buildContainerMounts performs no I/O.
+func buildContainerMounts(paths projectDirPaths) []container.MountSpec {
+	mounts := make([]container.MountSpec, 0, len(customisations.MountDirs()))
 	for _, md := range customisations.MountDirs() {
 		mounts = append(mounts, container.MountSpec{
 			HostPath:      paths[md.HostSubdir],
 			ContainerPath: md.ContainerPath,
+			ReadOnly:      md.ReadOnly,
 		})
 	}
-	return mounts, nil
-}
-
-// setupGitConfigMount ensures the git config file exists with host user info and returns its mount spec.
-func setupGitConfigMount(ensureConfigDir func(string) (string, error), lookupGit func(string) string) (container.MountSpec, error) {
-	gitConfigDir, err := ensureConfigDir("git")
-	if err != nil {
-		return container.MountSpec{}, fmt.Errorf("ensuring config dir git: %w", err)
-	}
-	gitConfigPath := filepath.Join(gitConfigDir, "config")
-	if err := ensureConfigFile(gitConfigPath, customisations.BuildGitConfigContent(lookupGit)); err != nil {
-		return container.MountSpec{}, fmt.Errorf("ensuring git config file: %w", err)
-	}
-	return container.MountSpec{
-		HostPath:      gitConfigPath,
-		ContainerPath: container.ContainerGitConfigFile,
-	}, nil
-}
-
-// ensureConfigFile creates the file at path with defaultContent if it does not
-// already exist. Uses O_EXCL so a concurrent create wins cleanly — the file is
-// left with whatever content the other writer put there. Returns an error if
-// path exists as a directory, since Podman cannot bind-mount a file over a
-// directory. The file is created with 0o600 (owner-read/write) permissions.
-// A best-effort removal is attempted on write failure to avoid leaving a
-// partial file; if the removal itself fails the partial file may persist and
-// will be treated as a valid (though possibly corrupt) file on the next run.
-func ensureConfigFile(path string, defaultContent []byte) error {
-	fi, err := os.Lstat(path)
-	if err == nil {
-		if fi.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("config path is a symlink, refusing to follow: %s", path)
-		}
-		if fi.IsDir() {
-			return fmt.Errorf("config path exists but is a directory: %s", path)
-		}
-		return nil
-	}
-	if !os.IsNotExist(err) {
-		return err
-	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		if os.IsExist(err) {
-			return nil // another process created it concurrently
-		}
-		return err
-	}
-	if _, err = f.Write(defaultContent); err != nil {
-		_ = f.Close()
-		_ = os.Remove(path) // best-effort: remove partial file so next run may retry
-		return err
-	}
-	return f.Close() // surface any flush/close error
+	return mounts
 }
 
 // buildUserConfig constructs the container.UserConfig for the calling user.

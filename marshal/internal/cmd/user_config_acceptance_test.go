@@ -11,18 +11,16 @@ import (
 // TestDefaultCmd_UserConfigSet verifies that the default command passes the
 // host UID:GID and HOME=/home/opencode when creating the container.
 func TestDefaultCmd_UserConfigSet(t *testing.T) {
-	// Given credential fakes with specific UID and GID
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	// Given a runner with no existing container and UID 1001 / GID 1002
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
-	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
-		Runner:              runner,
-		ExecFn:              (&fakeExec{}).exec,
-		Getwd:               func() (string, error) { return "/projects/myapp", nil },
-		Getuid:              func() int { return 1001 },
-		Getgid:              func() int { return 1002 },
-		EnsureSharedDataDir: cf.dataDirFn, EnsureSharedConfigDir: cf.configDirFn,
+		Runner: runner,
+		ExecFn: (&fakeExec{}).exec,
+		Getwd:  func() (string, error) { return "/projects/myapp", nil },
+		Getuid: func() int { return 1001 },
+		Getgid: func() int { return 1002 },
 	}
 
 	// When the root command is executed
@@ -49,16 +47,15 @@ func TestDefaultCmd_UserConfigSet(t *testing.T) {
 // podman create, mapping the host UID:GID to the opencode username.
 func TestDefaultCmd_PasswdEntrySet(t *testing.T) {
 	// Given a runner with no existing container and UID 1001 / GID 1002
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	cf := newCredFakes(t)
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
-		Runner:              runner,
-		ExecFn:              (&fakeExec{}).exec,
-		Getwd:               func() (string, error) { return "/projects/myapp", nil },
-		Getuid:              func() int { return 1001 },
-		Getgid:              func() int { return 1002 },
-		EnsureSharedDataDir: cf.dataDirFn, EnsureSharedConfigDir: cf.configDirFn,
+		Runner: runner,
+		ExecFn: (&fakeExec{}).exec,
+		Getwd:  func() (string, error) { return "/projects/myapp", nil },
+		Getuid: func() int { return 1001 },
+		Getgid: func() int { return 1002 },
 	}
 
 	// When the root command is executed
@@ -79,17 +76,16 @@ func TestDefaultCmd_PasswdEntrySet(t *testing.T) {
 // TestDefaultCmd_TtyAllocated verifies that podman create is called with --tty
 // so that the container has a pseudo-terminal available for interactive use.
 func TestDefaultCmd_TtyAllocated(t *testing.T) {
-	// Given a runner with no existing container and credential fakes
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	cf := newCredFakes(t)
+	// Given a runner with no existing container
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
-		Runner:              runner,
-		ExecFn:              (&fakeExec{}).exec,
-		Getwd:               func() (string, error) { return "/projects/myapp", nil },
-		Getuid:              func() int { return 1001 },
-		Getgid:              func() int { return 1002 },
-		EnsureSharedDataDir: cf.dataDirFn, EnsureSharedConfigDir: cf.configDirFn,
+		Runner: runner,
+		ExecFn: (&fakeExec{}).exec,
+		Getwd:  func() (string, error) { return "/projects/myapp", nil },
+		Getuid: func() int { return 1001 },
+		Getgid: func() int { return 1002 },
 	}
 
 	// When the root command is executed
@@ -109,17 +105,16 @@ func TestDefaultCmd_TtyAllocated(t *testing.T) {
 // does not properly connect stdin to the container PTY; the opencode process then
 // detects no interactive terminal and exits.
 func TestDefaultCmd_StdinOpen(t *testing.T) {
-	// Given a runner with no existing container and credential fakes
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	cf := newCredFakes(t)
+	// Given a runner with no existing container
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
-		Runner:              runner,
-		ExecFn:              (&fakeExec{}).exec,
-		Getwd:               func() (string, error) { return "/projects/myapp", nil },
-		Getuid:              func() int { return 1001 },
-		Getgid:              func() int { return 1002 },
-		EnsureSharedDataDir: cf.dataDirFn, EnsureSharedConfigDir: cf.configDirFn,
+		Runner: runner,
+		ExecFn: (&fakeExec{}).exec,
+		Getwd:  func() (string, error) { return "/projects/myapp", nil },
+		Getuid: func() int { return 1001 },
+		Getgid: func() int { return 1002 },
 	}
 
 	// When the root command is executed
@@ -136,18 +131,16 @@ func TestDefaultCmd_StdinOpen(t *testing.T) {
 // TestRecreate_UserConfigSet verifies that the recreate command also passes the
 // host UID:GID and HOME=/home/opencode when creating the container.
 func TestRecreate_UserConfigSet(t *testing.T) {
-	// Given credential fakes with specific UID and GID
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	// Given a runner with no existing container and UID 1001 / GID 1002
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
-	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
-		Runner:              runner,
-		ExecFn:              (&fakeExec{}).exec,
-		Getwd:               func() (string, error) { return "/projects/myapp", nil },
-		Getuid:              func() int { return 1001 },
-		Getgid:              func() int { return 1002 },
-		EnsureSharedDataDir: cf.dataDirFn, EnsureSharedConfigDir: cf.configDirFn,
+		Runner: runner,
+		ExecFn: (&fakeExec{}).exec,
+		Getwd:  func() (string, error) { return "/projects/myapp", nil },
+		Getuid: func() int { return 1001 },
+		Getgid: func() int { return 1002 },
 	}
 
 	// When the recreate subcommand is executed

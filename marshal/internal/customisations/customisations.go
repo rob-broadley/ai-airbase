@@ -27,6 +27,7 @@ func MountDirs() []MountDir {
 		{HostSubdir: "opencode/config", ContainerPath: container.ContainerOpencodeConfigDir},
 		{HostSubdir: "opencode/share", ContainerPath: container.ContainerOpencodeDataDir},
 		{HostSubdir: "opencode/state", ContainerPath: container.ContainerOpencodeStateDir},
+		{HostSubdir: "git/config", ContainerPath: container.ContainerGitConfigDir, ReadOnly: true},
 	}
 }
 

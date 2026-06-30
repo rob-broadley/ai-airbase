@@ -54,111 +54,33 @@ func TestDefaultCmd_ConfigDirRelocatedAndIsolated(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_GitConfigMounted verifies that the user git config is
-// bind-mounted from XDG_CONFIG_HOME/marshal/git/config so the user's git
-// identity and preferences override the image's /etc/gitconfig.
-func TestDefaultCmd_GitConfigMounted(t *testing.T) {
-	// Given deps configured for project "myapp" with shared config fakes
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+// TestDefaultCmd_GitConfigMountedFromPerProjectDir verifies that the git config
+// directory is bind-mounted from the per-project data directory to
+// ContainerGitConfigDir as a read-only mount. The mount source must be the
+// per-project git/config directory (not a shared XDG_CONFIG_HOME path), and
+// it must carry the :ro,Z flags so the container cannot write to it.
+func TestDefaultCmd_GitConfigMountedFromPerProjectDir(t *testing.T) {
+	// Given XDG_DATA_HOME points to a fresh temp directory and no container
+	// exists yet for project "myapp"
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"--project", "myapp", "create"})
 
-	// When the default command is executed
+	// When marshal create is executed
 	assertNoError(t, root.Execute())
 
-	// Then the git config is bind-mounted from XDG_CONFIG_HOME/marshal/git/config
+	// Then the git config directory is bind-mounted from the per-project path,
+	// read-only, to ContainerGitConfigDir
 	args := runner.createArgs()
-	want := cf.expectedConfigMount("git/config", container.ContainerGitConfigFile)
-	if !sliceContains(args, want) {
-		t.Errorf("expected git config mount %q in create args\ngot: %v", want, args)
-	}
-}
-
-// TestDefaultCmd_GitConfigPopulatedFromHost verifies that when the git config
-// file does not yet exist, it is created with user.name and user.email read
-// from the host git configuration.
-func TestDefaultCmd_GitConfigPopulatedFromHost(t *testing.T) {
-	// Given the git config file does not yet exist and LookupGitConfig returns name and email
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
-	cf := newCredFakes(t)
-	deps := cmd.Deps{
-		Runner:                &fakeRunner{exists: false, imageExistsResult: true},
-		ExecFn:                (&fakeExec{}).exec,
-		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
-		Getuid:                func() int { return 1001 },
-		Getgid:                func() int { return 1002 },
-		EnsureSharedDataDir:   cf.dataDirFn,
-		EnsureSharedConfigDir: cf.configDirFn,
-		LookupGitConfig: func(key string) string {
-			switch key {
-			case "user.name":
-				return "Test User"
-			case "user.email":
-				return "test@example.com"
-			}
-			return ""
-		},
-	}
-
-	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
-
-	// When the default command is executed
-	assertNoError(t, root.Execute())
-
-	// Then the git config file is created with the host user identity
-	content, err := os.ReadFile(filepath.Join(cf.configBase, "git", "config"))
-	assertNoError(t, err)
-	assertContains(t, string(content), `name = "Test User"`)
-	assertContains(t, string(content), `email = "test@example.com"`)
-}
-
-// TestDefaultCmd_GitConfigNotOverwrittenIfExists verifies that a pre-existing
-// git config file is never modified, even if LookupGitConfig returns values.
-func TestDefaultCmd_GitConfigNotOverwrittenIfExists(t *testing.T) {
-	// Given a pre-existing git config file with custom content
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
-	cf := newCredFakes(t)
-	gitDir := filepath.Join(cf.configBase, "git")
-	if err := os.MkdirAll(gitDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	existing := "[user]\n\tname = Existing User\n"
-	if err := os.WriteFile(filepath.Join(gitDir, "config"), []byte(existing), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	deps := cmd.Deps{
-		Runner:                &fakeRunner{exists: false, imageExistsResult: true},
-		ExecFn:                (&fakeExec{}).exec,
-		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
-		Getuid:                func() int { return 1001 },
-		Getgid:                func() int { return 1002 },
-		EnsureSharedDataDir:   cf.dataDirFn,
-		EnsureSharedConfigDir: cf.configDirFn,
-		LookupGitConfig: func(_ string) string {
-			return "Should Not Appear"
-		},
-	}
-
-	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
-
-	// When the default command is executed
-	assertNoError(t, root.Execute())
-
-	// Then the existing file is unchanged
-	content, err := os.ReadFile(filepath.Join(gitDir, "config"))
-	assertNoError(t, err)
-	if string(content) != existing {
-		t.Errorf("existing git config must not be overwritten\ngot: %s", content)
+	wantMount := filepath.Join(cf.dataBase, "projects", "myapp", "git", "config") +
+		":" + container.ContainerGitConfigDir + ":ro,Z"
+	if !sliceContains(args, wantMount) {
+		t.Errorf("expected read-only git config dir mount %q in create args\ngot: %v", wantMount, args)
 	}
 }
 
@@ -167,8 +89,6 @@ func TestDefaultCmd_GitConfigNotOverwrittenIfExists(t *testing.T) {
 // path so conversation history is preserved across container recreates.
 func TestDefaultCmd_SessionStoreMounted(t *testing.T) {
 	// Given deps configured for project "myapp"
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
@@ -192,8 +112,6 @@ func TestDefaultCmd_SessionStoreMounted(t *testing.T) {
 // checkpoint history survives container recreates.
 func TestDefaultCmd_SessionStateMountedPerProject(t *testing.T) {
 	// Given deps configured for project "myapp"
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := newCredentialTestDeps(cf, runner)
@@ -216,21 +134,18 @@ func TestDefaultCmd_SessionStateMountedPerProject(t *testing.T) {
 // different projects receive different state/ and share/
 // host paths.
 func TestCredentialMounts_SessionStateIsolatedByProject(t *testing.T) {
-	// Given two separate projects "alpha" and "beta" sharing the same config fakes
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
+	// Given two separate projects "alpha" and "beta" sharing the same data fakes
 	cf := newCredFakes(t)
 
 	argsFor := func(project string) []string {
 		runner := &fakeRunner{exists: false, imageExistsResult: true}
 		deps := cmd.Deps{
-			Runner:                runner,
-			ExecFn:                (&fakeExec{}).exec,
-			Getwd:                 func() (string, error) { return "/projects/" + project, nil },
-			Getuid:                func() int { return 1001 },
-			Getgid:                func() int { return 1001 },
-			EnsureSharedDataDir:   cf.dataDirFn,
-			EnsureSharedConfigDir: cf.configDirFn,
+			Runner:              runner,
+			ExecFn:              (&fakeExec{}).exec,
+			Getwd:               func() (string, error) { return "/projects/" + project, nil },
+			Getuid:              func() int { return 1001 },
+			Getgid:              func() int { return 1001 },
+			EnsureSharedDataDir: cf.dataDirFn,
 		}
 		root := cmd.NewRootCmd(deps)
 		root.SetArgs([]string{"--project", project})
@@ -282,13 +197,12 @@ func TestCredentialMounts_ConfigIsolatedByProject(t *testing.T) {
 	argsFor := func(project string) []string {
 		runner := &fakeRunner{exists: false, imageExistsResult: true}
 		deps := cmd.Deps{
-			Runner:                runner,
-			ExecFn:                (&fakeExec{}).exec,
-			Getwd:                 func() (string, error) { return "/projects/" + project, nil },
-			Getuid:                func() int { return 1001 },
-			Getgid:                func() int { return 1001 },
-			EnsureSharedDataDir:   cf.dataDirFn,
-			EnsureSharedConfigDir: cf.configDirFn,
+			Runner:              runner,
+			ExecFn:              (&fakeExec{}).exec,
+			Getwd:               func() (string, error) { return "/projects/" + project, nil },
+			Getuid:              func() int { return 1001 },
+			Getgid:              func() int { return 1001 },
+			EnsureSharedDataDir: cf.dataDirFn,
 		}
 		root := cmd.NewRootCmd(deps)
 		root.SetArgs([]string{"--project", project})
@@ -754,12 +668,11 @@ func TestDefaultCmd_ConfigDirEmptyDataHomeFallback(t *testing.T) {
 
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
-		Runner:                runner,
-		ExecFn:                (&fakeExec{}).exec,
-		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
-		Getuid:                func() int { return 1001 },
-		Getgid:                func() int { return 1002 },
-		EnsureSharedConfigDir: func(string) (string, error) { return t.TempDir(), nil },
+		Runner: runner,
+		ExecFn: (&fakeExec{}).exec,
+		Getwd:  func() (string, error) { return "/projects/myapp", nil },
+		Getuid: func() int { return 1001 },
+		Getgid: func() int { return 1002 },
 		// EnsureSharedDataDir is nil so it falls back to hostinfo.EnsureSharedDataDir
 	}
 
@@ -790,12 +703,11 @@ func TestDefaultCmd_ConfigDirEmptyDataHomeFallback(t *testing.T) {
 
 func newCredentialTestDeps(cf *credFakes, runner *fakeRunner) cmd.Deps {
 	return cmd.Deps{
-		Runner:                runner,
-		ExecFn:                (&fakeExec{}).exec,
-		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
-		Getuid:                func() int { return 1001 },
-		Getgid:                func() int { return 1002 },
-		EnsureSharedDataDir:   cf.dataDirFn,
-		EnsureSharedConfigDir: cf.configDirFn,
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              func() int { return 1001 },
+		Getgid:              func() int { return 1002 },
+		EnsureSharedDataDir: cf.dataDirFn,
 	}
 }

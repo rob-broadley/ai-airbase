@@ -529,11 +529,6 @@ func (cf *credFakes) expectedDataMount(subdir, containerPath string) string {
 	return filepath.Join(cf.dataBase, subdir) + ":" + containerPath + ":Z"
 }
 
-// expectedConfigMount returns the -v flag value for a config subdir→containerPath pair.
-func (cf *credFakes) expectedConfigMount(subdir, containerPath string) string {
-	return filepath.Join(cf.configBase, subdir) + ":" + containerPath + ":Z"
-}
-
 // ---------------------------------------------------------------------------
 // host directory provisioning helpers
 // ---------------------------------------------------------------------------

@@ -25,16 +25,15 @@ type ExecFunc func(argv []string) error
 // Deps holds injectable dependencies so commands can be tested without real
 // Podman or a real working directory.
 type Deps struct {
-	Runner                container.Runner
-	ExecFn                ExecFunc
-	Getwd                 func() (string, error)
-	Getuid                func() int
-	Getgid                func() int
-	EnsureSharedDataDir   func(subdir string) (string, error)
-	EnsureSharedConfigDir func(subdir string) (string, error)
-	SaveConfig            func(project string, cfg *config.Config) error // defaults to config.Save
-	DeleteConfig          func(project string) error                     // defaults to config.Delete
-	LoadConfig            func(project string) (*config.Config, error)   // defaults to config.Load
+	Runner              container.Runner
+	ExecFn              ExecFunc
+	Getwd               func() (string, error)
+	Getuid              func() int
+	Getgid              func() int
+	EnsureSharedDataDir func(subdir string) (string, error)
+	SaveConfig          func(project string, cfg *config.Config) error // defaults to config.Save
+	DeleteConfig        func(project string) error                     // defaults to config.Delete
+	LoadConfig          func(project string) (*config.Config, error)   // defaults to config.Load
 	// ListProjects returns all registered project names and any per-file warnings.
 	// Defaults to config.ListProjects.
 	ListProjects func() ([]string, []string, error)
@@ -114,16 +113,6 @@ func (d Deps) listProjects() func() ([]string, []string, error) {
 		return d.ListProjects
 	}
 	return config.ListProjects
-}
-
-// ensureSharedConfigDirFn returns the injected EnsureSharedConfigDir or the
-// real hostinfo.EnsureSharedConfigDir. Tests that set XDG_CONFIG_HOME to a temp
-// directory get safe isolation without needing to inject this function.
-func (d Deps) ensureSharedConfigDirFn() func(string) (string, error) {
-	if d.EnsureSharedConfigDir != nil {
-		return d.EnsureSharedConfigDir
-	}
-	return hostinfo.EnsureSharedConfigDir
 }
 
 // lookupGitConfigFn returns the injected LookupGitConfig or a no-op that
@@ -212,19 +201,18 @@ func NewRootCmd(deps Deps) *cobra.Command {
 // time via -ldflags and exposed through cobra's --version flag and version subcommand.
 func Execute(version string) {
 	deps := Deps{
-		Runner:                container.PodmanRunner{},
-		ExecFn:                realExec,
-		Getwd:                 os.Getwd,
-		Getuid:                os.Getuid,
-		Getgid:                os.Getgid,
-		EnsureSharedDataDir:   hostinfo.EnsureSharedDataDir,
-		EnsureSharedConfigDir: hostinfo.EnsureSharedConfigDir,
-		SharedDataPath:        hostinfo.SharedDataPath,
-		SaveConfig:            config.Save,
-		LoadConfig:            config.Load,
-		LookupGitConfig:       hostinfo.LookupHostGitConfig,
-		ResolveImage:          defaultImage,
-		Logger:                NewCLILogger(os.Stderr),
+		Runner:              container.PodmanRunner{},
+		ExecFn:              realExec,
+		Getwd:               os.Getwd,
+		Getuid:              os.Getuid,
+		Getgid:              os.Getgid,
+		EnsureSharedDataDir: hostinfo.EnsureSharedDataDir,
+		SharedDataPath:      hostinfo.SharedDataPath,
+		SaveConfig:          config.Save,
+		LoadConfig:          config.Load,
+		LookupGitConfig:     hostinfo.LookupHostGitConfig,
+		ResolveImage:        defaultImage,
+		Logger:              NewCLILogger(os.Stderr),
 	}
 	rootCmd := NewRootCmd(deps)
 	rootCmd.Version = version

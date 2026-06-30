@@ -17,13 +17,12 @@ func TestRemove_DoesNotCallEnsureSharedDirs(t *testing.T) {
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: true, running: false}
 	deps := cmd.Deps{
-		Runner:                runner,
-		ExecFn:                (&fakeExec{}).exec,
-		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
-		Getuid:                func() int { return 1001 },
-		Getgid:                func() int { return 1001 },
-		EnsureSharedDataDir:   cf.dataDirFn,
-		EnsureSharedConfigDir: cf.configDirFn,
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              func() int { return 1001 },
+		Getgid:              func() int { return 1001 },
+		EnsureSharedDataDir: cf.dataDirFn,
 	}
 
 	// When the remove subcommand is executed
@@ -32,9 +31,9 @@ func TestRemove_DoesNotCallEnsureSharedDirs(t *testing.T) {
 	root.SetArgs([]string{"--project", "myapp", "remove"})
 	assertNoError(t, root.Execute())
 
-	// Then neither EnsureSharedDataDir nor EnsureSharedConfigDir was called
+	// Then EnsureSharedDataDir was not called
 	if len(cf.calls) != 0 {
-		t.Errorf("remove must not call EnsureShared*; got calls: %v", cf.calls)
+		t.Errorf("remove must not call EnsureSharedDataDir; got calls: %v", cf.calls)
 	}
 }
 
@@ -47,13 +46,12 @@ func TestStop_DoesNotCallEnsureSharedDirs(t *testing.T) {
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: true, running: true}
 	deps := cmd.Deps{
-		Runner:                runner,
-		ExecFn:                (&fakeExec{}).exec,
-		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
-		Getuid:                func() int { return 1001 },
-		Getgid:                func() int { return 1001 },
-		EnsureSharedDataDir:   cf.dataDirFn,
-		EnsureSharedConfigDir: cf.configDirFn,
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              func() int { return 1001 },
+		Getgid:              func() int { return 1001 },
+		EnsureSharedDataDir: cf.dataDirFn,
 	}
 
 	// When the stop subcommand is executed
@@ -62,8 +60,8 @@ func TestStop_DoesNotCallEnsureSharedDirs(t *testing.T) {
 	root.SetArgs([]string{"--project", "myapp", "stop"})
 	assertNoError(t, root.Execute())
 
-	// Then neither EnsureSharedDataDir nor EnsureSharedConfigDir was called
+	// Then EnsureSharedDataDir was not called
 	if len(cf.calls) != 0 {
-		t.Errorf("stop must not call EnsureShared*; got calls: %v", cf.calls)
+		t.Errorf("stop must not call EnsureSharedDataDir; got calls: %v", cf.calls)
 	}
 }

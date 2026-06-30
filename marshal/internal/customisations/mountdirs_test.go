@@ -13,6 +13,7 @@ func TestMountDirs_ContainsExpectedEntries(t *testing.T) {
 		{HostSubdir: "opencode/config", ContainerPath: container.ContainerOpencodeConfigDir},
 		{HostSubdir: "opencode/share", ContainerPath: container.ContainerOpencodeDataDir},
 		{HostSubdir: "opencode/state", ContainerPath: container.ContainerOpencodeStateDir},
+		{HostSubdir: "git/config", ContainerPath: container.ContainerGitConfigDir, ReadOnly: true},
 	}
 	got := customisations.MountDirs()
 	if len(got) != len(want) {

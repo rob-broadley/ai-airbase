@@ -231,10 +231,7 @@ func resolveContainerParams(deps Deps, projectFlag string, paths projectDirPaths
 
 	workdir := container.WorkdirFromMounts(mountSpecs)
 
-	containerMounts, err := buildContainerMounts(deps, paths)
-	if err != nil {
-		return containerParams{}, err
-	}
+	containerMounts := buildContainerMounts(paths)
 	mountSpecs = append(mountSpecs, containerMounts...)
 
 	uc, err := buildUserConfig(deps)

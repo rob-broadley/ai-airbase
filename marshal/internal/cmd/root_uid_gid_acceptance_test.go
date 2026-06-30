@@ -15,18 +15,17 @@ import (
 // When   the default command is executed
 // Then   an error is returned that mentions root or UID 0
 func TestBuildUserConfig_RefusesRootUID(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
-		Runner:                runner,
-		ExecFn:                (&fakeExec{}).exec,
-		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
-		Getuid:                func() int { return 0 },
-		Getgid:                func() int { return 1001 },
-		EnsureSharedDataDir:   cf.dataDirFn,
-		EnsureSharedConfigDir: cf.configDirFn,
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              func() int { return 0 },
+		Getgid:              func() int { return 1001 },
+		EnsureSharedDataDir: cf.dataDirFn,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -54,18 +53,17 @@ func TestBuildUserConfig_RefusesRootUID(t *testing.T) {
 // When   the default command is executed
 // Then   no error is returned for the UID/GID combination
 func TestBuildUserConfig_AllowsGIDZero(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
-		Runner:                runner,
-		ExecFn:                (&fakeExec{}).exec,
-		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
-		Getuid:                func() int { return 1001 },
-		Getgid:                func() int { return 0 },
-		EnsureSharedDataDir:   cf.dataDirFn,
-		EnsureSharedConfigDir: cf.configDirFn,
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              func() int { return 1001 },
+		Getgid:              func() int { return 0 },
+		EnsureSharedDataDir: cf.dataDirFn,
 	}
 
 	root := cmd.NewRootCmd(deps)
@@ -88,18 +86,17 @@ func TestBuildUserConfig_AllowsGIDZero(t *testing.T) {
 // When   the recreate subcommand is executed
 // Then   an error is returned and no container is created
 func TestBuildUserConfig_RefusesRootUID_Recreate(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
 	deps := cmd.Deps{
-		Runner:                runner,
-		ExecFn:                (&fakeExec{}).exec,
-		Getwd:                 func() (string, error) { return "/projects/myapp", nil },
-		Getuid:                func() int { return 0 },
-		Getgid:                func() int { return 1001 },
-		EnsureSharedDataDir:   cf.dataDirFn,
-		EnsureSharedConfigDir: cf.configDirFn,
+		Runner:              runner,
+		ExecFn:              (&fakeExec{}).exec,
+		Getwd:               func() (string, error) { return "/projects/myapp", nil },
+		Getuid:              func() int { return 0 },
+		Getgid:              func() int { return 1001 },
+		EnsureSharedDataDir: cf.dataDirFn,
 	}
 
 	root := cmd.NewRootCmd(deps)
