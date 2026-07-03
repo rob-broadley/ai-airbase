@@ -564,45 +564,56 @@ func TestCreate_RunnerError_PropagatesError(t *testing.T) {
 	}
 }
 
-// TestCreate_AllMountsHaveZSELinuxSuffix verifies that every bind mount passed
-// to Create includes the :Z SELinux relabelling suffix, and that ReadOnly
-// mounts also include :ro before :Z.
-func TestCreate_AllMountsHaveZSELinuxSuffix(t *testing.T) {
-	// Given a runner that succeeds and multiple mount specs including a ReadOnly mount
-	r := newFake(okEmpty())
-	mounts := []container.MountSpec{
-		{HostPath: "/host/creds", ContainerPath: "/run/creds"},
-		{HostPath: "/host/work", ContainerPath: "/workspace"},
-		{HostPath: "/host/readonly-data", ContainerPath: "/data", ReadOnly: true},
+// TestMountFlag_Suffixes verifies that mountFlag emits the correct SELinux
+// suffix for every combination of ReadOnly and Shared.
+func TestMountFlag_Suffixes(t *testing.T) {
+	tests := []struct {
+		name    string
+		mount   container.MountSpec
+		wantArg string // full -v flag value expected
+	}{
+		{
+			name:    "exclusive",
+			mount:   container.MountSpec{HostPath: "/host/data", ContainerPath: "/run/data"},
+			wantArg: "/host/data:/run/data:Z",
+		},
+		{
+			name:    "shared",
+			mount:   container.MountSpec{HostPath: "/host/data", ContainerPath: "/run/data", Shared: true},
+			wantArg: "/host/data:/run/data:z",
+		},
+		{
+			name:    "readonly exclusive",
+			mount:   container.MountSpec{HostPath: "/host/data", ContainerPath: "/run/data", ReadOnly: true},
+			wantArg: "/host/data:/run/data:ro,Z",
+		},
+		{
+			name:    "readonly shared",
+			mount:   container.MountSpec{HostPath: "/host/data", ContainerPath: "/run/data", ReadOnly: true, Shared: true},
+			wantArg: "/host/data:/run/data:ro,z",
+		},
 	}
 
-	// When Create is called
-	_ = container.Create(r, "c", "img", 4096, mounts, nil, container.UserConfig{}, "/workspace", nil)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Given a runner that succeeds
+			r := newFake(okEmpty())
 
-	// Then every mount argument includes the :Z SELinux suffix
-	args := r.calls[0].args
-	for _, m := range mounts {
-		if m.ReadOnly {
-			want := m.HostPath + ":" + m.ContainerPath + ":ro,Z"
-			if !hasArg(args, want) {
-				t.Errorf("expected mount arg %q for ReadOnly mount; full args: %v", want, args)
+			// When Create is called with the mount
+			_ = container.Create(r, "c", "img", 4096, []container.MountSpec{tc.mount}, nil, container.UserConfig{}, "/workspace", nil)
+
+			// Then the mount flag carries the expected suffix
+			args := r.calls[0].args
+			if !hasArg(args, tc.wantArg) {
+				t.Errorf("expected mount arg %q; got %v", tc.wantArg, args)
 			}
-			// The plain form without :ro or :Z must NOT appear.
-			plain := m.HostPath + ":" + m.ContainerPath
+
+			// And the plain form without any suffix must NOT appear
+			plain := tc.mount.HostPath + ":" + tc.mount.ContainerPath
 			if hasArg(args, plain) {
-				t.Errorf("mount arg %q must not appear without suffix; full args: %v", plain, args)
+				t.Errorf("mount arg %q must not appear without suffix; got %v", plain, args)
 			}
-		} else {
-			want := m.HostPath + ":" + m.ContainerPath + ":Z"
-			if !hasArg(args, want) {
-				t.Errorf("expected mount arg %q with :Z suffix; full args: %v", want, args)
-			}
-			// The plain form without :Z must NOT appear.
-			plain := m.HostPath + ":" + m.ContainerPath
-			if hasArg(args, plain) {
-				t.Errorf("mount arg %q must not appear without :Z suffix; full args: %v", plain, args)
-			}
-		}
+		})
 	}
 }
 

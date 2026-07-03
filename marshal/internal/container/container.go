@@ -97,10 +97,13 @@ type Status struct {
 
 // MountSpec describes a single bind-mount: a host path mapped to a container path.
 // When ReadOnly is true, the mount is flagged as read-only in the container.
+// When Shared is true, the mount uses :z (shared SELinux relabelling) instead of
+// :Z (exclusive), allowing other containers to concurrently access the same path.
 type MountSpec struct {
 	HostPath      string
 	ContainerPath string
 	ReadOnly      bool
+	Shared        bool
 }
 
 // ImageVolumeSpec describes a volume declared by an image: the name suffix
@@ -552,14 +555,27 @@ func Exec(execFn func([]string) error, containerName string, command ...string) 
 
 // mountFlag formats m as the value for a single -v flag:
 // "hostPath:containerPath:Z" (or ":ro,Z" when ReadOnly is true).
-// The :Z suffix requests SELinux relabelling so the container process can
+// When Shared is true, :Z becomes :z (shared relabelling) so other containers
+// can concurrently access the same path.
+// The :Z/:z suffix requests SELinux relabelling so the container process can
 // read and write the bind-mounted directory. The :ro flag makes the mount
 // read-only inside the container.
 func mountFlag(m MountSpec) string {
+	var label string
 	if m.ReadOnly {
-		return m.HostPath + ":" + m.ContainerPath + ":ro,Z"
+		if m.Shared {
+			label = ":ro,z"
+		} else {
+			label = ":ro,Z"
+		}
+	} else {
+		if m.Shared {
+			label = ":z"
+		} else {
+			label = ":Z"
+		}
 	}
-	return m.HostPath + ":" + m.ContainerPath + ":Z"
+	return m.HostPath + ":" + m.ContainerPath + label
 }
 
 // userIdentityArgs returns the --user and -e HOME flags that tell the
