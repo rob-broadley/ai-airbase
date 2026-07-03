@@ -631,12 +631,6 @@ func TestRemove_HostDirectoryUnremovable_OtherCleanupProceeds(t *testing.T) {
 		t.Fatalf("failed to write file: %v", err)
 	}
 
-	// Make the project directory read-only so nested files cannot be deleted
-	if err := os.Chmod(projectDir, 0o500); err != nil {
-		t.Fatalf("failed to chmod: %v", err)
-	}
-	defer os.Chmod(projectDir, 0o700) // Ensure cleanup is possible
-
 	runner := &fakeRunner{exists: true, running: false}
 	deps := cmd.Deps{
 		Runner:              runner,
@@ -646,6 +640,7 @@ func TestRemove_HostDirectoryUnremovable_OtherCleanupProceeds(t *testing.T) {
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: ensureDataDir,
 		SharedDataPath:      func(subdir string) string { return filepath.Join(tempDir, subdir) },
+		RemoveAll:           func(string) error { return errors.New("simulated failure") },
 	}
 
 	outBuf := &bytes.Buffer{}
@@ -902,12 +897,6 @@ func TestRemove_HostDirectoryDeleteFails_LogsNotRemoved(t *testing.T) {
 		t.Fatalf("failed to write file: %v", err)
 	}
 
-	// Make the project directory read-only so nested files cannot be deleted
-	if err := os.Chmod(projectDir, 0o500); err != nil {
-		t.Fatalf("failed to chmod: %v", err)
-	}
-	defer os.Chmod(projectDir, 0o700) // Ensure cleanup is possible
-
 	runner := &fakeRunner{exists: true, running: false}
 	spy := &recordingSlogHandler{}
 	deps := cmd.Deps{
@@ -918,6 +907,7 @@ func TestRemove_HostDirectoryDeleteFails_LogsNotRemoved(t *testing.T) {
 		Getgid:              stubGetgid,
 		EnsureSharedDataDir: ensureDataDir,
 		SharedDataPath:      func(subdir string) string { return filepath.Join(tempDir, subdir) },
+		RemoveAll:           func(string) error { return errors.New("simulated failure") },
 		Logger:              slog.New(spy),
 	}
 

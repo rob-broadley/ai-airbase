@@ -50,6 +50,11 @@ type Deps struct {
 	// Defaults to os.MkdirAll. Override in tests to avoid touching the real
 	// filesystem when CWD paths are fake.
 	MkdirAll func(path string, perm fs.FileMode) error
+	// RemoveAll removes path and any children it contains. It wraps os.RemoveAll
+	// and follows the same semantics. Override in tests to simulate a removal
+	// failure without relying on filesystem permissions (which behave differently
+	// when running as root).
+	RemoveAll func(path string) error
 	// Logger receives progress messages during slow operations (image pulls,
 	// container creation, volume provisioning). When nil, a discard logger is
 	// used so callers that do not inject a logger are not affected.
@@ -167,6 +172,14 @@ func (d Deps) mkdirAll() func(string, fs.FileMode) error {
 		return d.MkdirAll
 	}
 	return os.MkdirAll
+}
+
+// removeAll returns the effective RemoveAll function: the injected one or os.RemoveAll.
+func (d Deps) removeAll() func(string) error {
+	if d.RemoveAll != nil {
+		return d.RemoveAll
+	}
+	return os.RemoveAll
 }
 
 // NewRootCmd builds the root cobra.Command tree with the supplied dependencies.

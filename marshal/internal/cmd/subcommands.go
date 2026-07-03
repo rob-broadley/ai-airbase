@@ -407,7 +407,7 @@ func runRemove(cmd *cobra.Command, deps Deps, projectFlag string) error {
 	if fi, lstatErr := os.Lstat(projectDir); lstatErr == nil && fi.Mode()&os.ModeSymlink != 0 {
 		return fmt.Errorf("security violation: project directory is a symlink: %s", projectDir)
 	}
-	if removeErr := os.RemoveAll(projectDir); removeErr != nil {
+	if removeErr := deps.removeAll()(projectDir); removeErr != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Failed to clean up host directory: %v\n", removeErr)
 		errs = append(errs, fmt.Errorf("removing host directory: %w", removeErr))
 	} else {
