@@ -133,7 +133,7 @@ make coverage
 To run a single package directly:
 
 ```sh
-podman run --rm -v .:/workspace:Z -w /workspace sapper go test -race ./marshal/internal/config/...
+podman run --rm -v .:/workspace:z -w /workspace sapper go test -race ./marshal/internal/config/...
 ```
 
 ## Linting
@@ -272,7 +272,7 @@ If something is hard to test, that's usually a design smell worth fixing rather 
 ## Adding dependencies
 
 ```sh
-podman run --rm -v .:/workspace:Z -w /workspace/marshal sapper go get github.com/some/package
+podman run --rm -v .:/workspace:z -w /workspace/marshal sapper go get github.com/some/package
 make tidy
 ```
 
@@ -291,7 +291,7 @@ Commit both `marshal/go.mod` and `marshal/go.sum`.
 Run `make dev-image`. Required once per machine (or after `dev/Containerfile` changes).
 
 **Podman permission denied on workspace**
-Make sure the volume mount uses `:Z` for SELinux relabelling. The Makefile handles this; if you're running podman manually, add `:Z` to the `-v` flag.
+Make sure the volume mount uses `:z` (shared) for SELinux relabelling of the project source directory, not `:Z` (exclusive). The Makefile handles this; if you're running podman manually, add `:z` to the `-v` flag.
 
 **Race detector failure**
 A race detector report is a genuine data race, not a fluke. Read the goroutine trace in the output.

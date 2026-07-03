@@ -26,7 +26,7 @@ RUN :=
 GORUN = sh -c 'cd $(CURDIR)/marshal && "$$@"' --
 else
 RUN := podman run --rm \
-    -v $(CURDIR):/workspace:Z \
+    -v $(CURDIR):/workspace:z \
     -v $(GOMOD_CACHE):/root/go/pkg/mod \
     -v $(GOBUILD_CACHE):/root/.cache/go-build \
     $(DEV_IMAGE)
