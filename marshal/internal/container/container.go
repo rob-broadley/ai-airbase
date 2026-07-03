@@ -181,15 +181,23 @@ func (p PodmanRunner) RunStreaming(name string, stdout, stderr io.Writer, args .
 // When mounts is empty, cwd is mounted at /workspace/<basename(cwd)>.
 // Otherwise each path is mounted at /workspace/<basename(path)> and cwd is
 // NOT mounted.
+// All mounts returned by ResolveMounts have Shared: true so that the
+// project source directories use :z (shared SELinux relabelling), allowing
+// multiple containers to access the same directories concurrently.
 func ResolveMounts(cwd string, mounts []string) []MountSpec {
 	if len(mounts) == 0 {
-		return []MountSpec{{HostPath: cwd, ContainerPath: filepath.Join(workspaceDir, filepath.Base(cwd))}}
+		return []MountSpec{{
+			HostPath:      cwd,
+			ContainerPath: filepath.Join(workspaceDir, filepath.Base(cwd)),
+			Shared:        true,
+		}}
 	}
 	specs := make([]MountSpec, 0, len(mounts))
 	for _, p := range mounts {
 		specs = append(specs, MountSpec{
 			HostPath:      p,
 			ContainerPath: filepath.Join(workspaceDir, filepath.Base(p)),
+			Shared:        true,
 		})
 	}
 	return specs

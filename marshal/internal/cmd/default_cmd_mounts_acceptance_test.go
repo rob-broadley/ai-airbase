@@ -32,8 +32,8 @@ func TestDefaultCmd_MountsCWD(t *testing.T) {
 	assertNoError(t, root.Execute())
 
 	// Then CWD is mounted inside /workspace/myapp (not as /workspace root)
-	if !runner.createArgsContain("/projects/myapp:/workspace/myapp:Z") {
-		t.Errorf("expected create args to contain '/projects/myapp:/workspace/myapp:Z', got %v", runner.createArgs())
+	if !runner.createArgsContain("/projects/myapp:/workspace/myapp:z") {
+		t.Errorf("expected create args to contain '/projects/myapp:/workspace/myapp:z', got %v", runner.createArgs())
 	}
 }
 
@@ -65,10 +65,10 @@ func TestDefaultCmd_ReusesSavedMounts(t *testing.T) {
 	assertNoError(t, root.Execute())
 
 	// Then saved mounts are used and CWD is not mounted
-	if !runner.createArgsContain("/abs/saved:/workspace/saved:Z") {
-		t.Errorf("expected '/abs/saved:/workspace/saved:Z' in create args, got %v", runner.createArgs())
+	if !runner.createArgsContain("/abs/saved:/workspace/saved:z") {
+		t.Errorf("expected '/abs/saved:/workspace/saved:z' in create args, got %v", runner.createArgs())
 	}
-	if runner.createArgsContain("/projects/myapp:/workspace:Z") {
+	if runner.createArgsContain("/projects/myapp:/workspace/myapp:z") {
 		t.Error("CWD should NOT be mounted when saved mounts exist")
 	}
 }

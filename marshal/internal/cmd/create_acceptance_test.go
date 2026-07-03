@@ -46,8 +46,8 @@ func TestCreate_CreatesContainerWithCWD(t *testing.T) {
 	}
 
 	// And CWD is mounted under /workspace/myapp
-	if !runner.createArgsContain("/projects/myapp:/workspace/myapp:Z") {
-		t.Errorf("expected '/projects/myapp:/workspace/myapp:Z' in create args, got %v", runner.createArgs())
+	if !runner.createArgsContain("/projects/myapp:/workspace/myapp:z") {
+		t.Errorf("expected '/projects/myapp:/workspace/myapp:z' in create args, got %v", runner.createArgs())
 	}
 
 	// And config was saved with CWD as the mount
@@ -85,10 +85,10 @@ func TestCreate_MountFlagAbsolute(t *testing.T) {
 	assertNoError(t, root.Execute())
 
 	// Then the path is mounted under /workspace/shared-lib and CWD is not mounted
-	if !runner.createArgsContain("/abs/shared-lib:/workspace/shared-lib:Z") {
-		t.Errorf("expected '/abs/shared-lib:/workspace/shared-lib:Z' in create args, got %v", runner.createArgs())
+	if !runner.createArgsContain("/abs/shared-lib:/workspace/shared-lib:z") {
+		t.Errorf("expected '/abs/shared-lib:/workspace/shared-lib:z' in create args, got %v", runner.createArgs())
 	}
-	if runner.createArgsContain("/projects/myapp:/workspace/myapp:Z") {
+	if runner.createArgsContain("/projects/myapp:/workspace/myapp:z") {
 		t.Error("CWD should NOT be mounted when --mount flags are provided")
 	}
 }
@@ -118,11 +118,11 @@ func TestCreate_MultipleMountFlags(t *testing.T) {
 	assertNoError(t, root.Execute())
 
 	// Then both paths are mounted
-	if !runner.createArgsContain("/abs/lib1:/workspace/lib1:Z") {
-		t.Errorf("expected '/abs/lib1:/workspace/lib1:Z' in create args, got %v", runner.createArgs())
+	if !runner.createArgsContain("/abs/lib1:/workspace/lib1:z") {
+		t.Errorf("expected '/abs/lib1:/workspace/lib1:z' in create args, got %v", runner.createArgs())
 	}
-	if !runner.createArgsContain("/abs/lib2:/workspace/lib2:Z") {
-		t.Errorf("expected '/abs/lib2:/workspace/lib2:Z' in create args, got %v", runner.createArgs())
+	if !runner.createArgsContain("/abs/lib2:/workspace/lib2:z") {
+		t.Errorf("expected '/abs/lib2:/workspace/lib2:z' in create args, got %v", runner.createArgs())
 	}
 }
 
@@ -186,8 +186,8 @@ func TestCreate_RelativeMountResolved(t *testing.T) {
 	assertNoError(t, root.Execute())
 
 	// Then the relative path is resolved to an absolute path
-	if !runner.createArgsContain("/projects/myapp/reldir:/workspace/reldir:Z") {
-		t.Errorf("expected '/projects/myapp/reldir:/workspace/reldir:Z' in create args, got %v", runner.createArgs())
+	if !runner.createArgsContain("/projects/myapp/reldir:/workspace/reldir:z") {
+		t.Errorf("expected '/projects/myapp/reldir:/workspace/reldir:z' in create args, got %v", runner.createArgs())
 	}
 }
 

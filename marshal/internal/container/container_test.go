@@ -146,8 +146,9 @@ func TestResolveMounts_EmptyMounts_ReturnsCwdToWorkspace(t *testing.T) {
 	got := container.ResolveMounts("/home/user/project", nil)
 
 	// Then a single mount mapping cwd to /workspace/project is returned
+	// with Shared: true for shared SELinux relabelling.
 	want := []container.MountSpec{
-		{HostPath: "/home/user/project", ContainerPath: "/workspace/project"},
+		{HostPath: "/home/user/project", ContainerPath: "/workspace/project", Shared: true},
 	}
 
 	if len(got) != 1 {
@@ -167,7 +168,7 @@ func TestResolveMounts_DefaultMountIsInsideWorkspace(t *testing.T) {
 	got := container.ResolveMounts("/home/rob/myapp", nil)
 
 	// Then ContainerPath is /workspace/myapp, not /workspace
-	want := container.MountSpec{HostPath: "/home/rob/myapp", ContainerPath: "/workspace/myapp"}
+	want := container.MountSpec{HostPath: "/home/rob/myapp", ContainerPath: "/workspace/myapp", Shared: true}
 	if len(got) != 1 {
 		t.Fatalf("len = %d, want 1; got %v", len(got), got)
 	}
@@ -187,9 +188,10 @@ func TestResolveMounts_WithPaths_MapsToWorkspaceBasename(t *testing.T) {
 	})
 
 	// Then each path is mapped under /workspace using its basename
+	// with Shared: true for shared SELinux relabelling.
 	want := []container.MountSpec{
-		{HostPath: "/home/user/src", ContainerPath: "/workspace/src"},
-		{HostPath: "/data/models", ContainerPath: "/workspace/models"},
+		{HostPath: "/home/user/src", ContainerPath: "/workspace/src", Shared: true},
+		{HostPath: "/data/models", ContainerPath: "/workspace/models", Shared: true},
 	}
 
 	if len(got) != len(want) {

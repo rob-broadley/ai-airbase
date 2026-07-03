@@ -152,7 +152,7 @@ func TestRecreate_UsesSavedMounts(t *testing.T) {
 	assertNoError(t, root.Execute())
 
 	// Then the saved mount appears in the create args
-	if !runner.createArgsContain("/abs/lib:/workspace/lib:Z") {
+	if !runner.createArgsContain("/abs/lib:/workspace/lib:z") {
 		t.Errorf("expected saved mount in create args, got %v", runner.createArgs())
 	}
 }
