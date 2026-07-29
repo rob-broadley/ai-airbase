@@ -396,7 +396,8 @@ func IsRunning(r Runner, containerName string) (bool, error) {
 // --userns=keep-id maps the host user's UID/GID into the container namespace.
 // --tty allocates a pseudo-TTY and --interactive sets OpenStdin=true so that
 // podman start --attach --interactive properly connects stdin to the PTY.
-// Each MountSpec becomes a -v flag with a :Z SELinux relabelling suffix.
+// Each MountSpec becomes a -v flag with a SELinux relabelling suffix (:Z for
+// exclusive mounts, :z for shared mounts — see MountSpec.Shared).
 // Each NamedVolumeMount becomes a -v flag without a :Z suffix (named volumes
 // must not carry SELinux relabelling).
 // uc.UID/GID are passed as --user; uc.HomeDir is exported via -e HOME.
@@ -561,10 +562,9 @@ func Exec(execFn func([]string) error, containerName string, command ...string) 
 // Helpers — internal helpers used within this package only.
 // ---------------------------------------------------------------------------
 
-// mountFlag formats m as the value for a single -v flag:
-// "hostPath:containerPath:Z" (or ":ro,Z" when ReadOnly is true).
-// When Shared is true, :Z becomes :z (shared relabelling) so other containers
-// can concurrently access the same path.
+// mountFlag formats m as the value for a single -v flag.
+// When Shared is false: "hostPath:containerPath:Z" (or ":ro,Z" when ReadOnly is true).
+// When Shared is true:  "hostPath:containerPath:z" (or ":ro,z" when ReadOnly is true).
 // The :Z/:z suffix requests SELinux relabelling so the container process can
 // read and write the bind-mounted directory. The :ro flag makes the mount
 // read-only inside the container.
