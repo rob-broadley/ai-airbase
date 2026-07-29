@@ -59,7 +59,7 @@ func TestDefaultCmd_LogsCreatingContainer(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the default command is executed
 	assertNoError(t, root.Execute())

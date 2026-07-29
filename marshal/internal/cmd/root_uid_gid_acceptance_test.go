@@ -29,7 +29,7 @@ func TestBuildUserConfig_RefusesRootUID(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 	err := root.Execute()
 
 	assertError(t, err)
@@ -67,7 +67,7 @@ func TestBuildUserConfig_AllowsGIDZero(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 	// The command will fail (no real podman), but the failure must NOT be a
 	// "must not run as root" error — GID 0 alone should not be rejected.
 	err := root.Execute()

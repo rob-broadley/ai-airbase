@@ -123,7 +123,7 @@ func TestDefaultCmd_UserDefaultsDirCreated(t *testing.T) {
 	deps := newCredentialTestDeps(cf, runner)
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the user runs the default marshal command (no subcommand)
 	assertNoError(t, root.Execute())

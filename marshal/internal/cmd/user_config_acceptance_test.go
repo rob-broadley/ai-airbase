@@ -25,7 +25,7 @@ func TestDefaultCmd_UserConfigSet(t *testing.T) {
 
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 	assertNoError(t, root.Execute())
 
 	// Then --user, HOME, and --passwd-entry are set correctly in create args
@@ -60,7 +60,7 @@ func TestDefaultCmd_PasswdEntrySet(t *testing.T) {
 
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 	assertNoError(t, root.Execute())
 
 	// Then --passwd-entry is passed to podman create with the correct opencode user mapping
@@ -90,7 +90,7 @@ func TestDefaultCmd_TtyAllocated(t *testing.T) {
 
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 	assertNoError(t, root.Execute())
 
 	// Then --tty is passed to podman create
@@ -119,7 +119,7 @@ func TestDefaultCmd_StdinOpen(t *testing.T) {
 
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 	assertNoError(t, root.Execute())
 
 	// Then --interactive is passed to podman create

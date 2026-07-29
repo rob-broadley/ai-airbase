@@ -26,7 +26,7 @@ func TestDefaultCmd_MountsCWD(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the root command is executed
 	assertNoError(t, root.Execute())
@@ -59,7 +59,7 @@ func TestDefaultCmd_ReusesSavedMounts(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the root command is executed without --mount flags
 	assertNoError(t, root.Execute())
@@ -92,7 +92,7 @@ func TestDefaultCmd_CustomImage(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the root command is executed
 	assertNoError(t, root.Execute())

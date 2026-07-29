@@ -197,6 +197,7 @@ func NewRootCmd(deps Deps) *cobra.Command {
 	root.PersistentFlags().StringVarP(&projectFlag, "project", "p", "", "Project name (default: current directory name)")
 
 	root.AddCommand(
+		newStartCmd(deps, &projectFlag),
 		newCreateCmd(deps, &projectFlag),
 		newListCmd(deps),
 		newStopCmd(deps, &projectFlag),

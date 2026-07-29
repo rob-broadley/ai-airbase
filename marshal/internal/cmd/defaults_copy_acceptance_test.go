@@ -275,7 +275,7 @@ func TestDefaultCmd_DefaultsCopiedToProject(t *testing.T) {
 	deps.XDGDataHome = func() string { return base }
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When bare marshal (default command) is run for the project
 	assertNoError(t, root.Execute())

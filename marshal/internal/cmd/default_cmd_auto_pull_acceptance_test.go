@@ -33,7 +33,7 @@ func TestAutoPull_ImageAbsent_PullsThenCreatesContainer(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the root command is executed
 	assertNoError(t, root.Execute())
@@ -73,7 +73,7 @@ func TestAutoPull_ImagePresent_PullNotCalled(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the root command is executed
 	assertNoError(t, root.Execute())
@@ -114,7 +114,7 @@ func TestAutoPull_PullFails_NoLocalImage_ReturnsError(t *testing.T) {
 
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the root command is executed
 	err := root.Execute()
@@ -161,7 +161,7 @@ func TestAutoPull_PullFails_ImageExistsLocally_WarnsAndContinues(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the root command is executed
 	assertNoError(t, root.Execute())
@@ -198,7 +198,7 @@ func TestDefaultCmd_ImageExistsCheckFails(t *testing.T) {
 
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the root command is executed
 	err := root.Execute()

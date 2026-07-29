@@ -29,7 +29,7 @@ func TestDefaultCmd_ConfigDirRelocatedAndIsolated(t *testing.T) {
 	deps := newCredentialTestDeps(cf, runner)
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the default command is executed
 	assertNoError(t, root.Execute())
@@ -94,7 +94,7 @@ func TestDefaultCmd_SessionStoreMounted(t *testing.T) {
 	deps := newCredentialTestDeps(cf, runner)
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the default command is executed
 	assertNoError(t, root.Execute())
@@ -117,7 +117,7 @@ func TestDefaultCmd_SessionStateMountedPerProject(t *testing.T) {
 	deps := newCredentialTestDeps(cf, runner)
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the default command is executed
 	assertNoError(t, root.Execute())
@@ -148,7 +148,7 @@ func TestCredentialMounts_SessionStateIsolatedByProject(t *testing.T) {
 			EnsureSharedDataDir: cf.dataDirFn,
 		}
 		root := cmd.NewRootCmd(deps)
-		root.SetArgs([]string{"--project", project})
+		root.SetArgs([]string{"start", "--project", project})
 		if err := root.Execute(); err != nil {
 			t.Fatalf("project %s: unexpected error: %v", project, err)
 		}
@@ -205,7 +205,7 @@ func TestCredentialMounts_ConfigIsolatedByProject(t *testing.T) {
 			EnsureSharedDataDir: cf.dataDirFn,
 		}
 		root := cmd.NewRootCmd(deps)
-		root.SetArgs([]string{"--project", project})
+		root.SetArgs([]string{"start", "--project", project})
 		if err := root.Execute(); err != nil {
 			t.Fatalf("project %s: unexpected error: %v", project, err)
 		}
@@ -250,7 +250,7 @@ func TestDefaultCmd_ShareAndStateDirsCreatedUnderOpencode(t *testing.T) {
 	deps := newCredentialTestDeps(cf, runner)
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the default command is executed
 	assertNoError(t, root.Execute())
@@ -353,7 +353,7 @@ func TestDefaultCmd_ConfigDirPermissionsEnforced(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the default command is executed
 	assertNoError(t, root.Execute())
@@ -414,7 +414,7 @@ func TestDefaultCmd_ConfigDirNestedSymlink_Allowed(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	var errBuf bytes.Buffer
 	root.SetErr(&errBuf)
@@ -463,7 +463,7 @@ func TestDefaultCmd_ConfigDirNestedSymlinkEscapesAborts(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	var errBuf bytes.Buffer
 	root.SetErr(&errBuf)
@@ -511,7 +511,7 @@ func TestDefaultCmd_ConfigDirRootSymlinkAborts(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	var errBuf bytes.Buffer
 	root.SetErr(&errBuf)
@@ -554,7 +554,7 @@ func TestDefaultCmd_ConfigDirPermissionDeniedAborts(t *testing.T) {
 	defer os.Chmod(configDir, 0o700) // cleanup so temp dir can be cleaned up
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	var errBuf bytes.Buffer
 	root.SetErr(&errBuf)
@@ -597,7 +597,7 @@ func TestDefaultCmd_ConfigDirCreationDenied_ErrorIdentifiesPath(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	var errBuf bytes.Buffer
 	root.SetErr(&errBuf)
@@ -635,7 +635,7 @@ func TestDefaultCmd_ConfigDirWriteCheck_HasNoSideEffects(t *testing.T) {
 	deps := newCredentialTestDeps(cf, runner)
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the default command is executed
 	assertNoError(t, root.Execute())
@@ -677,7 +677,7 @@ func TestDefaultCmd_ConfigDirEmptyDataHomeFallback(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the command is executed
 	assertNoError(t, root.Execute())

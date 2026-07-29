@@ -32,7 +32,7 @@ func TestDefaultCmd_CreateAndStart(t *testing.T) {
 	}
 
 	// When the root command is executed
-	out, _, err := runCmd(t, deps, "--project", "myapp")
+	out, _, err := runCmd(t, deps, "start", "--project", "myapp")
 	assertNoError(t, err)
 
 	// Then create is called via runner
@@ -85,7 +85,7 @@ func TestDefaultCmd_ReuseRunning(t *testing.T) {
 	}
 
 	// When the root command is executed
-	out, _, err := runCmd(t, deps, "--project", "myapp")
+	out, _, err := runCmd(t, deps, "start", "--project", "myapp")
 	assertNoError(t, err)
 
 	// Then create and start are NOT called via runner
@@ -126,7 +126,7 @@ func TestDefaultCmd_RestartStopped(t *testing.T) {
 	}
 
 	// When the root command is executed
-	out, _, err := runCmd(t, deps, "--project", "myapp")
+	out, _, err := runCmd(t, deps, "start", "--project", "myapp")
 	assertNoError(t, err)
 
 	// Then create is NOT called
@@ -167,7 +167,7 @@ func TestDefaultCmd_ContainerNameConvention(t *testing.T) {
 	}
 
 	// When the root command is executed
-	_, _, err := runCmd(t, deps, "--project", "my-app")
+	_, _, err := runCmd(t, deps, "start", "--project", "my-app")
 	assertNoError(t, err)
 
 	// Then runner start is called with container name 'marshal-my-app'
@@ -202,7 +202,7 @@ func TestDefaultCmd_ExistsCheckFails(t *testing.T) {
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// Then an error is returned
 	assertError(t, root.Execute())
@@ -231,7 +231,7 @@ func TestDefaultCmd_ContainerCreateFails(t *testing.T) {
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 	err := root.Execute()
 
 	// Then an error is returned containing "creating container"
@@ -262,7 +262,7 @@ func TestDefaultCmd_StartError_OnCreate(t *testing.T) {
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// Then an error is returned
 	assertError(t, root.Execute())
@@ -292,7 +292,7 @@ func TestDefaultCmd_IsRunningCheckFails(t *testing.T) {
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// Then an error is returned
 	assertError(t, root.Execute())
@@ -321,7 +321,7 @@ func TestDefaultCmd_StartError_WhenStopped(t *testing.T) {
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// Then an error is returned
 	assertError(t, root.Execute())
@@ -346,7 +346,7 @@ func TestDefaultCmd_GetwdFails(t *testing.T) {
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 	err := root.Execute()
 
 	// Then an error is returned containing "getting working directory"
@@ -381,7 +381,7 @@ func TestDefaultCmd_ConfigLoadFails(t *testing.T) {
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 	err := root.Execute()
 
 	// Then an error is returned containing "loading config"
@@ -410,7 +410,7 @@ func TestDefaultCmd_CredentialMountsFail(t *testing.T) {
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// Then an error is returned
 	assertError(t, root.Execute())
@@ -442,7 +442,7 @@ func TestDefaultCmd_ErrorMessageContainsContext(t *testing.T) {
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 	err := root.Execute()
 
 	// Then the error contains both the wrapper text and the underlying cause
@@ -472,7 +472,7 @@ func TestDefaultCmd_CreateUsesImageCMD(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the default command is executed
 	assertNoError(t, root.Execute())
@@ -509,7 +509,7 @@ func TestDefaultCmd_CreatePassesLabels(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 
 	// When the root command is executed (triggers podman create)
 	assertNoError(t, root.Execute())
@@ -573,7 +573,7 @@ func TestDefaultCmd_InvalidProjectName_ErrorNamesTheRules(t *testing.T) {
 	}
 
 	root := cmd.NewRootCmd(deps)
-	root.SetArgs([]string{"--project", "invalid@project"})
+	root.SetArgs([]string{"start", "--project", "invalid@project"})
 
 	var errBuf bytes.Buffer
 	root.SetErr(&errBuf)

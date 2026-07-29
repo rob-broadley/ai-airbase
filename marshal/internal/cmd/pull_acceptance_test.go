@@ -136,7 +136,7 @@ func TestPullFallback_ForwardsPodmanStderrToUser(t *testing.T) {
 	// When the root command is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(stderr)
-	root.SetArgs([]string{"--project", "myapp"})
+	root.SetArgs([]string{"start", "--project", "myapp"})
 	assertNoError(t, root.Execute())
 
 	// Then podman's pull stderr is forwarded to the user so they can diagnose failures

@@ -12,6 +12,19 @@ import (
 	"github.com/rob-broadley/ai-airbase/marshal/internal/textutil"
 )
 
+// newStartCmd returns the cobra.Command for the "start" subcommand, which
+// creates the container if absent and starts it in the background. This is
+// the primary day-to-day command for launching a project container.
+func newStartCmd(deps Deps, projectFlag *string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "start",
+		Short: "Create (if needed) and start the container for the project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return ensureContainerAndStart(cmd, deps, *projectFlag)
+		},
+	}
+}
+
 // newCreateCmd returns the cobra.Command for the "create" subcommand, which
 // saves the project mount configuration and creates the container. This is the
 // entry point for setting up a new project; subsequent invocations of marshal
