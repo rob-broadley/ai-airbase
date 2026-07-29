@@ -60,17 +60,17 @@ cd ~/work/my-app
 marshal create
 
 # 3. Start the container and launch OpenCode
-marshal
+marshal start
 ```
 
-`marshal` starts the OpenCode web server. Open the URL printed by the server (default: `http://127.0.0.1:4096/`) in your host's browser to connect. Select `mission-control` or another agent to start your session, describe your task, and let the agent coordinate or execute the work.
+`marshal start` starts the OpenCode web server. Open the URL printed by the server (default: `http://127.0.0.1:4096/`) in your host's browser to connect. Select `mission-control` or another agent to start your session, describe your task, and let the agent coordinate or execute the work.
 
 ```bash
 # 4. Stop the container when you are done
 marshal stop
 
 # 5. Start again any time — the container and its state are preserved
-marshal
+marshal start
 ```
 
 To mount additional directories alongside your project, pass `--mount` flags to `marshal create`. When any `--mount` flag is given, only the listed paths are mounted — include your project directory explicitly:

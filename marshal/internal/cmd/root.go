@@ -190,7 +190,7 @@ func NewRootCmd(deps Deps) *cobra.Command {
 		Use:   "marshal",
 		Short: "A sandbox for running OpenCode — one container per project, managed for you.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return ensureContainerAndStart(cmd, deps, projectFlag)
+			return cmd.Help()
 		},
 	}
 

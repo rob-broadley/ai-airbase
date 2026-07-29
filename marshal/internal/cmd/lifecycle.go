@@ -236,7 +236,7 @@ func removeAndRecreateContainer(mkdirAll func(string, fs.FileMode) error, runner
 // prepareContainer ensures the container exists (creating it when absent),
 // pulling the image if needed. It returns the container name and whether the
 // container is currently running. Callers use the returned state to decide
-// whether they can reuse the running container (for the default command), or
+// whether they can reuse the running container (for the start command), or
 // start-then-exec (for the shell command).
 func prepareContainer(cmd *cobra.Command, deps Deps, p containerParams) (containerName string, running bool, err error) {
 	exists, err := container.Exists(deps.Runner, p.containerName)

@@ -9,6 +9,8 @@ marshal [flags]
 marshal <command> [flags]
 ```
 
+Running `marshal` with no subcommand prints help. Use `marshal start` to create and start a container.
+
 ## Global flags
 
 These flags apply to every command.
@@ -28,7 +30,7 @@ ______________________________________________________________________
 
 ## Commands
 
-### marshal
+### marshal start
 
 Start the project container in the background and launch the OpenCode web server.
 
@@ -37,7 +39,7 @@ If the container does not exist, marshal creates it (pulling the image if needed
 **Usage**
 
 ```
-marshal [flags]
+marshal start [flags]
 ```
 
 **Flags**
@@ -48,10 +50,10 @@ Inherits [global flags](#global-flags) only.
 
 ```bash
 # Start the container using the current directory as the project name
-marshal
+marshal start
 
 # Start or check status of a named project regardless of working directory
-marshal --project my-app
+marshal start --project my-app
 ```
 
 ______________________________________________________________________

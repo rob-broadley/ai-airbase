@@ -106,14 +106,13 @@ func TestRecreate_UserDefaultsDirCreated(t *testing.T) {
 	}
 }
 
-// --- the default marshal command also creates the user defaults dir ---
+// --- marshal start also creates the user defaults dir ---
 
-// TestDefaultCmd_UserDefaultsDirCreated verifies that running the default
-// `marshal` command (no subcommand) also creates the on-host user defaults
-// directory tree with 0o700 permissions. The default command's RunE invokes
-// ensureContainerAndStart, which calls ensureHostState, reaching the
-// customisations.Ensure call.
-func TestDefaultCmd_UserDefaultsDirCreated(t *testing.T) {
+// TestStartCmd_UserDefaultsDirCreated verifies that running marshal start
+// also creates the on-host user defaults directory tree with 0o700
+// permissions. The start subcommand calls ensureContainerAndStart, which
+// calls ensureHostState, reaching the customisations.Ensure call.
+func TestStartCmd_UserDefaultsDirCreated(t *testing.T) {
 	// Given XDG_DATA_HOME is set to a fresh temp directory
 	xdgDataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", xdgDataHome)
@@ -125,7 +124,7 @@ func TestDefaultCmd_UserDefaultsDirCreated(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the user runs the default marshal command (no subcommand)
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	// Then the three subdirs exist as directories with 0o700 permissions

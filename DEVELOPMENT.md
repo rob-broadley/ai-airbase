@@ -112,7 +112,7 @@ For local development, point marshal at your local build rather than the publish
 
 ```sh
 export MARSHAL_IMAGE=revetment
-marshal
+marshal start
 ```
 
 Without this, `marshal recreate` will try to pull from `ghcr.io` on every run.
@@ -246,7 +246,7 @@ Changes to agents or skills take effect on the next `make image` build. To test 
 ```sh
 make image
 export MARSHAL_IMAGE=revetment
-marshal
+marshal start
 ```
 
 ### Design principle

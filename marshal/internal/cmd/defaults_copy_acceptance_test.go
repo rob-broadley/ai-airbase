@@ -259,9 +259,9 @@ func TestCreate_DefaultsAndExistingCoexist(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_DefaultsCopiedToProject verifies that the bare marshal
-// command (default command) also copies defaults files into the per-project directory.
-func TestDefaultCmd_DefaultsCopiedToProject(t *testing.T) {
+// TestStartCmd_DefaultsCopiedToProject verifies that marshal start
+// also copies defaults files into the per-project directory.
+func TestStartCmd_DefaultsCopiedToProject(t *testing.T) {
 	// Given a user defaults tree containing config/new.json
 	base := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", base)
@@ -277,7 +277,7 @@ func TestDefaultCmd_DefaultsCopiedToProject(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When bare marshal (default command) is run for the project
+	// When marshal start is run for the project
 	assertNoError(t, root.Execute())
 
 	// Then config/new.json exists in the per-project config directory

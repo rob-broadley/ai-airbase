@@ -17,10 +17,10 @@ import (
 // Per-project directory mount location tests
 // ---------------------------------------------------------------------------
 
-// TestDefaultCmd_ConfigDirRelocatedAndIsolated verifies that the project-specific
+// TestStartCmd_ConfigDirRelocatedAndIsolated verifies that the project-specific
 // configuration directory is located at projects/<project>/opencode/config under XDG_DATA_HOME
 // and mounted as a whole, rather than mounting individual files or a shared config directory.
-func TestDefaultCmd_ConfigDirRelocatedAndIsolated(t *testing.T) {
+func TestStartCmd_ConfigDirRelocatedAndIsolated(t *testing.T) {
 	// Given marshal is run for project "myapp"
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
@@ -31,7 +31,7 @@ func TestDefaultCmd_ConfigDirRelocatedAndIsolated(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the default command is executed
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	args := runner.createArgs()
@@ -54,12 +54,12 @@ func TestDefaultCmd_ConfigDirRelocatedAndIsolated(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_GitConfigMountedFromPerProjectDir verifies that the git config
+// TestStartCmd_GitConfigMountedFromPerProjectDir verifies that the git config
 // directory is bind-mounted from the per-project data directory to
 // ContainerGitConfigDir as a read-only mount. The mount source must be the
 // per-project git/config directory (not a shared XDG_CONFIG_HOME path), and
 // it must carry the :ro,Z flags so the container cannot write to it.
-func TestDefaultCmd_GitConfigMountedFromPerProjectDir(t *testing.T) {
+func TestStartCmd_GitConfigMountedFromPerProjectDir(t *testing.T) {
 	// Given XDG_DATA_HOME points to a fresh temp directory and no container
 	// exists yet for project "myapp"
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
@@ -84,10 +84,10 @@ func TestDefaultCmd_GitConfigMountedFromPerProjectDir(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_SessionStoreMounted verifies that the share/ directory is
+// TestStartCmd_SessionStoreMounted verifies that the share/ directory is
 // bind-mounted from the per-project XDG_DATA_HOME/marshal/projects/<project>/opencode/share/
 // path so conversation history is preserved across container recreates.
-func TestDefaultCmd_SessionStoreMounted(t *testing.T) {
+func TestStartCmd_SessionStoreMounted(t *testing.T) {
 	// Given deps configured for project "myapp"
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
@@ -96,7 +96,7 @@ func TestDefaultCmd_SessionStoreMounted(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the default command is executed
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	// Then the share/ directory is mounted from the per-project data directory
@@ -107,10 +107,10 @@ func TestDefaultCmd_SessionStoreMounted(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_SessionStateMountedPerProject verifies that the state/
+// TestStartCmd_SessionStateMountedPerProject verifies that the state/
 // directory is bind-mounted from a per-project path under XDG_DATA_HOME so
 // checkpoint history survives container recreates.
-func TestDefaultCmd_SessionStateMountedPerProject(t *testing.T) {
+func TestStartCmd_SessionStateMountedPerProject(t *testing.T) {
 	// Given deps configured for project "myapp"
 	cf := newCredFakes(t)
 	runner := &fakeRunner{exists: false, imageExistsResult: true}
@@ -119,7 +119,7 @@ func TestDefaultCmd_SessionStateMountedPerProject(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the default command is executed
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	// Then state/ directory is mounted from a per-project path under XDG_DATA_HOME
@@ -155,7 +155,7 @@ func TestCredentialMounts_SessionStateIsolatedByProject(t *testing.T) {
 		return runner.createArgs()
 	}
 
-	// When the default command is executed for each project
+	// When marshal start is executed for each project
 	alphaArgs := argsFor("alpha")
 	betaArgs := argsFor("beta")
 
@@ -212,7 +212,7 @@ func TestCredentialMounts_ConfigIsolatedByProject(t *testing.T) {
 		return runner.createArgs()
 	}
 
-	// When the default command is executed for each project
+	// When marshal start is executed for each project
 	alphaArgs := argsFor("alpha")
 	betaArgs := argsFor("beta")
 
@@ -234,14 +234,14 @@ func TestCredentialMounts_ConfigIsolatedByProject(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_ShareAndStateDirsCreatedUnderOpencode verifies that running
-// the default command for a project creates the share/ and state/ directories
+// TestStartCmd_ShareAndStateDirsCreatedUnderOpencode verifies that running
+// marshal start for a project creates the share/ and state/ directories
 // under projects/<project>/opencode/ (the new location) and does NOT create
 // them under projects/<project>/ directly (the legacy location). The legacy
 // location was used before per-project config was isolated under the opencode
 // subdirectory; a regression that writes to the legacy path would leave stale
 // files on the host and could cause confusion if both locations existed.
-func TestDefaultCmd_ShareAndStateDirsCreatedUnderOpencode(t *testing.T) {
+func TestStartCmd_ShareAndStateDirsCreatedUnderOpencode(t *testing.T) {
 	// Given marshal is run for project "myapp"
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
@@ -252,7 +252,7 @@ func TestDefaultCmd_ShareAndStateDirsCreatedUnderOpencode(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the default command is executed
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	// Then the new-style directories exist under projects/<project>/opencode/
@@ -319,9 +319,9 @@ func TestRecreate_CredentialMountsIncluded(t *testing.T) {
 // Configuration directory hardening — permissions, symlinks, fallbacks
 // ---------------------------------------------------------------------------
 
-// TestDefaultCmd_ConfigDirPermissionsEnforced verifies that the configuration directory and its
+// TestStartCmd_ConfigDirPermissionsEnforced verifies that the configuration directory and its
 // subdirectories and files have strict permissions enforced recursively (0o700 for directories, 0o600 for files).
-func TestDefaultCmd_ConfigDirPermissionsEnforced(t *testing.T) {
+func TestStartCmd_ConfigDirPermissionsEnforced(t *testing.T) {
 	// Given marshal is run for project "myapp" and the configuration directory contains
 	// a subdirectory and a file with overly permissive permissions (e.g. 0o755 for directory, 0o644 for file)
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
@@ -355,7 +355,7 @@ func TestDefaultCmd_ConfigDirPermissionsEnforced(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the default command is executed
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	// Then the permissions are corrected to 0o700 for directories and 0o600 for files on the host
@@ -384,11 +384,11 @@ func TestDefaultCmd_ConfigDirPermissionsEnforced(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_ConfigDirNestedSymlink_Allowed verifies that if a symlink exists inside
+// TestStartCmd_ConfigDirNestedSymlink_Allowed verifies that if a symlink exists inside
 // the configuration directory and its target stays within the bind mount (e.g. a relative
 // symlink created by opencode for package management), marshal does NOT abort. The sandbox
 // is preserved because the container cannot follow the symlink outside the bind mount.
-func TestDefaultCmd_ConfigDirNestedSymlink_Allowed(t *testing.T) {
+func TestStartCmd_ConfigDirNestedSymlink_Allowed(t *testing.T) {
 	// Given marshal is run for project "myapp" and the configuration directory contains a
 	// relative symlink whose target is inside the config directory itself
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
@@ -419,7 +419,7 @@ func TestDefaultCmd_ConfigDirNestedSymlink_Allowed(t *testing.T) {
 	var errBuf bytes.Buffer
 	root.SetErr(&errBuf)
 
-	// When the default command is executed
+	// When marshal start is executed
 	err := root.Execute()
 
 	// Then the command does NOT abort (the symlink stays inside the bind mount)
@@ -433,11 +433,11 @@ func TestDefaultCmd_ConfigDirNestedSymlink_Allowed(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_ConfigDirNestedSymlinkEscapesAborts verifies that if a symlink inside the
+// TestStartCmd_ConfigDirNestedSymlinkEscapesAborts verifies that if a symlink inside the
 // configuration directory resolves to a path OUTSIDE the bind mount, marshal aborts. The
 // container is untrusted AI code; following such a symlink would let it read or write host
 // files outside the sandbox.
-func TestDefaultCmd_ConfigDirNestedSymlinkEscapesAborts(t *testing.T) {
+func TestStartCmd_ConfigDirNestedSymlinkEscapesAborts(t *testing.T) {
 	// Given marshal is run for project "myapp" and the configuration directory contains an
 	// absolute symlink pointing outside the bind mount
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
@@ -468,7 +468,7 @@ func TestDefaultCmd_ConfigDirNestedSymlinkEscapesAborts(t *testing.T) {
 	var errBuf bytes.Buffer
 	root.SetErr(&errBuf)
 
-	// When the default command is executed
+	// When marshal start is executed
 	err := root.Execute()
 
 	// Then the command aborts with a security violation
@@ -483,10 +483,10 @@ func TestDefaultCmd_ConfigDirNestedSymlinkEscapesAborts(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_ConfigDirRootSymlinkAborts verifies that if the configuration directory
+// TestStartCmd_ConfigDirRootSymlinkAborts verifies that if the configuration directory
 // itself is a symlink (which would make the bind mount target a symlink, and os.RemoveAll
 // would follow it), marshal aborts with a security violation error.
-func TestDefaultCmd_ConfigDirRootSymlinkAborts(t *testing.T) {
+func TestStartCmd_ConfigDirRootSymlinkAborts(t *testing.T) {
 	// Given marshal is run for project "myapp" and the configuration directory IS a symlink
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
@@ -516,7 +516,7 @@ func TestDefaultCmd_ConfigDirRootSymlinkAborts(t *testing.T) {
 	var errBuf bytes.Buffer
 	root.SetErr(&errBuf)
 
-	// When the default command is executed
+	// When marshal start is executed
 	err := root.Execute()
 
 	// Then the command aborts with an error
@@ -531,9 +531,9 @@ func TestDefaultCmd_ConfigDirRootSymlinkAborts(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_ConfigDirPermissionDeniedAborts verifies that if the configuration directory
+// TestStartCmd_ConfigDirPermissionDeniedAborts verifies that if the configuration directory
 // lacks write permissions, marshal prints "permission denied" with the target directory path and aborts.
-func TestDefaultCmd_ConfigDirPermissionDeniedAborts(t *testing.T) {
+func TestStartCmd_ConfigDirPermissionDeniedAborts(t *testing.T) {
 	// Given marshal is run for project "myapp" and the configuration directory has no write permissions (0o500)
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
@@ -559,7 +559,7 @@ func TestDefaultCmd_ConfigDirPermissionDeniedAborts(t *testing.T) {
 	var errBuf bytes.Buffer
 	root.SetErr(&errBuf)
 
-	// When the default command is executed
+	// When marshal start is executed
 	err := root.Execute()
 
 	// Then the command aborts with an error
@@ -575,13 +575,13 @@ func TestDefaultCmd_ConfigDirPermissionDeniedAborts(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_ConfigDirCreationDenied_ErrorIdentifiesPath verifies that
+// TestStartCmd_ConfigDirCreationDenied_ErrorIdentifiesPath verifies that
 // when EnsureSharedDataDir returns a permission error while creating the
 // per-project config directory (e.g. XDG_DATA_HOME parent is read-only or
 // the marshal data dir is not writable), the surfaced error identifies the
 // path that was being created (e.g. "projects/myapp/opencode/config") or
 // wraps the original error so the chain is preserved.
-func TestDefaultCmd_ConfigDirCreationDenied_ErrorIdentifiesPath(t *testing.T) {
+func TestStartCmd_ConfigDirCreationDenied_ErrorIdentifiesPath(t *testing.T) {
 	// Given marshal is run for project "myapp" and the injected EnsureSharedDataDir
 	// returns a permission error for the project config subdirectory
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
@@ -602,7 +602,7 @@ func TestDefaultCmd_ConfigDirCreationDenied_ErrorIdentifiesPath(t *testing.T) {
 	var errBuf bytes.Buffer
 	root.SetErr(&errBuf)
 
-	// When the default command is executed
+	// When marshal start is executed
 	err := root.Execute()
 
 	// Then the command aborts with a permission error
@@ -621,12 +621,12 @@ func TestDefaultCmd_ConfigDirCreationDenied_ErrorIdentifiesPath(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_ConfigDirWriteCheck_HasNoSideEffects verifies that the
+// TestStartCmd_ConfigDirWriteCheck_HasNoSideEffects verifies that the
 // write-permission check performed while assembling credential mounts is
 // stateless: it must not create any file in the project's config directory
 // tree. A previous implementation created a `.write_test` file as a side
 // effect, which could be left behind on a crash between create and remove.
-func TestDefaultCmd_ConfigDirWriteCheck_HasNoSideEffects(t *testing.T) {
+func TestStartCmd_ConfigDirWriteCheck_HasNoSideEffects(t *testing.T) {
 	// Given marshal is run for project "myapp"
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
@@ -637,7 +637,7 @@ func TestDefaultCmd_ConfigDirWriteCheck_HasNoSideEffects(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the default command is executed
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	// Then no .write_test file exists anywhere in the project's config directory tree
@@ -658,9 +658,9 @@ func TestDefaultCmd_ConfigDirWriteCheck_HasNoSideEffects(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_ConfigDirEmptyDataHomeFallback verifies that if XDG_DATA_HOME is set to empty,
+// TestStartCmd_ConfigDirEmptyDataHomeFallback verifies that if XDG_DATA_HOME is set to empty,
 // marshal correctly falls back to using ~/.local/share as the base for the project configuration.
-func TestDefaultCmd_ConfigDirEmptyDataHomeFallback(t *testing.T) {
+func TestStartCmd_ConfigDirEmptyDataHomeFallback(t *testing.T) {
 	// Given XDG_DATA_HOME is empty, and HOME is set to a temp directory
 	t.Setenv("XDG_DATA_HOME", "")
 	homeTemp := t.TempDir()

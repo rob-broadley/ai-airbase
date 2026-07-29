@@ -12,7 +12,7 @@ import (
 // (UID 0) is rejected before a container is created.
 //
 // Given  the calling user has UID 0
-// When   the default command is executed
+// When   marshal start is executed
 // Then   an error is returned that mentions root or UID 0
 func TestBuildUserConfig_RefusesRootUID(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
@@ -50,7 +50,7 @@ func TestBuildUserConfig_RefusesRootUID(t *testing.T) {
 // as their primary GID, so refusing GID 0 would block legitimate users.
 //
 // Given  the calling user has UID 1001 and GID 0
-// When   the default command is executed
+// When   marshal start is executed
 // Then   no error is returned for the UID/GID combination
 func TestBuildUserConfig_AllowsGIDZero(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", t.TempDir())

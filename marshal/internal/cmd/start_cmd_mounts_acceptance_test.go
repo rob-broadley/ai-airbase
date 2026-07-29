@@ -8,9 +8,9 @@ import (
 	"github.com/rob-broadley/ai-airbase/marshal/internal/config"
 )
 
-// TestDefaultCmd_MountsCWD verifies that marshal mounts the current working
+// TestStartCmd_MountsCWD verifies that marshal mounts the current working
 // directory inside /workspace/<basename> when no mounts are configured.
-func TestDefaultCmd_MountsCWD(t *testing.T) {
+func TestStartCmd_MountsCWD(t *testing.T) {
 	// Given no mounts configured and empty config
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
@@ -28,7 +28,7 @@ func TestDefaultCmd_MountsCWD(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the root command is executed
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	// Then CWD is mounted inside /workspace/myapp (not as /workspace root)
@@ -37,9 +37,9 @@ func TestDefaultCmd_MountsCWD(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_ReusesSavedMounts verifies that marshal applies mounts saved
+// TestStartCmd_ReusesSavedMounts verifies that marshal applies mounts saved
 // in config without requiring --mount flags.
-func TestDefaultCmd_ReusesSavedMounts(t *testing.T) {
+func TestStartCmd_ReusesSavedMounts(t *testing.T) {
 	// Given mounts saved in project config
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
@@ -61,7 +61,7 @@ func TestDefaultCmd_ReusesSavedMounts(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the root command is executed without --mount flags
+	// When marshal start is executed without --mount flags
 	assertNoError(t, root.Execute())
 
 	// Then saved mounts are used and CWD is not mounted
@@ -73,9 +73,9 @@ func TestDefaultCmd_ReusesSavedMounts(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_CustomImage verifies that setting MARSHAL_IMAGE overrides the
+// TestStartCmd_CustomImage verifies that setting MARSHAL_IMAGE overrides the
 // default container image.
-func TestDefaultCmd_CustomImage(t *testing.T) {
+func TestStartCmd_CustomImage(t *testing.T) {
 	// Given MARSHAL_IMAGE is set to a custom image
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("MARSHAL_IMAGE", "myregistry/revetment:v2")
@@ -94,7 +94,7 @@ func TestDefaultCmd_CustomImage(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the root command is executed
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	// Then the custom image appears in the create args

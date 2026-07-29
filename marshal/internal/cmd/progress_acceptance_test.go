@@ -40,9 +40,9 @@ func TestCreate_LogsCreatingContainer(t *testing.T) {
 	assertContains(t, logBuf.String(), "creating container")
 }
 
-// TestDefaultCmd_LogsCreatingContainer verifies that the default command also
-// logs progress when it creates a container on first run.
-func TestDefaultCmd_LogsCreatingContainer(t *testing.T) {
+// TestStartCmd_LogsCreatingContainer verifies that marshal start logs
+// progress when it creates a container on first run.
+func TestStartCmd_LogsCreatingContainer(t *testing.T) {
 	// Given no container exists and an injected progress logger
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
@@ -61,7 +61,7 @@ func TestDefaultCmd_LogsCreatingContainer(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the default command is executed
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	// Then a "creating container" progress message appears in the log output

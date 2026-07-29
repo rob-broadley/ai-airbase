@@ -35,7 +35,7 @@ func TestAutoPull_ImageAbsent_PullsThenCreatesContainer(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the root command is executed
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	// Then PullImage is called with the correct image and the container is created
@@ -75,7 +75,7 @@ func TestAutoPull_ImagePresent_PullNotCalled(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the root command is executed
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	// Then PullImage is NOT called and the container is still created
@@ -116,7 +116,7 @@ func TestAutoPull_PullFails_NoLocalImage_ReturnsError(t *testing.T) {
 	root.SetErr(&bytes.Buffer{})
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the root command is executed
+	// When marshal start is executed
 	err := root.Execute()
 
 	// Then an error is returned mentioning the image and manual action, and no container is created
@@ -163,7 +163,7 @@ func TestAutoPull_PullFails_ImageExistsLocally_WarnsAndContinues(t *testing.T) {
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the root command is executed
+	// When marshal start is executed
 	assertNoError(t, root.Execute())
 
 	// Then a pull-failure warning is emitted via the progress logger and the container is created
@@ -175,9 +175,9 @@ func TestAutoPull_PullFails_ImageExistsLocally_WarnsAndContinues(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_ImageExistsCheckFails verifies that an error from ImageExists
+// TestStartCmd_ImageExistsCheckFails verifies that an error from ImageExists
 // is returned with a message mentioning "checking image".
-func TestDefaultCmd_ImageExistsCheckFails(t *testing.T) {
+func TestStartCmd_ImageExistsCheckFails(t *testing.T) {
 	// Given ImageExists returns an error
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
@@ -200,7 +200,7 @@ func TestDefaultCmd_ImageExistsCheckFails(t *testing.T) {
 	root.SetErr(&bytes.Buffer{})
 	root.SetArgs([]string{"start", "--project", "myapp"})
 
-	// When the root command is executed
+	// When marshal start is executed
 	err := root.Execute()
 
 	// Then an error is returned mentioning "checking image"

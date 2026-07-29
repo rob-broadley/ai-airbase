@@ -8,9 +8,9 @@ import (
 	"github.com/rob-broadley/ai-airbase/marshal/internal/cmd"
 )
 
-// TestDefaultCmd_UserConfigSet verifies that the default command passes the
+// TestStartCmd_UserConfigSet verifies that marshal start passes the
 // host UID:GID and HOME=/home/opencode when creating the container.
-func TestDefaultCmd_UserConfigSet(t *testing.T) {
+func TestStartCmd_UserConfigSet(t *testing.T) {
 	// Given a runner with no existing container and UID 1001 / GID 1002
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
@@ -23,7 +23,7 @@ func TestDefaultCmd_UserConfigSet(t *testing.T) {
 		Getgid: func() int { return 1002 },
 	}
 
-	// When the root command is executed
+	// When marshal start is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 	assertNoError(t, root.Execute())
@@ -43,9 +43,9 @@ func TestDefaultCmd_UserConfigSet(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_PasswdEntrySet verifies that --passwd-entry is passed to
+// TestStartCmd_PasswdEntrySet verifies that --passwd-entry is passed to
 // podman create, mapping the host UID:GID to the opencode username.
-func TestDefaultCmd_PasswdEntrySet(t *testing.T) {
+func TestStartCmd_PasswdEntrySet(t *testing.T) {
 	// Given a runner with no existing container and UID 1001 / GID 1002
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
@@ -58,7 +58,7 @@ func TestDefaultCmd_PasswdEntrySet(t *testing.T) {
 		Getgid: func() int { return 1002 },
 	}
 
-	// When the root command is executed
+	// When marshal start is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 	assertNoError(t, root.Execute())
@@ -73,9 +73,9 @@ func TestDefaultCmd_PasswdEntrySet(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_TtyAllocated verifies that podman create is called with --tty
+// TestStartCmd_TtyAllocated verifies that podman create is called with --tty
 // so that the container has a pseudo-terminal available for interactive use.
-func TestDefaultCmd_TtyAllocated(t *testing.T) {
+func TestStartCmd_TtyAllocated(t *testing.T) {
 	// Given a runner with no existing container
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
@@ -88,7 +88,7 @@ func TestDefaultCmd_TtyAllocated(t *testing.T) {
 		Getgid: func() int { return 1002 },
 	}
 
-	// When the root command is executed
+	// When marshal start is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 	assertNoError(t, root.Execute())
@@ -99,12 +99,12 @@ func TestDefaultCmd_TtyAllocated(t *testing.T) {
 	}
 }
 
-// TestDefaultCmd_StdinOpen verifies that podman create is called with --interactive
+// TestStartCmd_StdinOpen verifies that podman create is called with --interactive
 // so that stdin is connected to the PTY when the container starts.
 // Without --interactive (OpenStdin=false), podman start --attach --interactive
 // does not properly connect stdin to the container PTY; the opencode process then
 // detects no interactive terminal and exits.
-func TestDefaultCmd_StdinOpen(t *testing.T) {
+func TestStartCmd_StdinOpen(t *testing.T) {
 	// Given a runner with no existing container
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 
@@ -117,7 +117,7 @@ func TestDefaultCmd_StdinOpen(t *testing.T) {
 		Getgid: func() int { return 1002 },
 	}
 
-	// When the root command is executed
+	// When marshal start is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetArgs([]string{"start", "--project", "myapp"})
 	assertNoError(t, root.Execute())

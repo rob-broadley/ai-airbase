@@ -133,7 +133,7 @@ func TestPullFallback_ForwardsPodmanStderrToUser(t *testing.T) {
 		ResolveImage:        func() string { return "ghcr.io/rob-broadley/ai-airbase/revetment:latest" },
 	}
 
-	// When the root command is executed
+	// When marshal start is executed
 	root := cmd.NewRootCmd(deps)
 	root.SetErr(stderr)
 	root.SetArgs([]string{"start", "--project", "myapp"})
