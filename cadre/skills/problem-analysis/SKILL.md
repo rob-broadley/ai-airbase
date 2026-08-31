@@ -6,7 +6,7 @@ license: AGPL-3.0-or-later
 
 # Problem Analysis
 
-Reference techniques for surfacing the real problem, understanding its boundaries, and identifying what is unknown or at risk. Use these before any story writing or planning begins.
+Reference techniques for surfacing the real problem, understanding its boundaries, and identifying what is unknown or at risk. Use these before writing acceptance criteria or planning begins.
 
 ______________________________________________________________________
 
@@ -113,7 +113,7 @@ ______________________________________________________________________
 
 > "Imagine it is 18 months from now and this has failed. What happened?"
 
-Apply at the end of problem analysis before handing off to story writing. Ask the user: *"Imagine it is 18 months from now and this has failed. What happened?"* Collect failure modes across:
+Apply before eliciting acceptance criteria. Ask the user: *"Imagine it is 18 months from now and this has failed. What happened?"* Collect failure modes across:
 
 - **Adoption** — users didn't use it, or used it wrongly
 - **Complexity** — it was harder to build than expected; the scope exploded
@@ -121,7 +121,7 @@ Apply at the end of problem analysis before handing off to story writing. Ask th
 - **Organisational** — team priorities shifted; key knowledge left
 - **Market** — the problem was solved a different way before this shipped
 
-Add each distinct failure mode to the risks section of the problem analysis.
+Record each distinct failure mode as a risk for the acceptance-criteria discussion.
 
 ______________________________________________________________________
 

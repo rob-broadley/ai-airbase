@@ -18,11 +18,9 @@ Delivery agents use explicitly declared built-in prompts at their decision point
 
 ### Feature delivery
 
-**`problem-analyser`** — Use when a requirement is vague, incomplete, or not yet ready to build. Decomposes the problem into subproblems, surfaces contradictions and edge cases, probes non-functional requirements, and produces a confidence-scored problem analysis. Does not write user stories — hand off to `user-story-writer` once the problem is understood.
+**`problem-analyser`** — Use when a requirement is vague, incomplete, or not ready to build. Clarifies the problem with the user, surfaces contradictions, constraints, and edge cases, then writes user-confirmed Given/When/Then acceptance criteria grouped into delivery slices. It facilitates requirements discovery and does not invent requirements.
 
-**`user-story-writer`** — Use for decomposing a clear problem brief into granular, independent, valuable, testable user stories. Applies INVEST scoring, Elephant Carpaccio, Story Mapping, and SPIDR splitting. Outputs stories as structured markdown. Requires a clear problem brief — run `problem-analyser` first if requirements are still vague.
-
-**`atdd`** — Use when implementing a user story via Acceptance Test Driven Development (ATDD). Drives the Red-Green-Refactor-Commit cycle with explicitly declared user decision gates at selected phases. Not for exploratory refactoring or writing tests after the fact.
+**`atdd`** — Use when implementing approved acceptance criteria via Acceptance Test Driven Development (ATDD). Drives the Red-Green-Refactor-Commit cycle with explicitly declared user decision gates at selected phases. Not for exploratory refactoring or writing tests after the fact.
 
 **`legacy-code`** — Use when you need to safely modify legacy code that lacks tests. Specialises in Michael Feathers' dependency-breaking techniques. Introduces seams for testing, breaks dependencies to enable unit tests, and creates safe pathways for refactoring untested code. Use before `refactor` or `atdd` when no safety net exists.
 
@@ -66,6 +64,8 @@ Agents load skills on demand — domain-knowledge reference cards that ground ev
 
 **`api-review`** — REST and CLI interface review reference — naming, HTTP semantics, error consistency, breaking changes, and three-tier severity model.
 
+**`acceptance-criteria`** — User-led requirements elicitation reference — Example Mapping, Given/When/Then scenario quality, delivery-slice mapping, and scope-splitting patterns.
+
 **`code-review`** — Code review reference — smell categories, complexity thresholds, dead code signals, and three-tier severity model.
 
 **`concurrency-review`** — Concurrency review reference — race conditions, deadlocks, resource leaks, synchronisation, and cancellation propagation.
@@ -87,8 +87,6 @@ Agents load skills on demand — domain-knowledge reference cards that ground ev
 **`problem-analysis`** — Requirements elicitation reference — Impact Mapping, contradiction taxonomy, NFR catalogue, premortem, and confidence scoring.
 
 **`security-review`** — Security review reference — OWASP Top 10 (2021), secrets hygiene, input validation, auth patterns, and four-tier severity model.
-
-**`story-craft`** — User story reference — INVEST scoring, SPIDR splitting, Elephant Carpaccio, Story Mapping, and acceptance criteria patterns.
 
 **`tdd-patterns`** — ATDD/TDD reference — walking skeleton, London vs Chicago school, test doubles, contract testing, and characterisation testing.
 

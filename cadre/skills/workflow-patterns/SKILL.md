@@ -19,26 +19,20 @@ ______________________________________________________________________
 **Chain:**
 
 ```
-[problem-analyser] → [user-story-writer]
+[problem-analyser]
 ```
 
 **Step 1 — `problem-analyser`**
 
 **Hand it:** The raw request as the user expressed it.
 
-**Success:** A user-approved problem analysis: goal, subproblem decomposition, contradictions, NFRs, risks.
-
-**Step 2 — `user-story-writer`**
-
-**Hand it:** The approved problem analysis.
-
-**Success:** A user-approved story set: INVEST-scored stories with AC, dependency diagram, risk/value/size.
+**Success:** User-approved acceptance criteria grouped into delivery slices.
 
 **Notes:**
 
-- Run both steps in sequence. The `user-story-writer` input is the `problem-analyser` output — do not skip step 1.
-- If the requirement has been expressed as a story with acceptance criteria, use the feature delivery workflow instead — it includes requirement analysis as its first steps and will validate and stress-test the provided ACs.
-- Requirement elicitation is inherently iterative. `problem-analyser` may return `clarification_needed` when critical gaps prevent a meaningful analysis, or may complete with open questions that the user wants to address before proceeding. Expect multiple rounds. This is normal, not a failure.
+- `problem-analyser` clarifies the problem and records only user-provided or user-confirmed examples as Given/When/Then scenarios. It does not invent requirements.
+- If acceptance criteria already exist, use the feature delivery workflow. `problem-analyser` confirms their scope and resolves any ambiguity before ATDD begins.
+- Requirement elicitation is inherently iterative. Expect several user questions and revisions before the criteria are approved.
 
 **Failure handling:** If the user cannot answer the Impact Mapping questions (especially "Why?"), the work should not start. Surface the missing goal as a blocker and stop. If the user provides feedback at an agent's declared gate, incorporate it and show that gate again.
 
@@ -46,51 +40,45 @@ ______________________________________________________________________
 
 ## Feature delivery
 
-**When:** The user wants to add new behaviour — a feature, user story, or acceptance criterion.
+**When:** The user wants to add new behaviour — a feature or acceptance criterion.
 
 **Precondition check:** Before starting, confirm the development environment is ready. If the test runner is not configured or baseline tests are not passing, run the `bootstrap` step first. If tooling configuration files are absent, run the `devex` step first.
 
 **Chain:**
 
 ```
-[problem-analyser] → [user-story-writer] → [bootstrap?] → [atdd] → [refactor] → [technical-author?]
+[problem-analyser] → [bootstrap?] → [atdd] → [refactor] → [technical-author?]
 ```
 
 **Step 0 — `problem-analyser`**
 
 **Hand it:** The raw request; project README.
 
-**Success:** User-approved problem analysis: goal, subproblems, contradictions, NFRs.
+**Success:** User-approved acceptance criteria grouped into delivery slices.
 
-Always run this step. Even when the user provides acceptance criteria, run it — it validates, stress-tests, and surfaces gaps the user may not have considered.
+Always run this step. Even when the user provides acceptance criteria, use it to clarify scope, resolve ambiguity, and capture any missing user decisions before implementation.
 
-**Step 1 — `user-story-writer`**
-
-**Hand it:** Approved problem analysis.
-
-**Success:** User-approved stories with AC, INVEST scores, risk/value/size.
-
-**Step 2 (optional) — `bootstrap`**
+**Step 1 (optional) — `bootstrap`**
 
 **Hand it:** Project language/framework; what tooling is needed.
 
 **Success:** Test runner works; `make test` or equivalent passes cleanly.
 
-**Step 3 — `atdd`**
+**Step 2 — `atdd`**
 
-**Hand it:** User story + acceptance criteria; relevant source files; test command.
+**Hand it:** Approved acceptance criteria; relevant source files; test command.
 
 **Success:** All acceptance criteria covered; declared phase gates approved by the user; committed when the user approves the commit gate.
 
-**Step 4 — `refactor`**
+**Step 3 — `refactor`**
 
-**Hand it:** Files changed in step 3; passing test suite; complexity baseline.
+**Hand it:** Files changed in step 2; passing test suite; complexity baseline.
 
 **Success:** User-approved structural changes with behaviour-preserving verification.
 
 **Skip if:** The change produced no new production code, or the user decides no broader refactor is needed.
 
-**Step 5 (optional) — `technical-author`**
+**Step 4 (optional) — `technical-author`**
 
 **Hand it:** Changed source files; updated `--help` output or behaviour description; relevant existing docs.
 
@@ -99,7 +87,7 @@ Always run this step. Even when the user provides acceptance criteria, run it �
 **Notes:**
 
 - The `atdd` Refactor phase is optional cleanup of the current test cycle. The post-feature `refactor` step considers broader structural improvement across the completed change. The user decides whether either refactor runs.
-- If the story touches untested legacy code, insert a `legacy-code` step before `atdd`.
+- If the change touches untested legacy code, insert a `legacy-code` step before `atdd`.
 - Run the optional `technical-author` step only when the change introduces, modifies, or removes user-facing behaviour — new CLI commands or flags, changed output format, new config options, new env vars, new or renamed agents or skills. Skip it for internal refactors, test additions, and bug fixes to undocumented behaviour.
 
 **Failure handling:** If `atdd` cannot make an acceptance test pass, stop and report the failing test and implementation state to the user. Do not run the post-feature refactor step.
@@ -158,7 +146,7 @@ ______________________________________________________________________
 
 **Step 2 — `atdd`**
 
-**Hand it:** User story or bug description; seams from step 1; characterisation tests as the baseline.
+**Hand it:** Approved acceptance criteria or bug description; seams from step 1; characterisation tests as the baseline.
 
 **Success:** New behaviour tested and passing; legacy code modified safely.
 
@@ -315,7 +303,7 @@ ______________________________________________________________________
 
 Apply these when composing or adapting chains:
 
-1. **Clarity before planning.** A vague brief produces a vague plan. If the requirement is unclear, run `problem-analyser` then `user-story-writer` before building a plan. Do not plan against ambiguity.
+1. **Clarity before planning.** A vague brief produces a vague plan. If the requirement is unclear, run `problem-analyser` to produce user-approved acceptance criteria before building a plan. Do not plan against ambiguity.
 1. **Environment before feature.** A broken test suite poisons every subsequent step. Always confirm the environment is working before writing new code.
 1. **Safety net before structure.** Never run `refactor` on code with no passing tests. Insert `legacy-code` first.
 1. **Behaviour before cleanup.** In legacy rescue, establish the seams and characterisation tests before writing new behaviour. Don't refactor and add features simultaneously.

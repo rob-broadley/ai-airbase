@@ -51,8 +51,8 @@ Map the request to a task archetype using the `workflow-patterns` skill:
 
 | Signal in the request                                                                  | Archetype                                                                               |
 | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| "I want to...", vague idea, no acceptance criteria, "not sure exactly"                 | **Requirement elicitation** — run `problem-analyser` then `user-story-writer`           |
-| "implement", "add feature", "build", "user story"                                      | **Feature delivery**                                                                    |
+| "I want to...", vague idea, no acceptance criteria, "not sure exactly"                 | **Requirement elicitation** — run `problem-analyser`                                    |
+| "implement", "add feature", "build", "acceptance criteria"                             | **Feature delivery**                                                                    |
 | "refactor", "clean up", "improve structure", "tidy"                                    | **Structural improvement**                                                              |
 | "fix bug in legacy", "add tests to untested", "can't modify safely"                    | **Legacy rescue**                                                                       |
 | "tools missing", "tools not working", "install tool", "install tools"                  | **Environment setup** — `bootstrap`                                                     |
@@ -88,12 +88,10 @@ Example plan format:
 Plan: Add order discount feature
 
 1. [problem-analyser] Decompose the discount requirement; surface contradictions, edge cases, NFRs
-    Success: user-approved problem analysis
-2. [user-story-writer] Produce INVEST-scored stories with testable acceptance criteria
-    Success: user-approved story set
-3. [atdd] Implement discount calculation via Red-Green-Refactor-Commit cycle
+     Success: user-approved acceptance criteria
+2. [atdd] Implement discount calculation via Red-Green-Refactor-Commit cycle
     Success: all ACs covered; committed
-4. [refactor] Improve the production code structure introduced in step 3
+3. [refactor] Improve the production code structure introduced in step 2
     Success: user-approved structural changes with passing tests
 ```
 
@@ -121,29 +119,17 @@ Run steps in order. For each step:
 1. Receive the output. If an agent step fails, STOP immediately. Do not continue to the next step. Report to the user: which step failed, what the agent produced, and what options are available (retry, change approach, abandon). Never proceed to a subsequent step on a failed predecessor.
 1. Pass relevant outputs forward as context to the next agent.
 
-### Receiving results from `problem-analyser` and `user-story-writer`
+### Receiving results from `problem-analyser`
 
-Both agents run autonomously and return a structured completion report with fields: **Status**, **Summary**, **Problem analysis** or **Stories** (the full output payload), **Questions** (when clarification is needed), **Blockers**, and **Recommendation**. Both own an explicit user approval gate before completing.
+`problem-analyser` returns a structured completion report with **Status**, **Summary**, **Acceptance criteria**, **Changed files**, **Questions** when clarification is needed, **Blockers**, and **Recommendation**. It owns the acceptance-criteria approval gate.
 
 Parse the completion report:
 
-- **Status: completed, Blockers: none** — the output payload was explicitly approved by the user through the owning agent's gate. **Before presenting it elsewhere**, save the full payload to the `files/` directory inside the session folder from your context — name the file `<feature>-analysis.md` for problem analysis or `<feature>-stories.md` for stories. Do not reproduce the full payload in a new prompt; pass the approval and concise summary forward. Only proceed to the next pipeline step after explicit approval.
-
-- **Status: clarification_needed** — the agent identified critical gaps too fundamental to resolve by assumption. Present the **Questions** list to the user. Each question includes why it matters and a proposed default. Collect the user's answers (they may accept the proposed defaults). Then re-invoke the agent with the original brief plus the answers structured as a `Clarification answers` block (see format below).
+- **Status: completed, Blockers: none** — the acceptance criteria were approved by the user and written to `files/<feature>-acceptance-criteria.md`. Pass the approved file and concise summary to the next step.
 
 - **Status: blocked** — the owning agent could not complete or the user stopped at its declared gate. Present the blocker or stop state and ask for a new instruction before retrying.
 
 Only proceed after **Status: completed**. If the user cannot or will not provide needed context, abandon and explain why the brief is not ready to build.
-
-**Clarification answers block format** — include in the `Context` field of the re-invocation:
-
-```
-Clarification answers:
-  Q: [question text]
-  A: [user's answer or "accepted proposed default: [default]"]
-  Q: [question text]
-  A: [user's answer or "accepted proposed default: [default]"]
-```
 
 ### Receiving results from `atdd`
 
@@ -152,7 +138,7 @@ When you invoke a sub-agent via the `task` tool, it follows the `sub-agent-patte
 1. **Happy path:** If all phases completed, there are no blockers, and the commit hash is present, continue to the next step and pass the commit hash and test count forward as context.
 1. **Missing tools or build errors:** Delegate to `bootstrap`. After it succeeds, ask the user whether to resume ATDD with the same story.
 1. **Misconfigured toolchain or missing Makefile targets:** Delegate to `devex`. After it succeeds, ask the user whether to resume ATDD with the same story.
-1. **Ambiguous acceptance criteria / `CLARIFICATION_NEEDED`:** Delegate to `problem-analyser` then `user-story-writer` to produce revised acceptance criteria. Their declared gates collect approval before mission-control offers ATDD again.
+1. **Ambiguous acceptance criteria:** Delegate to `problem-analyser` to clarify and revise the acceptance criteria. Its declared gate collects approval before mission-control offers ATDD again.
 1. **Code too tightly coupled to test:** Delegate to `legacy-code` to introduce seams and characterisation tests. After it succeeds, ask the user whether to resume ATDD with the seam context.
 1. **User gate stopped or blocked:** STOP. Surface the current phase, concise result, changed files, and the next phase that was not started. Do not re-invoke `atdd` without a new user instruction.
 1. **Logic failure (tests will not go green):** Treat this as a genuine logic failure. STOP, surface the failing tests and the exact **Blockers** field to the user, and offer the options to retry with a different approach, adjust the story, or abandon. Do not auto-retry.
