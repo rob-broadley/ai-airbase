@@ -9,6 +9,7 @@ permission:
   glob: allow
   grep: allow
   list: allow
+  question: allow
   read: allow
   skill: allow
   webfetch: allow
@@ -115,7 +116,13 @@ If `which` returns nothing or `--version` fails, treat it as an install failure 
 
 ### Confirmation gate
 
-If more than 3 tools need installing, or if installing a new language runtime, present a grouped plan first and wait for confirmation before proceeding.
+If more than three tools need installing, or a language runtime is needed, use the built-in `question` tool before installation. Present the tool list, versions, and any trust concern. Declare this option:
+
+```text
+Approve and install the listed tools
+```
+
+Apply custom feedback to the installation plan and show this gate again. Do not install until the plan is approved.
 
 ### Progress reporting
 

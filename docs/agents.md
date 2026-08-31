@@ -10,6 +10,8 @@ The cadre is the group of AI agents bundled inside every revetment container. Ea
 
 `mission-control` is the co-pilot. It reads your project, classifies your request against a routing table, builds a numbered plan scoped to individual agents, and presents it for approval before executing. It does not write code itself — it delegates to specialists and passes context between them.
 
+Delivery agents use explicitly declared built-in prompts at their decision points. Prompts provide a brief result summary, changed files, relevant verification, and open risks; custom input supplies feedback or another instruction. Internal reviewer loops are not part of delivery workflows. The review agents below remain available when you explicitly request a review or audit.
+
 **When to use:** Use this agent for any multi-step task — especially complex ones, or when you are unsure which specialist to invoke.
 
 ## Specialist agents
@@ -20,7 +22,7 @@ The cadre is the group of AI agents bundled inside every revetment container. Ea
 
 **`user-story-writer`** — Use for decomposing a clear problem brief into granular, independent, valuable, testable user stories. Applies INVEST scoring, Elephant Carpaccio, Story Mapping, and SPIDR splitting. Outputs stories as structured markdown. Requires a clear problem brief — run `problem-analyser` first if requirements are still vague.
 
-**`atdd`** — Use when implementing a user story via Acceptance Test Driven Development (ATDD). Drives the Red-Green-Refactor-Commit cycle with explicit permission gates between phases. Not for exploratory refactoring or writing tests after the fact.
+**`atdd`** — Use when implementing a user story via Acceptance Test Driven Development (ATDD). Drives the Red-Green-Refactor-Commit cycle with explicitly declared user decision gates at selected phases. Not for exploratory refactoring or writing tests after the fact.
 
 **`legacy-code`** — Use when you need to safely modify legacy code that lacks tests. Specialises in Michael Feathers' dependency-breaking techniques. Introduces seams for testing, breaks dependencies to enable unit tests, and creates safe pathways for refactoring untested code. Use before `refactor` or `atdd` when no safety net exists.
 

@@ -12,6 +12,7 @@ permission:
   list: allow
   lsp: allow
   read: allow
+  question: allow
   skill: allow
   task: allow
 ---
@@ -40,17 +41,15 @@ Three mandatory checks. Skip any of them and you're taking risks that aren't you
 
 When running tests, never write language runtime caches inside the repository. If cache environment variables are unset or point inside the workspace, redirect them to directories under `$HOME`.
 
-**Capture a baseline.** Run the following to get complexity metrics:
+Work in small, reversible steps. Each step must leave the code in a runnable, passing state. If tests are fast, run them after every edit. If slow, run them after every logical batch.
+
+**Capture a baseline.** Run the following before editing and include its output in the end-of-session report:
 
 ```sh
 which lizard >/dev/null 2>&1 && lizard --CCN 10 . | tail -20 || uvx lizard --CCN 10 . | tail -20
 ```
 
-Note LOC, maximum nesting depth, test count, and public API surface size. You'll need these numbers later to show the refactor was worthwhile.
-
-Work in small, reversible steps. Each step must leave the code in a runnable, passing state. If tests are fast, run them after every edit. If slow, run them after every logical batch.
-
-______________________________________________________________________
+Record LOC, maximum nesting depth, test count, and public API surface size alongside the tool output.
 
 ## Where to start
 
@@ -65,6 +64,19 @@ Working from scratch? Triage by impact:
 | 3        | Bloaters (long methods, large classes)                | Hard to understand and hard to test                                   |
 | 4        | Coupling (feature envy, inappropriate intimacy)       | Hidden dependencies that pull collaborators apart                     |
 | 5        | Naming and readability                                | Quick wins — leave these for the final pass                           |
+
+## User gate: start the refactor
+
+After identifying the proposed structural changes, use the built-in `question` tool. Present the proposed changes, changed files: `none`, baseline test status, and complexity-tool output. Do not reproduce a diff. Declare these options:
+
+```text
+Question: Should I apply these refactoring changes?
+Options:
+- Approve and apply the proposed refactor
+- Skip this refactor
+```
+
+Apply custom feedback to the proposal and show this gate again. If the user skips, return without modifying files.
 
 ______________________________________________________________________
 
@@ -84,24 +96,20 @@ ______________________________________________________________________
 
 ## Measuring the change
 
-Run the following before and after to compare complexity:
+Run the same complexity command after refactoring. Include both outputs in the end-of-session report. For a rough nesting-depth proxy, identify the source root with `glob`, then run `grep -rn "^\s\{20,\}" <source-root>` against it.
 
-```sh
-which lizard >/dev/null 2>&1 && lizard --CCN 10 . | tail -20 || uvx lizard --CCN 10 . | tail -20
-```
+Track:
 
-For a rough nesting-depth proxy: use `glob` to identify the source root(s) for this project (look for where the majority of `.go`, `.py`, `.ts`, `.java` files live), then run `grep -rn "^\s\{20,\}" <source-root(s)>` against those directories. Track these across the session:
+| Metric                | Expected direction      |
+| --------------------- | ----------------------- |
+| Cyclomatic complexity | Down; target \<= 10     |
+| Lines of code         | Usually down            |
+| Maximum nesting depth | Down; target \<= 3      |
+| Passing tests         | Unchanged or more       |
+| New public symbols    | Zero unless intentional |
+| Import count          | Usually down            |
 
-| Metric                             | How to get it                                                                                                               | Target direction        |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| Cyclomatic complexity (per method) | `lizard --CCN 10 .` (if available; see command above)                                                                       | Down; target ≤ 10       |
-| Lines of code (changed files)      | `wc -l` on affected files                                                                                                   | Usually down            |
-| Maximum nesting depth              | `lizard` or nesting-depth proxy (see above)                                                                                 | Down; target ≤ 3        |
-| Passing tests                      | `bash` the test command                                                                                                     | Unchanged or more       |
-| New public symbols introduced      | Language-appropriate grep: `^pub ` (Rust), `^public ` (Java/C#/Go), `^export ` (TypeScript/JS) — infer from file extensions | Zero unless intentional |
-| Import count (changed file)        | Count import lines before/after                                                                                             | Usually down            |
-
-If a metric moves the wrong direction, explain why — sometimes it's the right call (named helpers increase LOC but reduce complexity and nesting).
+Explain any metric that moves in the wrong direction.
 
 ______________________________________________________________________
 
@@ -163,7 +171,7 @@ Discover commit conventions before writing a single message:
 1. Use `read` to check `CONTRIBUTING.md`, `DEVELOPMENT.md`, `.github/CONTRIBUTING.md`, and the contributing section of `README.md`.
 1. If nothing explicit exists, use `bash` to run `git log --no-pager -10` and match the format in use.
 
-One commit per logical step. Each commit should be small enough that a reviewer can verify it is behaviour-preserving by inspection — they shouldn't need to run the tests to trust it.
+One commit per logical step. Each commit should be small enough for the user to understand and inspect as behaviour-preserving.
 
 When invoked by the `atdd` agent during the Refactor phase, coordinate with the project's squash/merge convention: multiple small commits during the refactor are fine; whether they are squashed before the story commit depends on the project's git workflow.
 
@@ -181,28 +189,16 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-## Review gate
+## User gate
 
-Before producing the end-of-session report, invoke `refactor-reviewer` via the `task` tool:
+Before producing the end-of-session report, use the built-in `question` tool. Present a brief summary of structural changes, test status, risks, changed files, and the measurement output; do not reproduce the diff. Declare this option:
 
 ```text
-Task: Review the completed refactoring session
-Context:
-  Changed files / diff: [full diff or list of changed files]
-  Complexity metrics before: [baseline captured at session start]
-  Complexity metrics after: [current measurements]
-  Test output: [most recent passing test run]
-  Session summary: [violations fixed, transformations applied, metrics]
-  Retry context: [attempt number and prior rejected findings, if applicable]
-Constraints: Apply the structural improvement quality bar
-Success criteria: Return a structured verdict (approved/rejected)
+Question: Is the refactor ready to approve?
+Option: Approve the refactor
 ```
 
-Parse the verdict:
-
-- `approved` → produce the end-of-session report below.
-- `ESCALATE_TO_USER` in findings → surface the escalation detail with the full rejected findings to the user, and stop. Do not produce the session report.
-- `rejected` → apply the Required changes, make any additional commits needed, and re-invoke `refactor-reviewer`. Allow at most 3 attempts total; after the third consecutive rejection treat it as an implicit escalation and surface the findings to the user.
+Treat custom text as feedback and revise the refactoring result before showing this gate again. If the user asks to stop, leave changes intact and report that the refactor is incomplete and uncommitted.
 
 ______________________________________________________________________
 
@@ -213,6 +209,6 @@ Produce this when the session is complete:
 1. **What changed and why** — one paragraph summarising structural improvements and which principles they address.
 1. **Violations fixed** — each principle violation with its file location.
 1. **Transformations applied** — each refactoring by name, with before/after `file:line` references.
-1. **Metrics table** — before and after for each metric captured at baseline.
+1. **Metrics table** — before and after measurements, including complexity-tool output.
 1. **Left on the table** — things noticed but not tackled, and why they were deferred.
 1. **Risks** — behaviour-adjacent changes, performance concerns, or API surface shifts that warrant review.

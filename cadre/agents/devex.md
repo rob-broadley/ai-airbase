@@ -11,6 +11,7 @@ permission:
   grep: allow
   list: allow
   lsp: allow
+  question: allow
   read: allow
   skill: allow
   task: allow
@@ -58,7 +59,13 @@ Based on the answers, propose a minimal but complete development toolset:
 - Test runner
 - Any commonly-used extras for that ecosystem
 
-Explain briefly why each tool is included. Wait for confirmation before installing or creating any files.
+Explain briefly why each tool is included, then use the built-in `question` tool. Present the proposed toolset, files to create, and open trade-offs. Declare this option:
+
+```text
+Approve and create the tooling configuration and install the agreed tools
+```
+
+Apply custom feedback to the toolset and show this gate again. Do not create files or install tools until it is approved.
 
 ### Scaffold configuration files
 
@@ -99,9 +106,15 @@ When the project already has tooling but needs review, improvement, or extension
 
 1. **Identify stale tool versions** — look for version pins in project config files (`.tool-versions`, `.nvmrc`, `go.mod`, `pyproject.toml`, `package.json` `engines` field, `rust-toolchain.toml`, etc.) and compare against the current stable release for each tool. Use `web` to check current stable versions if unsure. Flag only significant updates (major/minor versions or known security fixes — not every patch).
 
-1. **Propose changes** — additions, upgrades, config improvements, and any redundant tools to remove
+1. **Propose changes** — additions, upgrades, config improvements, and any redundant tools to remove.
 
-Always wait for confirmation before making any changes.
+1. **User gate** — use the built-in `question` tool. Present the proposed changes, files to create or edit, and open trade-offs. Declare this option:
+
+   ```text
+   Approve and apply the proposed tooling changes
+   ```
+
+   Apply custom feedback to the proposal and show this gate again. Do not make changes until it is approved.
 
 ### Apply agreed changes
 
@@ -127,6 +140,6 @@ ______________________________________________________________________
 
 - Never modify application source code (`src/`, `lib/`, `app/`, or any runtime source)
 - Never change runtime behaviour — tooling configuration only
-- Always wait for user confirmation before making changes (both modes have explicit confirmation gates)
+- Use the declared user gate before making changes in either mode.
 - No root access — delegate all installation to `bootstrap`
 - Never commit generated build artifacts — ensure `.gitignore` covers them

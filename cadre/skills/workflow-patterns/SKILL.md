@@ -26,13 +26,13 @@ ______________________________________________________________________
 
 **Hand it:** The raw request as the user expressed it.
 
-**Success:** An approved problem analysis: goal, subproblem decomposition, contradictions, NFRs, risks.
+**Success:** A user-approved problem analysis: goal, subproblem decomposition, contradictions, NFRs, risks.
 
 **Step 2 — `user-story-writer`**
 
 **Hand it:** The approved problem analysis.
 
-**Success:** An approved story set: INVEST-scored stories with AC, dependency diagram, risk/value/size.
+**Success:** A user-approved story set: INVEST-scored stories with AC, dependency diagram, risk/value/size.
 
 **Notes:**
 
@@ -40,7 +40,7 @@ ______________________________________________________________________
 - If the requirement has been expressed as a story with acceptance criteria, use the feature delivery workflow instead — it includes requirement analysis as its first steps and will validate and stress-test the provided ACs.
 - Requirement elicitation is inherently iterative. `problem-analyser` may return `clarification_needed` when critical gaps prevent a meaningful analysis, or may complete with open questions that the user wants to address before proceeding. Expect multiple rounds. This is normal, not a failure.
 
-**Failure handling:** If the user cannot answer the Impact Mapping questions (especially "Why?"), the work should not start. Surface the missing goal as a blocker and stop. If either agent's internal reviewer escalates (`ESCALATE_TO_USER`), surface the findings to the user, incorporate their response, and re-invoke.
+**Failure handling:** If the user cannot answer the Impact Mapping questions (especially "Why?"), the work should not start. Surface the missing goal as a blocker and stop. If the user provides feedback at an agent's declared gate, incorporate it and show that gate again.
 
 ______________________________________________________________________
 
@@ -60,7 +60,7 @@ ______________________________________________________________________
 
 **Hand it:** The raw request; project README.
 
-**Success:** Approved problem analysis: goal, subproblems, contradictions, NFRs.
+**Success:** User-approved problem analysis: goal, subproblems, contradictions, NFRs.
 
 Always run this step. Even when the user provides acceptance criteria, run it — it validates, stress-tests, and surfaces gaps the user may not have considered.
 
@@ -68,7 +68,7 @@ Always run this step. Even when the user provides acceptance criteria, run it �
 
 **Hand it:** Approved problem analysis.
 
-**Success:** Approved stories with AC, INVEST scores, risk/value/size.
+**Success:** User-approved stories with AC, INVEST scores, risk/value/size.
 
 **Step 2 (optional) — `bootstrap`**
 
@@ -80,15 +80,15 @@ Always run this step. Even when the user provides acceptance criteria, run it �
 
 **Hand it:** User story + acceptance criteria; relevant source files; test command.
 
-**Success:** All acceptance criteria covered; each phase approved by the corresponding reviewer; committed. Surface any `Out-of-scope observations` from the completion report to the user before continuing.
+**Success:** All acceptance criteria covered; declared phase gates approved by the user; committed when the user approves the commit gate.
 
 **Step 4 — `refactor`**
 
 **Hand it:** Files changed in step 3; passing test suite; complexity baseline.
 
-**Success:** No method over CC 10; no new SRP violations; metrics stable or improved.
+**Success:** User-approved structural changes with behaviour-preserving verification.
 
-**Skip if:** The change produced no new production code (test-only, doc-only, or a trivial single-line fix).
+**Skip if:** The change produced no new production code, or the user decides no broader refactor is needed.
 
 **Step 5 (optional) — `technical-author`**
 
@@ -98,11 +98,11 @@ Always run this step. Even when the user provides acceptance criteria, run it �
 
 **Notes:**
 
-- The `atdd` agent's internal Refactor phase covers local cleanup of the code written in the Green phase — making the new code readable and principle-compliant. The post-feature `refactor` step (step 4) is for broader structural review: god classes introduced, coupling increased, metrics degraded. Run it after every non-trivial production code change.
+- The `atdd` Refactor phase is optional cleanup of the current test cycle. The post-feature `refactor` step considers broader structural improvement across the completed change. The user decides whether either refactor runs.
 - If the story touches untested legacy code, insert a `legacy-code` step before `atdd`.
 - Run the optional `technical-author` step only when the change introduces, modifies, or removes user-facing behaviour — new CLI commands or flags, changed output format, new config options, new env vars, new or renamed agents or skills. Skip it for internal refactors, test additions, and bug fixes to undocumented behaviour.
 
-**Failure handling:** If `atdd` cannot make the acceptance test pass, STOP. Do not run the optional refactor step. Report the failing test and the implementation state to the user.
+**Failure handling:** If `atdd` cannot make an acceptance test pass, stop and report the failing test and implementation state to the user. Do not run the post-feature refactor step.
 
 ______________________________________________________________________
 
@@ -285,7 +285,7 @@ ______________________________________________________________________
 - Pass the git ref, file path, or diff explicitly when reviewing something other than the most recent commit.
 - If the development environment is not yet set up (language runtime missing, core tools absent), run `bootstrap` first — then re-run the review with all tooling available.
 
-**Failure handling:** If a review agent reports Blocking findings, surface them immediately and ask the user whether they want to address the findings before proceeding with any planned work.
+**Failure handling:** Explicit review agents are used only when the user requests a review or audit. Delivery workflows use their declared user gates instead of automatically dispatching review agents.
 
 ______________________________________________________________________
 
